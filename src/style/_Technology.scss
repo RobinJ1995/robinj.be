@@ -1,0 +1,20 @@
+.technology {
+	display: inline-block;
+	background: darken($mainColour, 5);
+	color: white;
+	border-radius: 3px;
+	margin: 0px 2px;
+	padding: 2px 4px;
+	transition: all 0.2s;
+	cursor: default;
+}
+
+a.technology {
+	color: white;
+	cursor: pointer;
+
+	&:hover, &:active {
+		background: $mainColour;
+		text-decoration: none;
+	}
+}

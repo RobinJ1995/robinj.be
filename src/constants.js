@@ -9,18 +9,21 @@ export const PAGES = {
 		title: 'Contact',
 		content: Contact,
 		home: true,
+		file: './page/Contact.js'
 	},
 	CV: {
 		name: 'cv',
 		url: '/cv',
 		title: 'CV',
 		content: CV,
+		file: './page/CV.js'
 	},
 	PROJECTS: {
 		name: 'projects',
 		url: '/projects',
 		title: 'Projects',
 		content: Projects,
+		file: './page/Projects.js'
 	},
 };
 

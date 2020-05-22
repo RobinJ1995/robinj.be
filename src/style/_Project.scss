@@ -1,0 +1,17 @@
+.project {
+	.project-name {
+		clear: both;
+	}
+
+	.project-logo-link {
+		float: right;
+		width: 150px;
+		max-width: 25vw;
+		margin-right: 1vw;
+
+		img.project-logo {
+			width: 100%;
+			margin-left: 1vw;
+		}
+	}
+}

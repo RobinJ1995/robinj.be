@@ -1,0 +1,41 @@
+.experience {
+	.experience-title-and-company {
+		color: #555;
+		font-weight: 600;
+
+		.experience-title {
+			color: black;
+			font-weight: 700;
+		}
+	}
+
+	.experience-location {
+		display: inline-block;
+		color: #555;
+		margin-top: 0px;
+		margin-bottom: 0.5em;
+
+		&::after {
+			content: ' – ';
+			color: #777;
+		}
+	}
+
+	.experience-start-end {
+		display: inline-block;
+		color: #777;
+		margin-top: 0px;
+		margin-bottom: 0.5em;
+
+		&::before {
+			content: '– ';
+		}
+	}
+
+	.experience-description {
+		p, ul {
+			margin-block-start: 0.8em;
+			margin-block-end: 0.8em;
+		}
+	}
+}

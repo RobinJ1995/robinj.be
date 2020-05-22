@@ -1,0 +1,106 @@
+$mainColour: #57ad68;
+
+body {
+	font-size: 16px;
+}
+
+#page {
+	display: grid;
+	grid-template-columns: 10vw 1fr;
+	grid-gap: 2vw;
+	margin-top: 2vh;
+	max-width: 1080px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+a {
+	color: $mainColour;
+	text-decoration: none;
+	transition: all 0.2s;
+
+	&:hover {
+		color: darken($mainColour, 10%);
+		text-decoration: underline;
+	}
+
+	&:active {
+		color: darken($mainColour, 20%);
+		text-decoration: underline;
+	}
+}
+
+header {
+	grid-column: 1/1;
+	grid-row: 1;
+	text-align: right;
+
+	img.picture {
+		border-radius: 100%;
+		width: calc(100% - 2*10px);
+		max-width: 512px;
+		margin: 0px 0px 10px 10px;
+	}
+
+	h1 {
+		font-size: 1.2em;
+		margin-bottom: 0.2em;
+	}
+
+	.slogan {
+		font-size: 0.9em;
+		color: #777;
+		font-style: italic;
+		margin-top: 0px;
+	}
+
+	nav {
+		ul {
+			list-style-type: none;
+			padding: 0px;
+
+			li {
+				margin: 8px;
+			}
+		}
+	}
+}
+
+main {
+	grid-column: 2/3;
+	grid-row: 1;
+
+	.view-source {
+		display: inline-block;
+		vertical-align: middle;
+		height: 1em;
+		opacity: 0.4;
+		cursor: pointer;
+
+		&:hover, &:active {
+			opacity: 1;
+		}
+
+		img {
+			height: 100%;
+		}
+	}
+}
+
+h2 {
+	font-size: 2.6rem;
+	margin-bottom: 0.64em;
+}
+
+h3 {
+	font-size: 1.8rem;
+}
+
+h4 {
+	font-size: 1.4rem;
+	margin-bottom: 0.4rem;
+}
+
+@import '_Project';
+@import '_Technology';
+@import '_Experience';

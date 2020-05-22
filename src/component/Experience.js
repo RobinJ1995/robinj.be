@@ -13,16 +13,17 @@ const Experience = ({
 				children: description,
 				technologies = []
 			 }) => {
-	return (<div className="job">
-		<h3 className="job-title-and-company"><span className="job-title">{title}</span> @ <span className="job-company">{company}</span></h3>
-		{start && <p className="job-start-end">
-			<span className="job-start">{formatEmploymentDate(start)}</span>
-			-
-			<span className="job-end">{end ? formatEmploymentDate(end) : '...'}</span>
-		</p>}
-		<p className="job-location">{location}</p>
+	return (<div className="experience">
+		<h4 className="experience-title-and-company"><span className="experience-title">{title}</span> @ <span className="experience-company">{company}</span></h4>
 
-		<div className="job-description">{description}</div>
+		<p className="experience-location">{location}</p>
+		{start && <p className="experience-start-end">
+			<span className="experience-start">{formatEmploymentDate(start)}</span>
+			-
+			<span className="experience-end">{end ? formatEmploymentDate(end) : '...'}</span>
+		</p>}
+
+		<div className="experience-description">{description}</div>
 
 		{technologies.length > 0 &&
 			<p className="cv-technologies">Technologies: {technologies.map(Technology)}</p>}

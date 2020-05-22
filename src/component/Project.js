@@ -13,12 +13,14 @@ const Project = ({
 	const integrations = integrationWith.map(Technology);
 
 	return (<div className="project">
-		<a href={link} className="project-link"><h2 className="project-name">{name}</h2></a>
-		<div className="project-description">{description}</div>
+		<a href={link} className="project-link"><h4 className="project-name">{name}</h4></a>
 		{logo &&
-		<a href={link} className="project-logo-link"><img className="project-logo"
-														  src={`/img/project/${logo}`}
-														  alt={`${name} project logo`}/></a>}
+			<a href={link} className="project-logo-link">
+				<img className="project-logo" src={`/img/project/${logo}`} alt={`${name} project logo`}/>
+			</a>}
+
+		<div className="project-description">{description}</div>
+
 		{technologiesUsed.length > 0 &&
 		<p className="project-technologies-used">Technologies used: {technologies}</p>}
 		{integrationWith.length > 0 &&

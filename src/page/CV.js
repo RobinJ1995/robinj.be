@@ -5,7 +5,7 @@ import Projects from './Projects';
 
 const CV = () => (<div className="cv">
 	<div className="cv-experience">
-		<h2>Work experience</h2>
+		<h3>Work Experience</h3>
 		<Experience
 			title="Software Engineer II"
 			company="Rapid7"
@@ -67,11 +67,11 @@ const CV = () => (<div className="cv">
 		</Experience>
 	</div>
 	<div className="cv-projects">
-		<h2>Personal projects</h2>
+		<h3>Personal Projects</h3>
 		<Projects />
 	</div>
 	<div className="cv-volunteering">
-		<h2>Volunteering experience</h2>
+		<h3>Volunteering Experience</h3>
 		<Experience
 			title="System administrator & developer"
 			company="Student Information Network (SIN)"
@@ -114,7 +114,7 @@ const CV = () => (<div className="cv">
 		</Experience>
 	</div>
 	<div className="cv-languages">
-		<h2>(Non-Programming) Languages</h2>
+		<h3>(Non-Programming) Languages</h3>
 		<ul>
 			<li>Dutch: Native Speaker</li>
 			<li>English: Bilingual Proficiency (<em title="Common European Framework of Reference for Languages">CEFR</em> level <em title="This is the highest attainable level">C2</em>)</li>
@@ -122,7 +122,7 @@ const CV = () => (<div className="cv">
 		</ul>
 	</div>
 	<div className="cv-education">
-		<h2>Education</h2>
+		<h3>Education</h3>
 		<Experience
 			title="Applied Computing"
 			company="Letterkenny Institute of Technology"

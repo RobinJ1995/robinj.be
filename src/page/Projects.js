@@ -13,6 +13,9 @@ const Projects = () => (<div className="projects">
 		<p>Custom home screen replacement for Android with themes resembling various Linux
 			distributions as well as a search feature with support for several (internal and
 			external) search sources.</p>
+		<p>This is a spare-time project I started when I was in high school, which I am still
+			working on based on feedback users leave on the Google Play Store, or on the Github
+			repository. The codebase has however seen a couple of rewrites in the meantime.</p>
 	</Project>
 	<Project
 		name="Sprint Retrospective"
@@ -28,10 +31,9 @@ const Projects = () => (<div className="projects">
 		<p>One of those projects that started out as a throwaway experiment to play with some
 			different technologies, and happened to turn into something useful.</p>
 		<p><em>"How do these new React Hooks work?"</em> turned into <em>"Let's hook this up to an
-			API and a database... I wonder what MongoDB is like?"</em> and quickly become a full
+			API and a database... I wonder what MongoDB is like?"</em> and quickly became a full
 			Kubernetes cluster with each component of the application running in Docker containers
-			that are replicated/load balanced across 2 nodes.
-			Technologies used: React, Node.js, MongoDB, Docker, Kubernetes</p>
+			that are replicated/load balanced across 2 nodes.</p>
 	</Project>
 	<Project
 		name="SINControl"
