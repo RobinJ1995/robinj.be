@@ -3,7 +3,10 @@ import './style/App.scss';
 import {PAGES} from './constants';
 import ViewSource from './component/ViewSource';
 
-const initialPage = String(window.location.pathname).replace(/^\//, '').trim()
+const initialPage = String(window.location.pathname)
+	.replace(/^\//, '')
+	.replace(/\/$/, '')
+	.trim()
 	|| Object.values(PAGES).find(page => page.home)?.name;
 
 const App = () => {
