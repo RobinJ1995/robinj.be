@@ -74,7 +74,7 @@ const App = () => {
 	return (
 		<div id="page">
 			<header>
-				<img className="picture" src="/img/robin.jpg" alt="" />
+				<img className="picture" src="/img/robin.webp" alt="" />
 				<h1>Robin Jacobs</h1>
 				<p className="slogan">Developer & open-source enthusiast</p>
 
@@ -98,7 +98,7 @@ const App = () => {
 						title="View source"
 						className={['view-source-button', viewSource ? 'active' : null].filter(x => !!x).join(' ')}
 						onClick={toggleViewSource}
-					><img src="/img/icon/source.png" alt="[View source]" /></a>}</h2>
+					><img src="/img/icon/source.svg" alt="[View source]" /></a>}</h2>
 				<PageContent />
 			</main>
 			<footer>

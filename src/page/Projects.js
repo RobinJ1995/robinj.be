@@ -6,7 +6,7 @@ const Projects = () => (<div className="projects">
 	<Project
 		name="DistroHopper"
 		link="https://play.google.com/store/apps/details?id=be.robinj.distrohopper"
-		logo="distrohopper.png"
+		logo="distrohopper.webp"
 		technologiesUsed={[
 			TECHNOLOGIES.JAVA,
 			TECHNOLOGIES.ANDROID_SDK]}>
@@ -20,7 +20,7 @@ const Projects = () => (<div className="projects">
 	<Project
 		name="Sprint Retrospective"
 		link="https://sprintretrospective.eu/"
-		logo="sprintretrospective.png"
+		logo="sprintretrospective.webp"
 		technologiesUsed={[
 			TECHNOLOGIES.REACT,
 			TECHNOLOGIES.NODE_JS,
