@@ -10,7 +10,6 @@ export const PAGES = Object.freeze(Object.fromEntries(Object.entries({
 		url: '/contact',
 		title: 'Contact',
 		content: Contact,
-		home: true,
 		menu: true
 	},
 	'CV': {
@@ -18,6 +17,7 @@ export const PAGES = Object.freeze(Object.fromEntries(Object.entries({
 		url: '/cv',
 		title: 'CV',
 		content: CV,
+		home: true,
 		menu: true
 	},
 	'Projects': {
