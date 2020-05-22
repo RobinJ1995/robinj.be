@@ -10,12 +10,14 @@
     "node-sass": "^4.14.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
+    "react-highlight.js": "^1.0.7",
     "react-scripts": "3.4.1",
     "uuid": "^8.1.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "copy-sources": "node script/copy-sources.js",
+    "start": "npm run copy-sources && react-scripts start",
+    "build": "npm run copy-sources && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

@@ -1,33 +1,43 @@
 import Contact from './page/Contact';
 import Projects from './page/Projects';
 import CV from './page/CV';
+import PAGE_SOURCES from './generated/page-source.json';
+import NotFound from './page/NotFound';
 
-export const PAGES = {
-	CONTACT: {
+export const PAGES = Object.freeze(Object.fromEntries(Object.entries({
+	'Contact': {
 		name: 'contact',
 		url: '/contact',
 		title: 'Contact',
 		content: Contact,
 		home: true,
-		file: './page/Contact.js'
+		menu: true
 	},
-	CV: {
+	'CV': {
 		name: 'cv',
 		url: '/cv',
 		title: 'CV',
 		content: CV,
-		file: './page/CV.js'
+		menu: true
 	},
-	PROJECTS: {
+	'Projects': {
 		name: 'projects',
 		url: '/projects',
 		title: 'Projects',
 		content: Projects,
-		file: './page/Projects.js'
+		menu: true
 	},
-};
+	'NotFound': {
+		name: '404',
+		url: '/404',
+		title: 'Not Found',
+		content: NotFound,
+		'404': true,
+		menu: false
+	},
+}).map(([key, values]) => [key, { ...values, source: PAGE_SOURCES[key] }])));
 
-export const TECHNOLOGIES = {
+export const TECHNOLOGIES = Object.freeze({
 	JAVA: {
 		title: 'Java'
 	},
@@ -122,4 +132,4 @@ export const TECHNOLOGIES = {
 		title: 'CentOS',
 		link: 'https://www.centos.org/'
 	},
-};
+});

@@ -1,0 +1,33 @@
+.view-source-button {
+	display: inline-block;
+	vertical-align: middle;
+	height: 1em;
+	opacity: 0.4;
+	cursor: pointer;
+
+	&:hover, &:active {
+		opacity: 1;
+	}
+
+	img {
+		height: 100%;
+	}
+
+	&.active {
+		opacity: 0.8;
+	}
+}
+
+.view-source {
+	border: 1px solid #EEE;
+	overflow-x: hidden;
+	tab-size: 4;
+
+	> pre {
+		margin: 0px;
+
+		> code {
+			background: #FEFEFE;
+		}
+	}
+}

@@ -69,22 +69,6 @@ header {
 main {
 	grid-column: 2/3;
 	grid-row: 1;
-
-	.view-source {
-		display: inline-block;
-		vertical-align: middle;
-		height: 1em;
-		opacity: 0.4;
-		cursor: pointer;
-
-		&:hover, &:active {
-			opacity: 1;
-		}
-
-		img {
-			height: 100%;
-		}
-	}
 }
 
 h2 {
@@ -104,3 +88,5 @@ h4 {
 @import '_Project';
 @import '_Technology';
 @import '_Experience';
+@import '_ViewSource';
+@import '_NotFound';
