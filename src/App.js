@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import './style/App.scss';
 import {PAGES} from './constants';
 import ViewSource from './component/ViewSource';
@@ -13,6 +13,20 @@ const App = () => {
 	const [viewSource, setViewSource] = useState(String(initialPage).endsWith('/source'));
 	const [pageName, setPageName] = useState(initialPage.replace(/\/source$/, ''));
 
+	const handlePopState = e => {
+		if (e?.state?.name) {
+			return navigate(e.state.name, e, false);
+		}
+
+		return window.location.reload();
+	};
+
+	useEffect(() => {
+		window.addEventListener('popstate', handlePopState);
+	
+		return () => window.removeEventListener('popstate', handlePopState);
+	}, []);
+
 	const page = Object.values(PAGES).find(page => page.name === pageName);
 	if (!page) {
 		setPageName(Object.values(PAGES).find(page => page['404']).name);
@@ -23,7 +37,7 @@ const App = () => {
 	document.title = `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
 	const PageContent = viewSource ? () => <ViewSource>{page.source}</ViewSource> : page.content;
 
-	const navigate = (pageName, e = null) => {
+	const navigate = (pageName, e = null, pushHistory = true) => {
 		if (e) {
 			e.preventDefault();
 		}
@@ -31,12 +45,18 @@ const App = () => {
 		const source = pageName.endsWith('/source');
 		const page = Object.values(PAGES).find(({ name }) => name === String(pageName).replace(/\/source$/, ''));
 
-		const historyPageTitle = page.title + (source ? ' (Source)' : '') + ' • Robin Jacobs';
-		const historyPageUrl = page.url + (source ? '/source' : '');
-
 		setPageName(page.name);
 		setViewSource(source);
-		window.history.pushState((({name, url}) => ({name, url}))(page), historyPageTitle, historyPageUrl);
+		
+		if (pushHistory) {
+			const historyPageTitle = page.title + (source ? ' (Source)' : '') + ' • Robin Jacobs';
+			const historyPageName = page.name + (source ? '/source' : '');
+			const historyPageUrl = page.url + (source ? '/source' : '');
+
+			const historyState = { name: historyPageName, title: historyPageTitle };
+
+			window.history.pushState(historyState, historyPageTitle, historyPageUrl);
+		}
 	};
 
 	const toggleViewSource = e => {
