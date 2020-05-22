@@ -8,10 +8,12 @@ const Contact = () => (
 			the menu. If you wish to contact me, you can do so either via e-mail or on LinkedIn.</p>
 		<ul>
 			<li>
-				E-mail: <EmailAddress>{ROBIN_AT_ROBINJ_DOT_BE}</EmailAddress> {/* To annoy the spam bots */}
+				{ /* To annoy the spam bots */ }
+				E-mail: <EmailAddress>{ROBIN_AT_ROBINJ_DOT_BE}</EmailAddress>
 			</li>
 			<li>
-				LinkedIn: <a href="https://linkedin.com/in/robin-jacobs"
+				LinkedIn: <a
+					href="https://linkedin.com/in/robin-jacobs"
 					>linkedin.com/in/robin-jacobs</a>
 			</li>
 		</ul>
