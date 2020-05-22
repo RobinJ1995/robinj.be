@@ -6,4 +6,5 @@ RUN npm install && \
     rm -rf node_modules
 
 FROM nginx:stable
-COPY --from=build /app/build/ /usr/share/nginx/html
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/build/ /var/www
