@@ -1,5 +1,6 @@
 import React from 'react';
 import EmailAddress from '../component/EmailAddress';
+import {ROBIN_AT_ROBINJ_DOT_BE} from '../constants';
 
 const Contact = () => (
 	<div>
@@ -7,11 +8,11 @@ const Contact = () => (
 			the menu. If you wish to contact me, you can do so either via e-mail or on LinkedIn.</p>
 		<ul>
 			<li>
-				E-mail: <EmailAddress>robin@robinj.be</EmailAddress>
+				E-mail: <EmailAddress>{ROBIN_AT_ROBINJ_DOT_BE}</EmailAddress> {/* To annoy the spam bots */}
 			</li>
 			<li>
-				LinkedIn: <a
-				href="https://linkedin.com/in/robin-jacobs">linkedin.com/in/robin-jacobs</a>
+				LinkedIn: <a href="https://linkedin.com/in/robin-jacobs"
+					>linkedin.com/in/robin-jacobs</a>
 			</li>
 		</ul>
 	</div>

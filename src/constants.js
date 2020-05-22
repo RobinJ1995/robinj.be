@@ -133,3 +133,5 @@ export const TECHNOLOGIES = Object.freeze({
 		link: 'https://www.centos.org/'
 	},
 });
+
+export const ROBIN_AT_ROBINJ_DOT_BE = 'robin@robinj.be';
