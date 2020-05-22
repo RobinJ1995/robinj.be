@@ -9,27 +9,35 @@
 		}
 	}
 
-	.experience-location {
-		display: inline-block;
-		color: #555;
-		margin-top: 0px;
-		margin-bottom: 0.5em;
+	.experience-location-and-dates {
+		@include small-screen {
+			text-align: center;
+			font-size: 0.9em;
+		}
 
-		&::after {
-			content: ' – ';
+		.experience-location {
+			display: inline-block;
+			color: #555;
+			margin-top: 0px;
+			margin-bottom: 0.5em;
+	
+			&::after {
+				content: ' –';
+				color: #777;
+			}
+		}
+	
+		.experience-start-end {
+			display: inline-block;
 			color: #777;
+			margin-top: 0px;
+			margin-bottom: 0.5em;
+	
+			&::before {
+				content: '– ';
+			}
 		}
-	}
 
-	.experience-start-end {
-		display: inline-block;
-		color: #777;
-		margin-top: 0px;
-		margin-bottom: 0.5em;
-
-		&::before {
-			content: '– ';
-		}
 	}
 
 	.experience-description {

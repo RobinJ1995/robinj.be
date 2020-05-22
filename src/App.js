@@ -13,15 +13,15 @@ const App = () => {
 	const [viewSource, setViewSource] = useState(String(initialPage).endsWith('/source'));
 	const [pageName, setPageName] = useState(initialPage.replace(/\/source$/, ''));
 
-	const handlePopState = e => {
-		if (e?.state?.name) {
-			return navigate(e.state.name, e, false);
-		}
-
-		return window.location.reload();
-	};
-
 	useEffect(() => {
+		const handlePopState = e => {
+			if (e?.state?.name) {
+				return navigate(e.state.name, e, false);
+			}
+	
+			return window.location.reload();
+		};
+
 		window.addEventListener('popstate', handlePopState);
 	
 		return () => window.removeEventListener('popstate', handlePopState);

@@ -90,7 +90,8 @@ const CV = () => (<div className="cv">
 			end={new Date(2016, 7, 31)}
 		>
 			<p>Volunteering as a system administrator and web developer for a student organisation
-				offering web hosting, tech support, and other web services (including cloud storage) to students of the college.</p>
+				offering web hosting, tech support, and other web services (including cloud storage)
+				to students of the college.</p>
 			<p>Because of my volunteering I learnt a lot about Linux system administration and
 				virtualisation as well as gained more experience in PHP development and integration
 				with other services.</p>

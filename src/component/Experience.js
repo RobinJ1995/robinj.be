@@ -16,12 +16,14 @@ const Experience = ({
 	return (<div className="experience">
 		<h4 className="experience-title-and-company"><span className="experience-title">{title}</span> @ <span className="experience-company">{company}</span></h4>
 
-		<p className="experience-location">{location}</p>
-		{start && <p className="experience-start-end">
-			<span className="experience-start">{formatEmploymentDate(start)}</span>
-			-
-			<span className="experience-end">{end ? formatEmploymentDate(end) : '...'}</span>
-		</p>}
+		<div className="experience-location-and-dates">
+			<p className="experience-location">{location}</p>
+			{start && <p className="experience-start-end">
+				<span className="experience-start">{formatEmploymentDate(start)}</span>
+				-
+				<span className="experience-end">{end ? formatEmploymentDate(end) : '...'}</span>
+			</p>}
+		</div>
 
 		<div className="experience-description">{description}</div>
 

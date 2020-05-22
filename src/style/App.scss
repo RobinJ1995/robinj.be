@@ -1,4 +1,11 @@
 $mainColour: #57ad68;
+$smallScreenWidth: 720px;
+
+@mixin small-screen {
+	@media (max-width: $smallScreenWidth) {
+		@content;
+	}
+}
 
 body {
 	font-size: 16px;
@@ -8,18 +15,25 @@ body {
 
 #page {
 	display: grid;
-	grid-template-columns: 10vw 1fr;
+	grid-template-columns: #{'min(20vw, 192px)'} 1fr;
 	grid-gap: 2vw;
 	margin-top: 2vh;
-	max-width: 1080px;
+	width: #{'min(94vw, 1080px)'};
 	margin-left: auto;
 	margin-right: auto;
+
+	@include small-screen {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+	}
 }
 
 a {
 	color: $mainColour;
 	text-decoration: none;
 	transition: all 0.2s;
+	outline: none;
 
 	&:hover {
 		color: darken($mainColour, 10%);
@@ -37,16 +51,33 @@ header {
 	grid-row: 1;
 	text-align: right;
 
+	@include small-screen {
+		text-align: center;
+	}
+
 	img.picture {
 		border-radius: 100%;
 		width: calc(100% - 2*10px);
 		max-width: 512px;
 		margin: 0px 0px 10px 10px;
+
+		@include small-screen {
+			width: auto;
+			margin: 0px;
+			max-width: #{'min(64vw, 200px)'};
+			max-height: 40vh;
+		}
 	}
 
 	h1 {
 		font-size: 1.2em;
 		margin-bottom: 0.2em;
+
+		@include small-screen {
+			margin-top: 0.2em;
+			margin-bottom: 0.1em;
+			font-size: 2em;
+		}
 	}
 
 	.slogan {
@@ -61,8 +92,35 @@ header {
 			list-style-type: none;
 			padding: 0px;
 
+			@include small-screen {
+				display: flex;
+				justify-content: center;
+				font-size: 1.2em;
+				margin-top: 0.2em;
+				margin-bottom: 0.2em;
+			}
+
 			li {
 				margin: 8px;
+
+				@include small-screen {
+					display: inline-block;
+				}
+
+				a {
+					@include small-screen {
+						display: inline-block;
+						padding: 2px 8px;
+						transition: all 0.2s;
+						border-radius: 3px;
+	
+						&:hover, &:active {
+							background: darken($mainColour, 10%);
+							text-decoration: none;
+							color: white;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -71,6 +129,12 @@ header {
 main {
 	grid-column: 2/3;
 	grid-row: 1;
+	overflow-x: auto;
+
+	@include small-screen {
+		margin-left: #{'max(4px, 2vw)'};
+		margin-right: #{'max(4px, 2vw)'};
+	}
 }
 
 h2 {
@@ -85,6 +149,12 @@ h3 {
 h4 {
 	font-size: 1.4rem;
 	margin-bottom: 0.4rem;
+}
+
+h1, h2, h3, h4, h5, h6, h7 {
+	@include small-screen {
+		text-align: center;
+	}
 }
 
 @import '_Project';
