@@ -76,7 +76,7 @@ const App = () => {
 			<header>
 				<img className="picture" src="/img/robin.webp" alt="" />
 				<h1>Robin Jacobs</h1>
-				<p className="slogan">Developer & open-source enthusiast</p>
+				<p className="slogan">Developer &amp; open-source enthusiast</p>
 
 				<nav>
 					<ul>

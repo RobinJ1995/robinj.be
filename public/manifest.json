@@ -1,25 +1,26 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Robin Jacobs",
+  "name": "Robin Jacobs",
+  "description": "Developer & open-source enthusiast",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "src": "/img/robin.ico",
+      "sizes": "128x128 64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
     },
     {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
+      "src": "/img/robin.webp",
+      "sizes": "160x160 128x128 64x64",
+      "type": "image/webp"
     },
     {
-      "src": "logo512.png",
+      "src": "/img/robin.jpg",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512 256x256 192x192"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#57AD68",
+  "background_color": "#FFFFFF"
 }
