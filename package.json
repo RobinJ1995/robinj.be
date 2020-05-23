@@ -44,6 +44,13 @@
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-gpu"
+    ],
+    "crawl": false,
+    "include": [
+      "/",
+      "/contact",
+      "/cv",
+      "/projects"
     ]
   }
 }
