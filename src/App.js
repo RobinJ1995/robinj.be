@@ -3,15 +3,19 @@ import './style/App.scss';
 import {PAGES} from './constants';
 import ViewSource from './component/ViewSource';
 
+const initialViewSource = String(window.location.pathname)
+	.replace(/\/$/, '')
+	.endsWith('/source');
 const initialPage = String(window.location.pathname)
 	.replace(/^\//, '')
 	.replace(/\/$/, '')
+	.replace(/\/source$/, '')
 	.trim()
 	|| Object.values(PAGES).find(page => page.home)?.name;
 
 const App = () => {
-	const [viewSource, setViewSource] = useState(String(initialPage).endsWith('/source'));
-	const [pageName, setPageName] = useState(initialPage.replace(/\/source$/, ''));
+	const [viewSource, setViewSource] = useState(initialViewSource);
+	const [pageName, setPageName] = useState(initialPage);
 
 	useEffect(() => {
 		const handlePopState = e => {
@@ -26,16 +30,6 @@ const App = () => {
 	
 		return () => window.removeEventListener('popstate', handlePopState);
 	}, []);
-
-	const page = Object.values(PAGES).find(page => page.name === pageName);
-	if (!page) {
-		setPageName(Object.values(PAGES).find(page => page['404']).name);
-
-		return <h1>404 Not Found</h1>;
-	}
-
-	document.title = `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
-	const PageContent = viewSource ? () => <ViewSource>{page.source}</ViewSource> : page.content;
 
 	const navigate = (pageName, e = null, pushHistory = true) => {
 		if (e) {
@@ -58,6 +52,16 @@ const App = () => {
 			window.history.pushState(historyState, historyPageTitle, historyPageUrl);
 		}
 	};
+
+	const page = Object.values(PAGES).find(page => page.name === pageName);
+	if (!page) {
+		navigate(Object.values(PAGES).find(page => page['404']).name, null, false);
+
+		return <h1>404 Not Found</h1>;
+	}
+
+	document.title = `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
+	const PageContent = viewSource ? () => <ViewSource>{page.source}</ViewSource> : page.content;
 
 	const toggleViewSource = e => {
 		if (e) {
@@ -96,7 +100,10 @@ const App = () => {
 					<a
 						href={`${page.url}${viewSource ? '' : '/source'}`}
 						title="View source"
-						className={['view-source-button', viewSource ? 'active' : null].filter(x => !!x).join(' ')}
+						className={[
+								'view-source-button',
+								viewSource ? 'active' : null
+							].filter(x => !!x).join(' ')}
 						onClick={toggleViewSource}
 					><img src="/img/icon/source.svg" alt="[View source]" /></a>}</h2>
 				<PageContent />

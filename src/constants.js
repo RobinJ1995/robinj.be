@@ -30,7 +30,7 @@ export const PAGES = Object.freeze(Object.fromEntries(Object.entries({
 	'NotFound': {
 		name: '404',
 		url: '/404',
-		title: 'Not Found',
+		title: '[404] Not Found',
 		content: NotFound,
 		'404': true,
 		menu: false
