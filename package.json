@@ -12,14 +12,17 @@
     "react-dom": "^16.13.1",
     "react-highlight.js": "^1.0.7",
     "react-scripts": "3.4.1",
+    "react-snap": "^1.23.0",
     "uuid": "^8.1.0"
   },
   "scripts": {
     "copy-sources": "node script/copy-sources.js",
     "start": "npm run copy-sources && react-scripts start",
-    "build": "npm run copy-sources && react-scripts build",
+    "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "prebuild": "npm run copy-sources",
+    "postbuild": "react-snap"
   },
   "eslintConfig": {
     "extends": "react-app"
@@ -34,6 +37,13 @@
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
+    ]
+  },
+  "reactSnap": {
+    "puppeteerArgs": [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-gpu"
     ]
   }
 }
