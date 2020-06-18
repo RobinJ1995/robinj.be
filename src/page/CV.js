@@ -18,6 +18,8 @@ const CV = () => (<div className="cv">
 		>
 			<p>Work on the company’s logging product, including the log search engine, alerting,
 				REST APIs and integrations with several AWS services.</p>
+			<p>Main implementer on the company's <span title="Role-Based Access Control"
+				>RBAC</span> service and AWS CloudTrail integration.</p>
 			<p>Using mostly Java and Python, employing TDD/BDD development practices.</p>
 		</Experience>
 		<Experience
