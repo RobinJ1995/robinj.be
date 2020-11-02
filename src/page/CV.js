@@ -14,7 +14,10 @@ const CV = () => (<div className="cv">
 			technologies={[
 				TECHNOLOGIES.JAVA,
 				TECHNOLOGIES.PYTHON,
-				TECHNOLOGIES.DOCKER]}
+				TECHNOLOGIES.DOCKER,
+				TECHNOLOGIES.VERTX,
+				TECHNOLOGIES.DROPWIZARD,
+				TECHNOLOGIES.CASSANDRA]}
 		>
 			<p>Work on the company’s logging product, including the log search engine, alerting,
 				REST APIs and integrations with several AWS services.</p>

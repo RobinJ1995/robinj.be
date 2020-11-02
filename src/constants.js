@@ -132,6 +132,22 @@ export const TECHNOLOGIES = Object.freeze({
 		title: 'CentOS',
 		link: 'https://www.centos.org/'
 	},
+	VERTX: {
+		title: 'Vert.x',
+		link: 'https://vertx.io/'
+	},
+	DROPWIZARD: {
+		title: 'Dropwizard',
+		link: 'https://www.dropwizard.io/'
+	},
+	CASSANDRA: {
+		title: 'Cassandra',
+		link: 'https://cassandra.apache.org/'
+	},
+	POSTGRESQL: {
+		title: 'PostgreSQL',
+		link: 'https://www.postgresql.org/'
+	},
 });
 
 export const ROBIN_AT_ROBINJ_DOT_BE = 'robin@robinj.be';
