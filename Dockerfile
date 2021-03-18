@@ -1,4 +1,4 @@
-FROM node:14 AS build
+FROM node:15 AS build
 
 # https://github.com/puppeteer/puppeteer/blob/master/docs/troubleshooting.md#chrome-headless-doesnt-launch-on-unix
 RUN apt-get update && apt-get install -y \
@@ -56,6 +56,9 @@ ENV NODE_ENV='production'
 
 COPY --chown=joske:joske package.json package-lock.json ./
 RUN npm install -d
+
+# Needed in order for react-snap to work on node:15
+RUN node node_modules/puppeteer/install.js
 
 COPY --chown=joske:joske . .
 RUN npm run build

@@ -19,13 +19,15 @@ const Projects = () => (<div className="projects">
 	</Project>
 	<Project
 		name="Sprint Retrospective"
-		link="https://sprintretrospective.eu/"
+		link="https://sprintretro.app/"
 		logo="sprintretrospective.webp"
 		technologiesUsed={[
 			TECHNOLOGIES.REACT,
 			TECHNOLOGIES.NODE_JS,
 			TECHNOLOGIES.EXPRESS_JS,
 			TECHNOLOGIES.MONGODB,
+			TECHNOLOGIES.REDIS,
+			TECHNOLOGIES.REDIS_PUBSUB,
 			TECHNOLOGIES.DOCKER,
 			TECHNOLOGIES.KUBERNETES]}>
 		<p>One of those projects that started out as a throwaway experiment to play with some

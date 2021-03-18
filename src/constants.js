@@ -148,6 +148,14 @@ export const TECHNOLOGIES = Object.freeze({
 		title: 'PostgreSQL',
 		link: 'https://www.postgresql.org/'
 	},
+	REDIS: {
+		title: 'Redis',
+		link: 'https://redis.io/'
+	},
+	REDIS_PUBSUB: {
+		title: 'Redis Pub/Sub',
+		link: 'https://redis.io/topics/pubsub'
+	},
 });
 
 export const ROBIN_AT_ROBINJ_DOT_BE = 'robin@robinj.be';
