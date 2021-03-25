@@ -78,7 +78,7 @@ const App = () => {
 	return (
 		<div id="page">
 			<header>
-				<img className="picture" src="/img/robin.webp" alt="" />
+				<img className="picture" src="/img/me.webp" alt="" />
 				<h1>Robin Jacobs</h1>
 				<p className="slogan">Developer &amp; open-source enthusiast</p>
 

@@ -15,7 +15,7 @@
     },
     {
       "src": "/img/robin.jpg",
-      "type": "image/png",
+      "type": "image/jpeg",
       "sizes": "512x512 256x256 192x192"
     }
   ],
