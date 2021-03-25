@@ -71,7 +71,7 @@ const CV = () => (<div className="cv">
 				<li>Developing functionality for and fixing issues with the company's pre-existing
 					classified ads system, which was built with the CodeIgniter PHP framework</li>
 				<li>Search engine optimisation (SEO) on customers' websites</li>
-				<li>Setup up and maintenance of several different Linux servers running Debian,
+				<li>Setup and maintenance of several different Linux servers running Debian,
 					Ubuntu Server and CentOS. Most of these servers were running a standard LAMP <
 					span className="abbrev">(Linux + Apache + MariaDB + PHP)</span> stack,
 					with others running custom-built applications, internal tooling, and e-mail
