@@ -89,6 +89,10 @@ export const TECHNOLOGIES = Object.freeze({
 		title: 'Node.js',
 		link: 'https://nodejs.org/'
 	},
+	TYPESCRIPT: {
+		title: 'TypeScript',
+		link: 'https://www.typescriptlang.org/'
+	},
 	EXPRESS_JS: {
 		title: 'Express.js',
 		link: 'https://expressjs.com/'
@@ -157,5 +161,9 @@ export const TECHNOLOGIES = Object.freeze({
 		link: 'https://redis.io/topics/pubsub'
 	},
 });
+
+const UNIX_EPOCH = new Date(0);
+export const YEARS_IN_IRELAND = new Date(new Date() - new Date(2015, 8, 1))
+	.getUTCFullYear() - UNIX_EPOCH.getUTCFullYear();
 
 export const ROBIN_AT_ROBINJ_DOT_BE = 'robin@robinj.be';

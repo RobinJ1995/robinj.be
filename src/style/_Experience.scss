@@ -38,6 +38,18 @@
 			}
 		}
 
+		.experience-type {
+			display: inline-block;
+			margin-top: 0px;
+			margin-bottom: 0.5em;
+			color: #555;
+			font-size: 0.9em;
+
+			&::before {
+				margin-left: 0.32em;
+				content: ' 	–– ';
+			}
+		}
 	}
 
 	.experience-description {

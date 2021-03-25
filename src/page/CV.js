@@ -1,6 +1,6 @@
 import React from 'react';
 import Experience from '../component/Experience';
-import {TECHNOLOGIES} from '../constants';
+import {TECHNOLOGIES, YEARS_IN_IRELAND} from '../constants';
 import Projects from './Projects';
 
 const CV = () => (<div className="cv">
@@ -9,6 +9,7 @@ const CV = () => (<div className="cv">
 		<Experience
 			title="Software Engineer II"
 			company="Rapid7"
+			type="Full-time"
 			location="Dublin, Ireland"
 			start={new Date(2017, 6, 24)}
 			technologies={[
@@ -19,15 +20,31 @@ const CV = () => (<div className="cv">
 				TECHNOLOGIES.DROPWIZARD,
 				TECHNOLOGIES.CASSANDRA]}
 		>
-			<p>Work on the company’s logging product, including the log search engine, alerting,
-				REST APIs and integrations with several AWS services.</p>
-			<p>Main implementer on the company's <span title="Role-Based Access Control"
-				>RBAC</span> service and AWS CloudTrail integration.</p>
+			<p>Work on the company’s log search product (InsightOps), including the log search
+				engine, alerting, REST APIs and integrations with several AWS services.</p>
+			<p>My current project at Rapid7 is to work on the company's RBAC <
+				span className="abbrev">(Role-Based Access Control)</span> service as the main
+				implementor, as well as to lead the implementation of the system and migration of
+				customers to it across different teams, and coordinate our approach across different
+				products and offices.</p>
+			<p>I have also worked on Rapid7's AWS CloudTrail integration as the project's main
+				implementor.</p>
+			<p>During my time at Rapid7 I have also been extensively involved in:</p>
+			<ul>
+				<li>Development of functionality, fixing of issues, and the handling of third-party
+					pull requests on Github on the company's ingestion libraries. These libraries
+					allow customers to send their log data into the log search engine, and are
+					written in a variety of languages including Java, Python, Javascript, Ruby, PHP
+					and C#.</li>
+				<li>Automation of developer workflows and migration of problematic acceptance
+					testing and build setups to a Docker container-based approach.</li>
+			</ul>
 			<p>Using mostly Java and Python, employing TDD/BDD development practices.</p>
 		</Experience>
 		<Experience
 			title="PHP Developer & Sysadmin"
 			company="Webtown"
+			type="Full-time"
 			location="Letterkenny, Ireland"
 			start={new Date(2016, 8, 3)}
 			end={new Date(2017, 6, 14)}
@@ -41,14 +58,30 @@ const CV = () => (<div className="cv">
 				TECHNOLOGIES.DEBIAN,
 				TECHNOLOGIES.CENTOS]}
 		>
-			<p>Development of custom CMS (with e-commerce functionality) with the Laravel PHP
-				framework, variety of WordPress & WooCommerce plugins, and control panel to manage
-				and perform maintenance tasks on websites, as well as other backend development and
-				Linux sysadmin tasks.</p>
+			<p>Development of a custom-built management and monitoring solution used to perform
+				common maintenance tasks on and monitor the health and performance of 300+ customer
+				websites which were each built with a variety of different CMS' and frameworks, and
+				development of plugins for each of the used CMS' and frameworks to report back to
+				and allow management by the central management and monitoring system in a secure
+				manner.</p>
+			<p>Other responsibilities included:</p>
+			<ul>
+				<li>Development of custom CMS functionality, either as a custom-built solution or as
+					a set of plugins for existing CMS' such as Wordpress and WooCommerce</li>
+				<li>Developing functionality for and fixing issues with the company's pre-existing
+					classified ads system, which was built with the CodeIgniter PHP framework</li>
+				<li>Search engine optimisation (SEO) on customers' websites</li>
+				<li>Setup up and maintenance of several different Linux servers running Debian,
+					Ubuntu Server and CentOS. Most of these servers were running a standard LAMP <
+					span className="abbrev">(Linux + Apache + MariaDB + PHP)</span> stack,
+					with others running custom-built applications, internal tooling, and e-mail
+					services.</li>
+			</ul>
 		</Experience>
 		<Experience
-			title="Node.js API Developer (internship)"
+			title="Node.js Developer"
 			company="CloudRanger"
+			type="Full-time, college internship"
 			location="Letterkenny, Ireland"
 			start={new Date(2016, 2, 1)}
 			end={new Date(2017, 5, 1)}
@@ -57,15 +90,19 @@ const CV = () => (<div className="cv">
 				TECHNOLOGIES.EXPRESS_JS,
 				TECHNOLOGIES.DYNAMODB]}
 		>
-			<p>API development using Node.js, Express, and DynamoDB as the database. Integration
-				with AngularJS frontend as well as a Scala application for interfacing with external
-				services, and several parts of Amazon Web Services (AWS) including S3.</p>
-			<p>This was a 3 month internship as part of my education.</p>
+			<p>Development of an API service using Node.js, Express, and DynamoDB as the database.
+				This API was consumed by an AngularJS frontend as well as a Scala agent responsible
+				for interfacing with external services and hardware devices, and (aside from the
+				database) used Amazon S3 as a storage backend.</p>
+			<p><small>CloudRanger later got acquired by Druva.</small></p>
 		</Experience>
 		<Experience
 			title="Web Developer"
+			type="Part-time, during high school & college"
 			company="Heuvel-Folie-Serres"
 			location="Sint-Lenaarts, Belgium"
+			start={new Date(2010, 7, 1)}
+			end={new Date(2015, 11, 1)}
 			technologies={[
 				TECHNOLOGIES.PHP,
 				TECHNOLOGIES.LARAVEL,
@@ -143,8 +180,8 @@ const CV = () => (<div className="cv">
 		<ul>
 			<li>Dutch: Native Speaker</li>
 			<li>English: Bilingual Proficiency
-				(<em title="Common European Framework of Reference for Languages">CEFR</em>
-				level <em title="This is the highest attainable level">C2</em>)</li>
+				(<em title="Common European Framework of Reference for Languages">CEFR</em
+				> level <em title="This is the highest attainable level">C2</em>)</li>
 			<li>French: Notions</li>
 		</ul>
 	</div>
@@ -158,7 +195,8 @@ const CV = () => (<div className="cv">
 			end={new Date(2016, 1, 1)}
 		>
 			<ul>
-				<li>"Semester" abroad (how I ended up in Ireland)</li>
+				<li>"Semester" abroad (that was {YEARS_IN_IRELAND} years ago, so... a very long
+					semester?)</li>
 				<li>4th year Honours Degree Applied Computing</li>
 				<li>Special Purpose Award in Social/Civic Engagement</li>
 			</ul>
@@ -171,7 +209,8 @@ const CV = () => (<div className="cv">
 			end={new Date(2016, 5, 1)}
 		>
 			<ul>
-				<li>Bachelor Applied Computer Science</li>
+				<li>Bachelor Applied Computer Science with a semester abroad at Letterkenny
+					Institute of Technology and an internship abroad at CloudRanger (Druva).</li>
 			</ul>
 		</Experience>
 		<Experience

@@ -6,6 +6,7 @@ const formatEmploymentDate = date => dateFormat(date, 'm/\'yy');
 
 const Experience = ({
 				title,
+				type,
 				company,
 				location,
 				start = null,
@@ -19,9 +20,12 @@ const Experience = ({
 		<div className="experience-location-and-dates">
 			<p className="experience-location">{location}</p>
 			{start && <p className="experience-start-end">
-				<span className="experience-start">{formatEmploymentDate(start)}</span>
-				-
-				<span className="experience-end">{end ? formatEmploymentDate(end) : '...'}</span>
+				<span className="experience-start">{formatEmploymentDate(start)}</span
+				> - <
+				span className="experience-end">{end ? formatEmploymentDate(end) : '...'}</span>
+			</p>}
+			{type && <p className="experience-type">
+				{type}
 			</p>}
 		</div>
 
