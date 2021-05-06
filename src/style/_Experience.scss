@@ -1,10 +1,10 @@
 .experience {
 	.experience-title-and-company {
-		color: #555;
+		color: rgba($textColour, 0.64);
 		font-weight: 600;
 
 		.experience-title {
-			color: black;
+			color: $textColour;
 			font-weight: 700;
 		}
 	}
@@ -17,19 +17,19 @@
 
 		.experience-location {
 			display: inline-block;
-			color: #555;
+			color: rgba($textColour, 0.64);
 			margin-top: 0px;
 			margin-bottom: 0.5em;
 	
 			&::after {
 				content: ' –';
-				color: #777;
+				color: rgba($textColour, 0.54);
 			}
 		}
 	
 		.experience-start-end {
 			display: inline-block;
-			color: #777;
+			color: rgba($textColour, 0.54);
 			margin-top: 0px;
 			margin-bottom: 0.5em;
 	
@@ -42,7 +42,7 @@
 			display: inline-block;
 			margin-top: 0px;
 			margin-bottom: 0.5em;
-			color: #555;
+			color: rgba($textColour, 0.64);
 			font-size: 0.9em;
 
 			&::before {

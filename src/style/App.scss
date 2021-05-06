@@ -1,5 +1,13 @@
 $mainColour: #57AD68;
+$linkColour: $mainColour;
 $smallScreenWidth: 720px;
+$pageBackgroundColour: white;
+$textColour: black;
+@media (prefers-color-scheme: dark) {
+	$pageBackgroundColour: #161616;
+	$textColour: #EAEAEA;
+	$linkColour: lighten($mainColour, 10%);
+}
 
 @mixin small-screen {
 	@media (max-width: $smallScreenWidth) {
@@ -9,8 +17,8 @@ $smallScreenWidth: 720px;
 
 body {
 	font-size: 16px;
-	background: white;
-	color: black;
+	background: $pageBackgroundColour;
+	color: $textColour;
 }
 
 #page {
@@ -30,18 +38,18 @@ body {
 }
 
 a {
-	color: $mainColour;
+	color: $linkColour;
 	text-decoration: none;
 	transition: all 0.2s;
 	outline: none;
 
 	&:hover {
-		color: darken($mainColour, 10%);
+		color: darken($linkColour, 10%);
 		text-decoration: underline;
 	}
 
 	&:active {
-		color: darken($mainColour, 20%);
+		color: darken($linkColour, 20%);
 		text-decoration: underline;
 	}
 }
@@ -82,7 +90,7 @@ header {
 
 	.slogan {
 		font-size: 0.9em;
-		color: #777;
+		color: rgba($textColour, 0.64);
 		font-style: italic;
 		margin-top: 0px;
 	}
@@ -158,7 +166,7 @@ h1, h2, h3, h4, h5, h6, h7 {
 }
 
 .abbrev {
-	color: #777;
+	color: rgba($textColour, 0.54);
 	font-size: 0.9em;
 }
 
