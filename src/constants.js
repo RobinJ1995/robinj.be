@@ -85,6 +85,10 @@ export const TECHNOLOGIES = Object.freeze({
 		title: 'DynamoDB',
 		link: 'https://aws.amazon.com/dynamodb/'
 	},
+	S3: {
+		title: 'S3',
+		link: 'https://aws.amazon.com/s3/'
+	},
 	NODE_JS: {
 		title: 'Node.js',
 		link: 'https://nodejs.org/'
@@ -143,6 +147,10 @@ export const TECHNOLOGIES = Object.freeze({
 	DROPWIZARD: {
 		title: 'Dropwizard',
 		link: 'https://www.dropwizard.io/'
+	},
+	MICRONAUT: {
+		title: 'Micronaut',
+		link: 'https://micronaut.io/'
 	},
 	CASSANDRA: {
 		title: 'Cassandra',
