@@ -21,6 +21,7 @@ const CV = () => (<div className="cv">
 			location="Dublin, Ireland"
 			start={new Date(2017, 6, 24)}
 			end={new Date(2022, 1, 10)}
+			promoted={true}
 			technologies={[
 				TECHNOLOGIES.JAVA,
 				TECHNOLOGIES.PYTHON,
@@ -29,15 +30,20 @@ const CV = () => (<div className="cv">
 				TECHNOLOGIES.DROPWIZARD,
 				TECHNOLOGIES.CASSANDRA]}
 		>
-			<p>Work on the company’s log search product (InsightOps), including the log search
-				engine, alerting, REST APIs and integrations with several AWS services.</p>
-			<p>My current project at Rapid7 is to work on the company's RBAC <
-				span className="abbrev">(Role-Based Access Control)</span> service as the main
-				implementor, as well as to lead the implementation of the system and migration of
-				customers to it across different teams, and coordinate our approach across different
-				products and offices.</p>
-			<p>I have also worked on Rapid7's AWS CloudTrail integration as the project's main
-				implementor.</p>
+			<p>During my time at Rapid7, I have worked extensive on the company's log search
+				product (InsightOps), including the log search engine, alerting, REST APIs and
+				integrations with several AWS services.</p>
+			<p>My biggest project here has been the development of an RBAC <span
+				className="abbrev">(Role-Based Access Control)</span> Platform service. I was
+				heavily involved in this project from the initial design and implementation stages
+				all the way through to customer migrations, over a period of 3 years, with
+				leadership and ownership over the project being transfered over to me one year
+				into the project. Aside from the technical challenges, this involved coordination
+				across teams and offices to align integration with and migration to this new
+				service.</p>
+			<p>I have also led the design and implementation of the product's AWS CloudTrail
+				integration as well as a new authentication service.</p>
+
 			<p>During my time at Rapid7 I have also been extensively involved in:</p>
 			<ul>
 				<li>Development of functionality, fixing of issues, and the handling of third-party
@@ -47,6 +53,7 @@ const CV = () => (<div className="cv">
 					and C#.</li>
 				<li>Automation of developer workflows and migration of problematic acceptance
 					testing and build setups to a Docker container-based approach.</li>
+				<li>Leading a team of developers as a Scrum Master.</li>
 			</ul>
 			<p>Using mostly Java and Python, employing TDD/BDD development practices.</p>
 		</Experience>

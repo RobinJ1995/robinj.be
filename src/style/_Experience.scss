@@ -7,6 +7,10 @@
 			color: $textColour;
 			font-weight: 700;
 		}
+
+		&.promoted {
+			margin-top: 2px;
+		}
 	}
 
 	.experience-location-and-dates {

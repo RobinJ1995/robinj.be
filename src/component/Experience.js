@@ -12,10 +12,14 @@ const Experience = ({
 				start = null,
 				end = null,
 				children: description,
-				technologies = []
+				technologies = [],
+				promoted = false
 			 }) => {
 	return (<div className="experience">
-		<h4 className="experience-title-and-company"><span className="experience-title">{title}</span> @ <span className="experience-company">{company}</span></h4>
+		<h4 className={[
+			"experience-title-and-company",
+			promoted ? 'promoted' : ''
+			].filter(x => !!x).join(' ')}><span className="experience-title">{title}</span> @ <span className="experience-company">{company}</span></h4>
 
 		<div className="experience-location-and-dates">
 			<p className="experience-location">{location}</p>
