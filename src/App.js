@@ -85,12 +85,14 @@ const App = () => {
 				<nav>
 					<ul>
 						{Object.values(PAGES)
-							.filter(page => page.menu)
-							.map(page => <li key={page.name}>
+							.filter(p => p.menu)
+							.map(p => <li
+								key={p.name}
+								className={p.name === page?.name ? 'current-page' : ''}>
 								<a
-									href={page.url}
-									onClick={(e) => navigate(page.name, e)}
-								>{page.title}</a>
+									href={p.url}
+									onClick={(e) => navigate(p.name, e)}
+								>{p.title}</a>
 							</li>)}
 					</ul>
 				</nav>

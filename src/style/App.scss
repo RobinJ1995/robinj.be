@@ -115,12 +115,30 @@ header {
 					display: inline-block;
 				}
 
+				&.current-page {
+					a {
+						background: darken($mainColour, 5);
+						color: white;
+						border-radius: 3px;
+
+						@include small-screen {
+							background: inherit;
+							color: $linkColour;
+							text-decoration: underline;
+						}
+					}
+				}
+
 				a {
+					margin-right: -4px;
+					padding: 2px 4px;
+
 					@include small-screen {
 						display: inline-block;
 						padding: 2px 8px;
 						transition: all 0.2s;
 						border-radius: 3px;
+						margin-right: 0px;
 	
 						&:hover, &:active {
 							background: darken($mainColour, 10%);
