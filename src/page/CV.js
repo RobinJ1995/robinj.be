@@ -219,7 +219,7 @@ const CV = () => (<div className="cv">
 		</Experience>
 		<Experience
 			title="Applied Computer Science"
-			company="Thomas More"
+			company="Thomas More University of Applied Sciences"
 			location="Geel, Belgium"
 			start={new Date(2013, 8, 1)}
 			end={new Date(2016, 5, 1)}
