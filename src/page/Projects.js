@@ -48,24 +48,6 @@ const Projects = () => (<div className="projects">
 			repository. The codebase has however seen a couple of rewrites in the meantime.</p>
 	</Project>
 	<Project
-		name="Molecular Plasma Group (website)"
-		link="https://molecularplasmagroup.com/"
-		logo="mpg.png"
-		technologiesUsed={[
-			TECHNOLOGIES.JAVA,
-			TECHNOLOGIES.MICRONAUT,
-			TECHNOLOGIES.REACT,
-			TECHNOLOGIES.TYPESCRIPT,
-			TECHNOLOGIES.NODE_JS,
-			TECHNOLOGIES.S3]}>
-		<p>Website + CMS for a startup. In order to be able to launch the website as quickly
-			as possible the decision was made early on to start by throwing together a static
-			website, and adding logins and making components dynamic and editable one by one
-			after launch so as to allow them the freedom to change things as they see fit.</p>
-		<p>This consisted of a React frontend (website), Java/Micronaut backend (CMS), and a
-			file upload service for the CMS written in TypeScript, backed by S3 storage.</p>
-	</Project>
-	<Project
 		name="SINControl"
 		link="https://github.com/RobinJ1995/penguinControl#readme"
 		logo="sincontrol.svg"
