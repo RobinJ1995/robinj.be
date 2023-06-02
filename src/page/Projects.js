@@ -65,6 +65,8 @@ const Projects = () => (<div className="projects">
 		<p>Control panel for both users and administrators of a Debian server.</p>
 		<p>Ability to manage system users, Apache vHosts, FTP-accounts, e-mail addresses and
 			forwards, run system maintenance tasks, …</p>
+		<p>This was built during my time volunteering for the Student Information Network (SIN)
+			organisation at Thomas More University of Applied Sciences.</p>
 	</Project>
 </div>);
 
