@@ -1,5 +1,11 @@
 FROM node:15 AS build
 
+# react-snap only works up until Node.js 15, and its dependencies only work up until Debian Stretch.
+# Nice.
+RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list
+RUN sed -i s/stretch-updates/stretch/g /etc/apt/sources.list
+RUN sed -i '/security.debian.org/d' /etc/apt/sources.list
+
 # https://github.com/puppeteer/puppeteer/blob/master/docs/troubleshooting.md#chrome-headless-doesnt-launch-on-unix
 RUN apt-get update && apt-get install -y \
     ca-certificates \
