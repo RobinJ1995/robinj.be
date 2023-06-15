@@ -13,6 +13,15 @@ const CV = () => (<div className="cv">
 			location="Dublin, Ireland"
 			start={new Date(2022, 1, 10)}
 		>
+			<p>An an extension of my experience as a <em>Software Engineer II</em> working for Rapid7
+			(see below), during my role as a Senior Software Engineer I have taken on the role of
+			team lead and Scrum Master on the sprint team responsible for account management, RBAC
+			and Platform integration within the company.</p>
+			<p>One of the big projects that I have taken on during my time in this role is for a
+			new authentication service. As the lead of this project, my responsibilities include
+			the spec, design, and leading the implementation of this service, discussing with and
+			obtaining buy-in from stakeholders, and splitting the work up into highly parallelisable
+			tasks for the team to work on with clearly defined feature milestones for the project.</p>
 		</Experience>
 		<Experience
 			title="Software Engineer II"
@@ -33,16 +42,16 @@ const CV = () => (<div className="cv">
 			<p>During my time at Rapid7, I have worked extensive on the company's log search
 				product (InsightOps), including the log search engine, alerting, REST APIs and
 				integrations with several AWS services.</p>
-			<p>My biggest project here has been the development of an RBAC <span
-				className="abbrev">(Role-Based Access Control)</span> Platform service. I was
-				heavily involved in this project from the initial design and implementation stages
-				all the way through to customer migrations, over a period of 3 years, with
-				leadership and ownership over the project being transfered over to me one year
-				into the project. Aside from the technical challenges, this involved coordination
-				across teams and offices to align integration with and migration to this new
-				service.</p>
+			<p>My biggest project during my role as an Software Engineer II has been the development
+				of an RBAC <span className="abbrev">(Role-Based Access Control)</span> Platform
+				service. I was heavily involved in this project from the initial design and
+				implementation stages all the way through to customer migrations, over a period
+				of 3 years, with leadership and ownership over the project being transfered
+				over to me one year into the project. Aside from the technical challenges,
+				this involved coordination across teams and offices to align integration with
+				and migration to this new service.</p>
 			<p>I have also led the design and implementation of the product's AWS CloudTrail
-				integration as well as a new authentication service.</p>
+				integration, and successfully launched the service for customers.</p>
 
 			<p>During my time at Rapid7 I have also been extensively involved in:</p>
 			<ul>
@@ -53,7 +62,6 @@ const CV = () => (<div className="cv">
 					and C#.</li>
 				<li>Automation of developer workflows and migration of problematic acceptance
 					testing and build setups to a Docker container-based approach.</li>
-				<li>Leading a team of developers as a Scrum Master.</li>
 			</ul>
 			<p>Using mostly Java and Python, employing TDD/BDD development practices.</p>
 		</Experience>
