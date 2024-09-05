@@ -8,6 +8,13 @@ const CV = () => (<div className="cv">
 		<h3>Work Experience</h3>
 		<Experience
 			title="Senior Software Engineer"
+			company="Beeline"
+			type="Full-time"
+			location="Dublin, Ireland (Remote)"
+			start={new Date(2024, 8, 9)}
+		></Experience>
+		<Experience
+			title="Senior Software Engineer"
 			company="Rapid7"
 			type="Full-time"
 			location="Dublin, Ireland (Remote)"
