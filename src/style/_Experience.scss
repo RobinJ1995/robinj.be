@@ -56,6 +56,18 @@
 		}
 	}
 
+	img.experience-logo {
+		float: right;
+		width: 150px;
+		max-width: 25vw;
+		margin-right: 1vw;
+		margin-left: 1vw;
+
+		@include small-screen {
+			display: none;
+		}
+	}
+
 	.experience-description {
 		p, ul {
 			margin-block-start: 0.8em;

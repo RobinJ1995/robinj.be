@@ -9,6 +9,7 @@ const CV = () => (<div className="cv">
 		<Experience
 			title="Senior Software Engineer"
 			company="Beeline"
+			logo="beeline.webp"
 			type="Full-time"
 			location="Dublin, Ireland (Remote)"
 			start={new Date(2024, 8, 9)}
@@ -16,6 +17,7 @@ const CV = () => (<div className="cv">
 		<Experience
 			title="Senior Software Engineer"
 			company="Rapid7"
+			logo="rapid7.webp"
 			type="Full-time"
 			location="Dublin, Ireland (Remote)"
 			start={new Date(2022, 1, 10)}
@@ -34,6 +36,7 @@ const CV = () => (<div className="cv">
 		<Experience
 			title="Software Engineer II"
 			company="Rapid7"
+			logo="rapid7.webp"
 			type="Full-time"
 			location="Dublin, Ireland"
 			start={new Date(2017, 6, 24)}
@@ -76,6 +79,7 @@ const CV = () => (<div className="cv">
 		<Experience
 			title="PHP Developer & Sysadmin"
 			company="Webtown"
+			logo="webtown.webp"
 			type="Full-time"
 			location="Letterkenny, Ireland"
 			start={new Date(2016, 8, 3)}
@@ -113,6 +117,7 @@ const CV = () => (<div className="cv">
 		<Experience
 			title="Node.js Developer"
 			company="CloudRanger"
+			logo="cloudranger.webp"
 			type="Full-time, college internship"
 			location="Letterkenny, Ireland"
 			start={new Date(2016, 2, 1)}
@@ -132,6 +137,7 @@ const CV = () => (<div className="cv">
 			title="Web Developer"
 			type="Part-time, during high school & college"
 			company="Heuvel-Folie-Serres"
+			logo="heuvel-folie-serres.webp"
 			location="Sint-Lenaarts, Belgium"
 			start={new Date(2010, 7, 1)}
 			end={new Date(2015, 11, 1)}

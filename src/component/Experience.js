@@ -9,6 +9,7 @@ const Experience = ({
 				type,
 				company,
 				location,
+				logo = null,
 				start = null,
 				end = null,
 				children: description,
@@ -16,6 +17,8 @@ const Experience = ({
 				promoted = false
 			 }) => {
 	return (<div className="experience">
+		{logo && <img className="experience-logo" src={`/img/experience/${logo}`} alt={`${company} logo`}/>}
+		
 		<h4 className={[
 			"experience-title-and-company",
 			promoted ? 'promoted' : ''
