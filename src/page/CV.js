@@ -10,11 +10,11 @@ const CV = () => (<div className="cv">
 			title="Senior Software Engineer"
 			company="Rapid7"
 			type="Full-time"
-			location="Dublin, Ireland"
+			location="Dublin, Ireland (Remote)"
 			start={new Date(2022, 1, 10)}
 			end={new Date(2023, 9, 2)}
 		>
-			<p>An an extension of my experience as a <em>Software Engineer II</em> working for Rapid7
+			<p>As an extension of my experience as a <em>Software Engineer II</em> working for Rapid7
 			(see below), during my role as a Senior Software Engineer I have taken on the role of
 			team lead and Scrum Master on the sprint team responsible for account management, RBAC
 			and Platform integration within the company.</p>
