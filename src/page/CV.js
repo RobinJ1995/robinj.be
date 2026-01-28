@@ -13,7 +13,15 @@ const CV = () => (<div className="cv">
 			type="Full-time"
 			location="Dublin, Ireland (Remote)"
 			start={new Date(2024, 8, 9)}
-		></Experience>
+		>
+			<p>Work on Beeline Professional, the Extended Workforce Platform, with my specific area of
+			involvement being the ABAC <span className="abbrev">(Attribute-Based Access Control)</span
+			> solution.</p>
+			<p>Took ownership of the in-house <span title="Attribute-Based Access Control">ABAC</span
+			>+<span title="Relationship-Based Access Control">ReBAC</span> authorisation system; specified and
+			implemented several proposals to simplify system internals as well as improve user
+			self-service for security policies.</p>
+		</Experience>
 		<Experience
 			title="Senior Software Engineer"
 			company="Rapid7"
