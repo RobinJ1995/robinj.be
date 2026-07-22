@@ -12,9 +12,6 @@ const randomSpan = () => {
 	return <span style={{display: 'none'}}>{uuid().substring(0, length)}</span>;
 };
 
-// Shown in the prerendered HTML and during the client's first (hydration) render,
-// so the email address never appears in the static markup — harder for scraping
-// bots to grab.
 const PLACEHOLDER = '───';
 
 const EmailAddress = ({children}) => {
@@ -25,10 +22,10 @@ const EmailAddress = ({children}) => {
 
 	const email = children.trim();
 
-	// Server render and the first client render must match for clean hydration, and
-	// neither should contain the address. Only after mounting do we reveal the real,
-	// randomly obfuscated e-mail (the randomness is intentional — it defeats bots
-	// that pattern-match on the markup).
+	// The server and first client render show only the placeholder: the address
+	// stays out of the static HTML (bots get nothing) and hydration stays clean.
+	// It's revealed after mount, still randomly obfuscated — the randomness is
+	// deliberate, so don't make it deterministic.
 	if (!mounted) {
 		return <a href="https://robinj.be/">{PLACEHOLDER}</a>;
 	}

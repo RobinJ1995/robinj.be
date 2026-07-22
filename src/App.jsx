@@ -16,8 +16,7 @@ const parsePage = path => String(path)
 
 const homePath = () => (typeof window !== 'undefined' ? window.location.pathname : '/');
 
-// Shared title logic, reused by the prerenderer (entry-server) so static <title>
-// tags match what the client sets after hydration.
+// Also used by the prerenderer (entry-server) so static <title> tags match the client's.
 export const pageTitle = path => {
 	const pageName = parsePage(path);
 	const viewSource = parseViewSource(path);

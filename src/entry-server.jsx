@@ -3,8 +3,6 @@ import {renderToString} from 'react-dom/server';
 import App, {pageTitle} from './App';
 import {PAGES} from './constants';
 
-// The full set of routes to prerender, derived from PAGES so it stays in sync:
-// the home page, every page, and every page's /source variant.
 export const routes = (() => {
 	const list = ['/'];
 

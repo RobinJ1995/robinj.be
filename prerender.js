@@ -2,9 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {render, routes} from './dist-ssr/entry-server.js';
 
-// The client build produced build/index.html: the HTML shell with the hashed JS/CSS
-// tags injected and an empty <div id="root"><!--app-html--></div>. We render each
-// route into that shell and write a static file per route.
 const template = fs.readFileSync('build/index.html', 'utf8');
 
 const outFileFor = route => {
