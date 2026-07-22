@@ -1,8 +1,20 @@
 import Contact from './page/Contact';
 import Projects from './page/Projects';
 import CV from './page/CV';
-import PAGE_SOURCES from './generated/page-source.json';
 import NotFound from './page/NotFound';
+
+// `?raw` inlines each file's own source text — this is what the view-source pages render.
+import ContactSource from './page/Contact.jsx?raw';
+import ProjectsSource from './page/Projects.jsx?raw';
+import CVSource from './page/CV.jsx?raw';
+import NotFoundSource from './page/NotFound.jsx?raw';
+
+const PAGE_SOURCES = {
+	Contact: ContactSource,
+	CV: CVSource,
+	Projects: ProjectsSource,
+	NotFound: NotFoundSource,
+};
 
 export const PAGES = Object.freeze(Object.fromEntries(Object.entries({
 	'Contact': {

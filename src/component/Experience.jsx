@@ -39,7 +39,8 @@ const Experience = ({
 		<div className="experience-description">{description}</div>
 
 		{technologies.length > 0 &&
-			<p className="cv-technologies">Technologies: {technologies.map(Technology)}</p>}
+			<p className="cv-technologies">Technologies: {technologies.map(tech =>
+				<Technology key={tech.title} {...tech} />)}</p>}
 	</div>);
 };
 
