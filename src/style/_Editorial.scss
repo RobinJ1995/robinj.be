@@ -1,0 +1,58 @@
+// Editorial view — interaction only. Layout & colour come from the component's
+// inline styles + the --ed-* tokens. The EmailAddress link carries no inline
+// colour, so it inherits its surroundings here; hover states use !important to
+// win over the components' inline colours.
+.editorial {
+	a {
+		transition: all 0.2s;
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.ed-nav-item:hover {
+		color: var(--ed-text) !important;
+	}
+
+	.ed-source-pill:hover {
+		color: var(--ed-text) !important;
+		border-color: var(--ed-accent) !important;
+	}
+
+	.ed-contact-link:hover {
+		color: var(--ed-text) !important;
+	}
+
+	.ed-project-url:hover {
+		text-decoration: underline;
+	}
+
+	.ed-contact-row {
+		transition: color 0.2s;
+
+		&:hover {
+			color: var(--ed-accent) !important;
+		}
+	}
+}
+
+// Small screens: the fixed-width sidebar stacks above a full-width main column
+// (the original site was responsive at this same breakpoint; keep it usable).
+@media (max-width: 720px) {
+	.editorial {
+		flex-direction: column !important;
+	}
+
+	.ed-sidebar {
+		width: 100% !important;
+		height: auto !important;
+		position: static !important;
+		border-right: none !important;
+		border-bottom: 1px solid var(--ed-rule) !important;
+		padding: 32px 24px !important;
+	}
+
+	.editorial main {
+		padding: 32px 24px 48px !important;
+	}
+}
+
