@@ -57,24 +57,37 @@ describe('routing', () => {
 	});
 });
 
-describe('view source (requirement 3)', () => {
-	it('shows highlighted source for a "/source" route', () => {
+describe('view source toggles between the two designs (requirement 3)', () => {
+	it('renders the terminal/source design for a "/source" route', () => {
 		const {container} = render(<App initialPath="/cv/source" />);
-		const view = container.querySelector('.view-source');
 
-		expect(view).not.toBeNull();
-		// textContent concatenates the highlight.js token spans back into plain source.
-		expect(view.textContent).toContain("import React from 'react'");
+		expect(container.querySelector('.terminal')).not.toBeNull();
+		expect(container.querySelector('.editorial')).toBeNull();
+		// The file tabs are unique to the source view.
+		expect(screen.getAllByText('projects.yml').length).toBeGreaterThan(0);
 	});
 
-	it('toggles source on and off via the view-source button', () => {
+	it('toggles between the editorial and terminal views via the toggle buttons', () => {
 		const {container} = render(<App initialPath="/cv" />);
-		expect(container.querySelector('.view-source')).toBeNull();
+		expect(container.querySelector('.editorial')).not.toBeNull();
+		expect(container.querySelector('.terminal')).toBeNull();
 
 		fireEvent.click(screen.getByTitle('View source'));
-		expect(container.querySelector('.view-source')).not.toBeNull();
+		expect(container.querySelector('.terminal')).not.toBeNull();
+		expect(container.querySelector('.editorial')).toBeNull();
 
-		fireEvent.click(screen.getByTitle('View source'));
-		expect(container.querySelector('.view-source')).toBeNull();
+		fireEvent.click(screen.getByTitle('View rendered site'));
+		expect(container.querySelector('.editorial')).not.toBeNull();
+		expect(container.querySelector('.terminal')).toBeNull();
+	});
+
+	it('falls back to the CV when toggling to the rendered view from whoami', () => {
+		const {container} = render(<App initialPath="/whoami/source" />);
+		expect(container.querySelector('.terminal')).not.toBeNull();
+
+		fireEvent.click(screen.getByTitle('View rendered site'));
+
+		expect(container.querySelector('.editorial')).not.toBeNull();
+		expect(screen.getByText('Work Experience')).toBeInTheDocument();
 	});
 });

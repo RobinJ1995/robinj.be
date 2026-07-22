@@ -1,195 +1,101 @@
-$mainColour: #57AD68;
-$linkColour: $mainColour;
-$smallScreenWidth: 720px;
-$pageBackgroundColour: white;
-$textColour: black;
-@media (prefers-color-scheme: dark) {
-	$pageBackgroundColour: #161616;
-	$textColour: #EAEAEA;
-	$linkColour: lighten($mainColour, 10%);
+// Theme tokens. The two views (editorial + terminal) read these CSS custom
+// properties; prefers-color-scheme swaps light/dark with no JS, which keeps the
+// server render and the client hydration identical.
+:root {
+	color-scheme: light dark;
+
+	// Editorial palette — light
+	--ed-bg: #f7f3eb;
+	--ed-surface: #fbf8f1;
+	--ed-text: #1f1c17;
+	--ed-dim: rgba(31, 28, 23, .58);
+	--ed-faint: rgba(31, 28, 23, .10);
+	--ed-accent: #3d8a52;
+	--ed-accent-soft: rgba(61, 138, 82, .12);
+	--ed-rule: rgba(31, 28, 23, .10);
+
+	// Terminal palette — light
+	--tm-bg: #fbf8ee;
+	--tm-chrome: #f0ead8;
+	--tm-surface: #fefcf3;
+	--tm-sidebar: #f4eedb;
+	--tm-text: #3a3528;
+	--tm-dim: #7c7460;
+	--tm-faint: #e8e0c8;
+	--tm-rule: #e2d9bd;
+	--tm-accent: #3d8a52;
+	--tm-accent2: #3676a8;
+	--tm-kw: #b1442d;
+	--tm-str: #5a7d2f;
+	--tm-com: #9b9079;
+	--tm-num: #8459a6;
+	--tm-toggle-bg: rgba(0, 0, 0, .03);
+	--tm-close-bg: rgba(0, 0, 0, .08);
+	--tm-statusbar-bg: #ecdfb0;
 }
 
-@mixin small-screen {
-	@media (max-width: $smallScreenWidth) {
-		@content;
+@media (prefers-color-scheme: dark) {
+	:root {
+		// Editorial palette — dark
+		--ed-bg: #100f0d;
+		--ed-surface: #181612;
+		--ed-text: #ece8e0;
+		--ed-dim: rgba(236, 232, 224, .58);
+		--ed-faint: rgba(236, 232, 224, .12);
+		--ed-accent: #86c898;
+		--ed-accent-soft: rgba(134, 200, 152, .14);
+		--ed-rule: rgba(236, 232, 224, .10);
+
+		// Terminal palette — dark
+		--tm-bg: #0d1117;
+		--tm-chrome: #161b22;
+		--tm-surface: #11161d;
+		--tm-sidebar: #0a0e14;
+		--tm-text: #cdd6e1;
+		--tm-dim: #7a8497;
+		--tm-faint: #272f3b;
+		--tm-rule: #1d242e;
+		--tm-accent: #7ee787;
+		--tm-accent2: #79c0ff;
+		--tm-kw: #ff7b72;
+		--tm-str: #a5d6ff;
+		--tm-com: #6e7681;
+		--tm-num: #d2a8ff;
+		--tm-toggle-bg: rgba(255, 255, 255, .05);
+		--tm-close-bg: rgba(255, 255, 255, .10);
+		--tm-statusbar-bg: #0a0e14;
 	}
+}
+
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+html, body, #root {
+	height: 100%;
 }
 
 body {
-	font-size: 16px;
-	background: $pageBackgroundColour;
-	color: $textColour;
+	margin: 0;
+	background: var(--ed-bg);
+	color: var(--ed-text);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
-#page {
-	display: grid;
-	grid-template-columns: #{'min(20vw, 192px)'} 1fr;
-	grid-gap: 2vw;
-	margin-top: 2vh;
-	width: #{'min(94vw, 1080px)'};
-	margin-left: auto;
-	margin-right: auto;
-
-	@include small-screen {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
+// Blinking terminal cursor (whoami session).
+@keyframes blink {
+	50% {
+		border-color: transparent;
 	}
 }
 
-a {
-	color: $linkColour;
-	text-decoration: none;
-	transition: all 0.2s;
-	outline: none;
-
-	&:hover {
-		color: darken($linkColour, 10%);
-		text-decoration: underline;
-	}
-
-	&:active {
-		color: darken($linkColour, 20%);
-		text-decoration: underline;
-	}
+.tm-cursor {
+	border-right: 2px solid var(--tm-accent);
+	margin-left: 2px;
+	padding-left: 2px;
+	animation: blink 1.1s steps(1) infinite;
 }
 
-header {
-	grid-column: 1/1;
-	grid-row: 1;
-	text-align: right;
-
-	@include small-screen {
-		text-align: center;
-	}
-
-	img.picture {
-		border-radius: 100%;
-		width: calc(100% - 2*10px);
-		max-width: 512px;
-		margin: 0px 0px 10px 10px;
-
-		@include small-screen {
-			width: auto;
-			margin: 0px;
-			max-width: #{'min(64vw, 200px)'};
-			max-height: 40vh;
-		}
-	}
-
-	h1 {
-		font-size: 1.2em;
-		margin-bottom: 0.2em;
-
-		@include small-screen {
-			margin-top: 0.2em;
-			margin-bottom: 0.1em;
-			font-size: 2em;
-		}
-	}
-
-	.slogan {
-		font-size: 0.9em;
-		color: rgba($textColour, 0.64);
-		font-style: italic;
-		margin-top: 0px;
-	}
-
-	nav {
-		ul {
-			list-style-type: none;
-			padding: 0px;
-
-			@include small-screen {
-				display: flex;
-				justify-content: center;
-				font-size: 1.2em;
-				margin-top: 0.2em;
-				margin-bottom: 0.2em;
-			}
-
-			li {
-				margin: 8px;
-
-				@include small-screen {
-					display: inline-block;
-				}
-
-				&.current-page {
-					a {
-						background: darken($mainColour, 5);
-						color: white;
-						border-radius: 3px;
-
-						@include small-screen {
-							background: inherit;
-							color: $linkColour;
-							text-decoration: underline;
-						}
-					}
-				}
-
-				a {
-					margin-right: -4px;
-					padding: 2px 4px;
-
-					@include small-screen {
-						display: inline-block;
-						padding: 2px 8px;
-						transition: all 0.2s;
-						border-radius: 3px;
-						margin-right: 0px;
-	
-						&:hover, &:active {
-							background: darken($mainColour, 10%);
-							text-decoration: none;
-							color: white;
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
-main {
-	grid-column: 2/3;
-	grid-row: 1;
-	overflow-x: auto;
-
-	@include small-screen {
-		margin-left: #{'max(4px, 2vw)'};
-		margin-right: #{'max(4px, 2vw)'};
-	}
-}
-
-h2 {
-	font-size: 2.6rem;
-	margin-bottom: 0.64em;
-}
-
-h3 {
-	font-size: 1.8rem;
-}
-
-h4 {
-	font-size: 1.4rem;
-	margin-bottom: 0.4rem;
-}
-
-h1, h2, h3, h4, h5, h6, h7 {
-	@include small-screen {
-		text-align: center;
-	}
-}
-
-.abbrev {
-	color: rgba($textColour, 0.54);
-	font-size: 0.9em;
-}
-
-@import '_Project';
-@import '_Technology';
-@import '_Experience';
-@import '_ViewSource';
-@import '_NotFound';
+@import 'Editorial';
+@import 'Terminal';
