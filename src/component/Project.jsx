@@ -9,8 +9,8 @@ const Project = ({
 					 technologiesUsed = [],
 					 integrationWith = []
 				 }) => {
-	const technologies = technologiesUsed.map(Technology);
-	const integrations = integrationWith.map(Technology);
+	const technologies = technologiesUsed.map(tech => <Technology key={tech.title} {...tech} />);
+	const integrations = integrationWith.map(tech => <Technology key={tech.title} {...tech} />);
 
 	return (<div className="project">
 		<a href={link} className="project-link"><h4 className="project-name">{name}</h4></a>

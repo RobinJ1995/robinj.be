@@ -10,6 +10,7 @@
 
 # production
 /build
+/dist-ssr
 
 # misc
 .DS_Store
@@ -25,4 +26,6 @@ yarn-error.log*
 .idea
 .vscode
 
-src/generated
+# playwright
+/test-results
+/playwright-report

@@ -3,31 +3,45 @@ import './style/App.scss';
 import {PAGES} from './constants';
 import ViewSource from './component/ViewSource';
 
-const initialViewSource = String(window.location.pathname)
+// Pure path parsers (no `window`), so they run identically on the server and client.
+const parseViewSource = path => String(path)
 	.replace(/\/$/, '')
 	.endsWith('/source');
-const initialPage = String(window.location.pathname)
+const parsePage = path => String(path)
 	.replace(/^\//, '')
 	.replace(/\/$/, '')
 	.replace(/\/source$/, '')
 	.trim()
 	|| Object.values(PAGES).find(page => page.home)?.name;
 
-const App = () => {
-	const [viewSource, setViewSource] = useState(initialViewSource);
-	const [pageName, setPageName] = useState(initialPage);
+const homePath = () => (typeof window !== 'undefined' ? window.location.pathname : '/');
+
+// Also used by the prerenderer (entry-server) so static <title> tags match the client's.
+export const pageTitle = path => {
+	const pageName = parsePage(path);
+	const viewSource = parseViewSource(path);
+	const page = Object.values(PAGES).find(p => p.name === pageName)
+		|| Object.values(PAGES).find(p => p['404']);
+
+	return `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
+};
+
+const App = ({initialPath}) => {
+	const path = initialPath ?? homePath();
+	const [viewSource, setViewSource] = useState(() => parseViewSource(path));
+	const [pageName, setPageName] = useState(() => parsePage(path));
 
 	useEffect(() => {
 		const handlePopState = e => {
 			if (e?.state?.name) {
 				return navigate(e.state.name, e, false);
 			}
-	
+
 			return window.location.reload();
 		};
 
 		window.addEventListener('popstate', handlePopState);
-	
+
 		return () => window.removeEventListener('popstate', handlePopState);
 	}, []);
 
@@ -41,8 +55,8 @@ const App = () => {
 
 		setPageName(page.name);
 		setViewSource(source);
-		
-		if (pushHistory) {
+
+		if (pushHistory && typeof window !== 'undefined') {
 			const historyPageTitle = page.title + (source ? ' (Source)' : '') + ' • Robin Jacobs';
 			const historyPageName = page.name + (source ? '/source' : '');
 			const historyPageUrl = page.url + (source ? '/source' : '');
@@ -60,7 +74,9 @@ const App = () => {
 		return <h1>404 Not Found</h1>;
 	}
 
-	document.title = `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
+	if (typeof document !== 'undefined') {
+		document.title = `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
+	}
 	const PageContent = viewSource ? () => <ViewSource>{page.source}</ViewSource> : page.content;
 
 	const toggleViewSource = e => {
