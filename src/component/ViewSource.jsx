@@ -6,9 +6,7 @@ import 'highlight.js/scss/vs.scss';
 hljs.registerLanguage('javascript', javascript);
 
 const ViewSource = ({ children }) => {
-	// Pure string -> string highlighting: deterministic and SSR-safe, so the
-	// server-rendered markup and the hydrated markup are identical. The input is
-	// the site's own source (never user input), so dangerouslySetInnerHTML is safe.
+	// Input is the site's own source (never user input), so the innerHTML is safe.
 	const highlighted = hljs.highlight(String(children), { language: 'javascript' }).value;
 
 	return <div className="view-source">
