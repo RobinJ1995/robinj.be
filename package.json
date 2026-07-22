@@ -2,30 +2,31 @@
   "name": "robinj",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
-    "@testing-library/jest-dom": "^5.11.9",
-    "@testing-library/react": "^11.2.5",
-    "@testing-library/user-event": "^12.7.3",
     "dateformat": "^4.5.1",
-    "node-sass": "^6.0.0",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "react-highlight.js": "^1.0.7",
-    "react-scripts": "4.0.3",
-    "react-snap": "^1.23.0",
+    "highlight.js": "^11.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "uuid": "^8.3.2"
   },
-  "scripts": {
-    "copy-sources": "node script/copy-sources.js",
-    "start": "npm run copy-sources && react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "prebuild": "npm run copy-sources",
-    "postbuild": "react-snap"
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.0",
+    "sass": "^1.80.0",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.0"
   },
-  "eslintConfig": {
-    "extends": "react-app"
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && vite build --ssr src/entry-server.jsx --outDir dist-ssr && node prerender.js",
+    "preview": "vite preview",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test"
   },
   "browserslist": {
     "production": [
@@ -37,13 +38,6 @@
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
-    ]
-  },
-  "reactSnap": {
-    "puppeteerArgs": [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-gpu"
     ]
   }
 }
