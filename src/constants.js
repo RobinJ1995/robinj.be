@@ -1,8 +1,22 @@
 import Contact from './page/Contact';
 import Projects from './page/Projects';
 import CV from './page/CV';
-import PAGE_SOURCES from './generated/page-source.json';
 import NotFound from './page/NotFound';
+
+// Vite inlines the raw file text at build time (`?raw`), which replaces the old
+// copy-sources.js workaround that create-react-app forced. This is what powers
+// the "view source" pages.
+import ContactSource from './page/Contact.jsx?raw';
+import ProjectsSource from './page/Projects.jsx?raw';
+import CVSource from './page/CV.jsx?raw';
+import NotFoundSource from './page/NotFound.jsx?raw';
+
+const PAGE_SOURCES = {
+	Contact: ContactSource,
+	CV: CVSource,
+	Projects: ProjectsSource,
+	NotFound: NotFoundSource,
+};
 
 export const PAGES = Object.freeze(Object.fromEntries(Object.entries({
 	'Contact': {

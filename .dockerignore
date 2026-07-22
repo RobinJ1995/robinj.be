@@ -4,3 +4,8 @@ npm-debug.log
 .git
 .vscode
 .editorconfig
+build
+dist-ssr
+coverage
+test-results
+playwright-report
