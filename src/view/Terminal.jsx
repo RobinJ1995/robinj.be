@@ -15,12 +15,10 @@ const FILES = [
 ];
 
 // The terminal prompt/title show `robin@robinj.be` as a user@host string. It's
-// purely decorative (not a contact link), but rendering it split across spans
-// keeps the literal address out of the static HTML — same spam-harvester defence
-// as the EmailAddress component, while staying pixel-identical with no JS.
-const Host = () => (
-	<>{CONTENT.email.split(/(@|\.)/).map((part, i) => <span key={i}>{part}</span>)}</>
-);
+// purely decorative (not a contact link), so it uses EmailAddress in text mode:
+// same spam-harvester defence (address absent from the static HTML, revealed
+// after mount), just without the mailto link.
+const Host = () => <EmailAddress asText>{CONTENT.email}</EmailAddress>;
 
 const kindGlyph = k => ({md: 'M', json: '{}', yml: 'Y', txt: 'T'}[k] || '·');
 const kindColor = k => ({md: 'var(--tm-accent2)', json: 'var(--tm-num)', yml: 'var(--tm-str)', txt: 'var(--tm-dim)'}[k] || 'var(--tm-dim)');
