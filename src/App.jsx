@@ -1,7 +1,8 @@
 import React, {useState, useEffect} from 'react';
 import './style/App.scss';
 import {PAGES} from './constants';
-import ViewSource from './component/ViewSource';
+import EditorialApp from './view/Editorial';
+import TerminalApp from './view/Terminal';
 
 // Pure path parsers (no `window`), so they run identically on the server and client.
 const parseViewSource = path => String(path)
@@ -16,12 +17,13 @@ const parsePage = path => String(path)
 
 const homePath = () => (typeof window !== 'undefined' ? window.location.pathname : '/');
 
+const findPage = name => Object.values(PAGES).find(p => p.name === name);
+
 // Also used by the prerenderer (entry-server) so static <title> tags match the client's.
 export const pageTitle = path => {
 	const pageName = parsePage(path);
 	const viewSource = parseViewSource(path);
-	const page = Object.values(PAGES).find(p => p.name === pageName)
-		|| Object.values(PAGES).find(p => p['404']);
+	const page = findPage(pageName) || Object.values(PAGES).find(p => p['404']);
 
 	return `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
 };
@@ -45,39 +47,45 @@ const App = ({initialPath}) => {
 		return () => window.removeEventListener('popstate', handlePopState);
 	}, []);
 
-	const navigate = (pageName, e = null, pushHistory = true) => {
+	// `name` may carry a `/source` suffix (e.g. from the terminal file tree) to
+	// select the source view for the target page.
+	const navigate = (name, e = null, pushHistory = true) => {
 		if (e) {
 			e.preventDefault();
 		}
 
-		const source = pageName.endsWith('/source');
-		const page = Object.values(PAGES).find(({ name }) => name === String(pageName).replace(/\/source$/, ''));
+		const source = String(name).endsWith('/source');
+		const page = findPage(String(name).replace(/\/source$/, ''));
+
+		if (!page) {
+			return;
+		}
 
 		setPageName(page.name);
-		setViewSource(source);
+		setViewSource(source && !!page.source);
 
 		if (pushHistory && typeof window !== 'undefined') {
 			const historyPageTitle = page.title + (source ? ' (Source)' : '') + ' • Robin Jacobs';
 			const historyPageName = page.name + (source ? '/source' : '');
 			const historyPageUrl = page.url + (source ? '/source' : '');
 
-			const historyState = { name: historyPageName, title: historyPageTitle };
-
-			window.history.pushState(historyState, historyPageTitle, historyPageUrl);
+			window.history.pushState({name: historyPageName, title: historyPageTitle}, historyPageTitle, historyPageUrl);
 		}
 	};
 
-	const page = Object.values(PAGES).find(page => page.name === pageName);
+	let page = findPage(pageName);
 	if (!page) {
-		navigate(Object.values(PAGES).find(page => page['404']).name, null, false);
-
-		return <h1>404 Not Found</h1>;
+		const notFound = Object.values(PAGES).find(p => p['404']);
+		// Correct client state to the 404 page (no history push); render it now.
+		if (typeof window !== 'undefined' && pageName !== notFound.name) {
+			navigate(notFound.name, null, false);
+		}
+		page = notFound;
 	}
 
 	if (typeof document !== 'undefined') {
 		document.title = `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
 	}
-	const PageContent = viewSource ? () => <ViewSource>{page.source}</ViewSource> : page.content;
 
 	const toggleViewSource = e => {
 		if (e) {
@@ -85,52 +93,23 @@ const App = ({initialPath}) => {
 		}
 
 		if (viewSource) {
-			return navigate(pageName.replace(/\/source$/, ''));
+			// whoami has no rendered equivalent — fall back to the CV.
+			return navigate(page.sourceOnly ? 'cv' : page.name);
 		}
 
-		return navigate(`${pageName}/source`);
+		return navigate(`${page.name}/source`);
+	};
+
+	// The terminal view only renders for pages that have a source representation.
+	const showSource = viewSource && !!page.source;
+
+	if (showSource) {
+		return <TerminalApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />;
 	}
 
-	return (
-		<div id="page">
-			<header>
-				<img className="picture" src="/img/me.webp" alt="" />
-				<h1>Robin Jacobs</h1>
-				<p className="slogan">Developer &amp; open-source enthusiast</p>
-
-				<nav>
-					<ul>
-						{Object.values(PAGES)
-							.filter(p => p.menu)
-							.map(p => <li
-								key={p.name}
-								className={p.name === page?.name ? 'current-page' : ''}>
-								<a
-									href={p.url}
-									onClick={(e) => navigate(p.name, e)}
-								>{p.title}</a>
-							</li>)}
-					</ul>
-				</nav>
-			</header>
-			<main>
-				<h2>{page.title} {page.source &&
-					<a
-						href={`${page.url}${viewSource ? '' : '/source'}`}
-						title="View source"
-						className={[
-								'view-source-button',
-								viewSource ? 'active' : null
-							].filter(x => !!x).join(' ')}
-						onClick={toggleViewSource}
-					><img src="/img/icon/source.svg" alt="[View source]" /></a>}</h2>
-				<PageContent />
-			</main>
-			<footer>
-
-			</footer>
-		</div>
-	);
+	// whoami / any source-only page has no rendered equivalent → show the CV.
+	const editorialPage = page.sourceOnly ? 'cv' : page.name;
+	return <EditorialApp page={editorialPage} onNavigate={navigate} onToggleView={toggleViewSource} />;
 };
 
 export default App;
