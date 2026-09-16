@@ -149,7 +149,7 @@ export const CONTENT = Object.freeze({
 	projects: [
 		{
 			name: 'Sprint Retrospective',
-			tagline: 'Realtime retrospective tool that runs on a Kubernetes cluster.',
+			tagline: 'Realtime retrospective tool.',
 			url: 'sprintretro.app',
 			logo: '/img/project/sprintretrospective.webp',
 			description: `One of those projects that started out as a throwaway experiment to play with some
