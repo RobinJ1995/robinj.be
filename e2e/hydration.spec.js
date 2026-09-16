@@ -44,7 +44,7 @@ test('toggles the source view client-side', async ({page}) => {
 	await expect(page).toHaveURL('/cv/source');
 	// The terminal/IDE design replaces the editorial one for the source view.
 	await expect(page.locator('.terminal')).toBeVisible();
-	await expect(page.locator('#root')).toContainText('projects.yml');
+	await expect(page.locator('#root')).toContainText('side-quests.yml');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 });
 

@@ -254,7 +254,7 @@ const EdCV = () => (
 const EdProjects = () => (
 	<div style={{maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 48}}>
 		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
-			<EdEyebrow>Selected work · personal</EdEyebrow>
+			<EdEyebrow>Side quests</EdEyebrow>
 			<EdDisplay size={56}>
 				Things I built<br />
 				<em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>because I wanted to.</em>
