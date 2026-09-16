@@ -48,11 +48,11 @@ const EdSidebar = ({page, onNavigate}) => (
 				<img src="/img/me.webp" alt={CONTENT.name} style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}} />
 			</div>
 			<div>
-				<div style={{fontFamily: SERIF, fontSize: 30, lineHeight: 1.04, letterSpacing: '-0.01em', fontWeight: 500}}>
-					Robin<br />Jacobs
+				<div style={{fontFamily: SERIF, fontSize: 30, lineHeight: 1.15, letterSpacing: '-0.01em', fontWeight: 500}}>
+					{CONTENT.name}
 				</div>
 				<div style={{marginTop: 8, fontSize: 13, color: 'var(--ed-dim)', fontStyle: 'italic', fontFamily: SERIF}}>
-					Developer &amp; open-source enthusiast
+					{CONTENT.tagline}
 				</div>
 			</div>
 		</div>
