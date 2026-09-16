@@ -30,7 +30,7 @@ test('prerenders the terminal/source design for /cv/source (requirement 3)', asy
 	// The source view is the terminal/IDE design, with a file tree/tabs and the
 	// CV rendered as cv.md — all present in the static HTML.
 	await expect(page.locator('.terminal')).toBeVisible();
-	await expect(page.locator('#root')).toContainText('projects.yml');
+	await expect(page.locator('#root')).toContainText('side-quests.yml');
 	await expect(page.locator('#root')).toContainText('Work Experience');
 });
 

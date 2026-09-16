@@ -22,6 +22,10 @@
 	.tm-tab:hover {
 		color: var(--tm-text) !important;
 	}
+
+	.tm-close:hover {
+		background: var(--tm-close-bg-hover) !important;
+	}
 }
 
 // Small screens: narrow the file-tree sidebar and let the window scroll

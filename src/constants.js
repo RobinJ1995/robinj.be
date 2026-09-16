@@ -161,7 +161,7 @@ export const CONTENT = Object.freeze({
 			url: 'play.google.com/store/apps/details?id=be.robinj.distrohopper',
 			logo: '/img/project/distrohopper.webp',
 			blurb: 'A spare-time project started in high school — a custom Android launcher with themes resembling various Linux distributions and a multi-source search feature. Still maintained based on Play Store feedback.',
-			tech: ['Java', 'Android SDK'],
+			tech: ['Java', 'Kotlin', 'Android SDK'],
 		},
 		{
 			name: 'SINControl',

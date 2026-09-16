@@ -64,7 +64,7 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 		expect(container.querySelector('.terminal')).not.toBeNull();
 		expect(container.querySelector('.editorial')).toBeNull();
 		// The file tabs are unique to the source view.
-		expect(screen.getAllByText('projects.yml').length).toBeGreaterThan(0);
+		expect(screen.getAllByText('side-quests.yml').length).toBeGreaterThan(0);
 	});
 
 	it('toggles between the editorial and terminal views via the toggle buttons', () => {
@@ -79,6 +79,17 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 		fireEvent.click(screen.getByTitle('View rendered site'));
 		expect(container.querySelector('.editorial')).not.toBeNull();
 		expect(container.querySelector('.terminal')).toBeNull();
+	});
+
+	it('closes back to the rendered view via the window close button', () => {
+		const {container} = render(<App initialPath="/projects/source" />);
+		expect(container.querySelector('.terminal')).not.toBeNull();
+
+		fireEvent.click(screen.getByTitle('Close'));
+
+		expect(container.querySelector('.editorial')).not.toBeNull();
+		expect(container.querySelector('.terminal')).toBeNull();
+		expect(screen.getByText('Sprint Retrospective')).toBeInTheDocument();
 	});
 
 	it('falls back to the CV when toggling to the rendered view from whoami', () => {

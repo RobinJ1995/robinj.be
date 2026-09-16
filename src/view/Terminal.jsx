@@ -10,7 +10,7 @@ import EmailAddress from '../component/EmailAddress';
 const FILES = [
 	{id: 'whoami', name: 'whoami.txt', kind: 'txt'},
 	{id: 'cv', name: 'cv.md', kind: 'md'},
-	{id: 'projects', name: 'projects.yml', kind: 'yml'},
+	{id: 'projects', name: 'side-quests.yml', kind: 'yml'},
 	{id: 'contact', name: 'contact.yml', kind: 'yml'},
 ];
 
@@ -47,37 +47,45 @@ const TerminalApp = ({page, onNavigate, onToggleView}) => (
 	</div>
 );
 
-const TerminalChrome = ({page, onToggleView}) => (
-	<div style={{
-		height: 38, background: 'var(--tm-chrome)', borderBottom: '1px solid var(--tm-rule)',
-		display: 'flex', alignItems: 'center', padding: '0 10px 0 14px', gap: 14, flexShrink: 0,
-	}}>
-		<div style={{width: 150, display: 'flex'}}>
-			<a href={`/${page === 'whoami' ? 'cv' : page}`} onClick={onToggleView}
-				title="View rendered site" className="tm-toggle"
-				style={{
-					display: 'flex', alignItems: 'center', gap: 7, padding: '4px 10px', borderRadius: 6,
-					border: '1px solid var(--tm-rule)', background: 'var(--tm-toggle-bg)',
-					color: 'var(--tm-dim)', fontSize: 11, textDecoration: 'none',
-				}}>
-				<span style={{color: 'var(--tm-accent)'}}>▤</span> rendered
-			</a>
+const TerminalChrome = ({page, onToggleView}) => {
+	// Both the "rendered" button and the window's close button leave the source
+	// view. whoami has no rendered equivalent, so it falls back to the CV.
+	const renderedHref = `/${page === 'whoami' ? 'cv' : page}`;
+
+	return (
+		<div style={{
+			height: 38, background: 'var(--tm-chrome)', borderBottom: '1px solid var(--tm-rule)',
+			display: 'flex', alignItems: 'center', padding: '0 10px 0 14px', gap: 14, flexShrink: 0,
+		}}>
+			<div style={{width: 150, display: 'flex'}}>
+				<a href={renderedHref} onClick={onToggleView}
+					title="View rendered site" className="tm-toggle"
+					style={{
+						display: 'flex', alignItems: 'center', gap: 7, padding: '4px 10px', borderRadius: 6,
+						border: '1px solid var(--tm-rule)', background: 'var(--tm-toggle-bg)',
+						color: 'var(--tm-dim)', fontSize: 11, textDecoration: 'none',
+					}}>
+					<span style={{color: 'var(--tm-accent)'}}>▤</span> rendered
+				</a>
+			</div>
+			<div style={{flex: 1, textAlign: 'center', color: 'var(--tm-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
+				<Host /> — ~/portfolio — 132×42
+			</div>
+			<div style={{display: 'flex', width: 150, justifyContent: 'flex-end'}}>
+				<a href={renderedHref} onClick={onToggleView}
+					title="Close" aria-label="Close the source view" className="tm-close"
+					style={{
+						width: 26, height: 26, borderRadius: '50%', background: 'var(--tm-close-bg)',
+						color: 'var(--tm-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+					}}>
+					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+						<path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+					</svg>
+				</a>
+			</div>
 		</div>
-		<div style={{flex: 1, textAlign: 'center', color: 'var(--tm-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
-			<Host /> — ~/portfolio — 132×42
-		</div>
-		<div style={{display: 'flex', width: 150, justifyContent: 'flex-end'}}>
-			<span style={{
-				width: 26, height: 26, borderRadius: '50%', background: 'var(--tm-close-bg)',
-				color: 'var(--tm-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-			}}>
-				<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-					<path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-				</svg>
-			</span>
-		</div>
-	</div>
-);
+	);
+};
 
 // The git block reflects the real GitHub repository. It renders design-time
 // placeholders during SSR / before the fetch resolves, then updates on mount —
