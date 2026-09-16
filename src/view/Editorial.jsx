@@ -1,5 +1,6 @@
 import React from 'react';
 import {CONTENT, PAGES} from '../constants';
+import {parseMarkdown} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
 // Direction A — Editorial.
@@ -251,6 +252,19 @@ const EdCV = () => (
 	</div>
 );
 
+const Inline = ({nodes}) => nodes.map((n, i) => (typeof n === 'string'
+	? <React.Fragment key={i}>{n}</React.Fragment>
+	: <em key={i} style={{fontStyle: 'italic'}}>{n.em}</em>));
+
+// Renders the stored Markdown as real prose: paragraphs, emphasis and bullets.
+const Prose = ({markdown}) => parseMarkdown(markdown).map((block, i) => (block.type === 'ul'
+	? <ul key={i} style={{margin: '10px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.6}}>
+		{block.items.map((item, j) => <li key={j}><Inline nodes={item} /></li>)}
+	</ul>
+	: <p key={i} style={{margin: (i ? '10px' : '14px') + ' 0 0', fontSize: 14, lineHeight: 1.6}}>
+		<Inline nodes={block.inline} />
+	</p>));
+
 const EdProjects = () => (
 	<div style={{maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 48}}>
 		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
@@ -286,7 +300,7 @@ const EdProjects = () => (
 							}}>↗ {p.url}</a>
 						</div>
 						<div style={{fontSize: 14, color: 'var(--ed-dim)', fontStyle: 'italic', marginTop: 4}}>{p.tagline}</div>
-						<p style={{margin: '14px 0 0', fontSize: 14, lineHeight: 1.6}}>{p.blurb}</p>
+						<Prose markdown={p.description} />
 						<TechChips tech={p.tech} />
 					</div>
 				</article>
