@@ -152,7 +152,21 @@ export const CONTENT = Object.freeze({
 			tagline: 'Realtime retrospective tool that runs on a Kubernetes cluster.',
 			url: 'sprintretro.app',
 			logo: '/img/project/sprintretrospective.webp',
-			blurb: 'Started as a throwaway "how do React Hooks work" experiment. Ended up as a full K8s cluster: React frontend, Node API, websocket server, MongoDB and Redis Pub/Sub for live activity.',
+			description: `One of those projects that started out as a throwaway experiment to play with some
+				different technologies, and happened to turn into something useful.
+
+				*"How do these new React Hooks work?"* turned into *"Let's hook this up to an
+				API and a database... I wonder what MongoDB is like?"* and quickly became a full
+				Kubernetes cluster with each component of the application running in Docker containers
+				that are auto-scaling and load balanced across several Kubernetes nodes.
+
+				The project currently consists of:
+
+				- React frontend
+				- Node.js API server
+				- Node.js websocket server
+				- MongoDB, as the database
+				- Redis, for storage of temporary data such as active participants, and real-time streaming of activity on a retrospective through the use of Redis Pub/Sub`,
 			tech: ['React', 'Node.js', 'TypeScript', 'MongoDB', 'Redis', 'Docker', 'Kubernetes'],
 		},
 		{
@@ -160,7 +174,13 @@ export const CONTENT = Object.freeze({
 			tagline: 'Android home screen replacement themed after Linux distros.',
 			url: 'play.google.com/store/apps/details?id=be.robinj.distrohopper',
 			logo: '/img/project/distrohopper.webp',
-			blurb: 'A spare-time project started in high school — a custom Android launcher with themes resembling various Linux distributions and a multi-source search feature. Still maintained based on Play Store feedback.',
+			description: `Custom home screen replacement for Android with themes resembling various Linux
+				distributions as well as a search feature with support for several (internal and
+				external) search sources.
+
+				This is a spare-time project I started when I was in high school, which I am still
+				working on based on feedback users leave on the Google Play Store, or on the Github
+				repository. The codebase has however seen a couple of rewrites in the meantime.`,
 			tech: ['Java', 'Kotlin', 'Android SDK'],
 		},
 		{
@@ -168,7 +188,13 @@ export const CONTENT = Object.freeze({
 			tagline: 'Control panel for a Debian server used by a student org.',
 			url: 'github.com/RobinJ1995/penguinControl',
 			logo: '/img/project/sincontrol.svg',
-			blurb: 'Manage system users, Apache vHosts, FTP, e-mail, maintenance jobs and more. Built during my time volunteering with the Student Information Network (SIN) at Thomas More.',
+			description: `Control panel for both users and administrators of a Debian server.
+
+				Ability to manage system users, Apache vHosts, FTP-accounts, e-mail addresses and
+				forwards, run system maintenance tasks, …
+
+				This was built during my time volunteering for the Student Information Network (SIN)
+				organisation at Thomas More University of Applied Sciences.`,
 			tech: ['PHP', 'Laravel', 'MariaDB', 'Apache', 'Postfix', 'ownCloud'],
 		},
 	],

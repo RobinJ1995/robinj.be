@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {CONTENT} from '../constants';
+import {parseMarkdown, inlineToText} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
 // Direction B — Terminal / IDE.
@@ -382,6 +383,18 @@ const TerminalCV = () => {
 	return <CodePane lines={lines} />;
 };
 
+// A YAML folded block (`>`) holding the description Markdown. Each paragraph is
+// one logical line that soft-wraps, and each bullet one more — so the gutter
+// numbers follow the content's structure, not how the source string is wrapped.
+const foldedBlock = markdown => parseMarkdown(markdown).flatMap((block, i) => [
+	...(i ? [''] : []),
+	...(block.type === 'ul'
+		? block.items.map(item => ({
+			hang: 4, node: <span style={{color: 'var(--tm-text)'}}>{`- ${inlineToText(item)}`}</span>,
+		}))
+		: [{hang: 4, node: <span style={{color: 'var(--tm-text)'}}>{inlineToText(block.inline)}</span>}]),
+]);
+
 const TerminalProjects = () => {
 	const Dash = <span style={{color: 'var(--tm-dim)'}}>-</span>;
 	const lines = [];
@@ -392,7 +405,7 @@ const TerminalProjects = () => {
 		lines.push(<>{Dash} {Key('name')}: {Str(p.name)}</>);
 		lines.push(<>  {Key('url')}: {Str(`https://${p.url}`)}</>);
 		lines.push(<>  {Key('description')}: {Str('>')}</>);
-		lines.push({hang: 4, node: <><span style={{color: 'var(--tm-text)'}}>{p.blurb}</span></>});
+		foldedBlock(p.description).forEach(line => lines.push(line));
 		lines.push(<>  {Key('stack')}: {p.tech.map((t, j) => <React.Fragment key={j}>{j ? ', ' : '['}{Str(t)}</React.Fragment>)}]</>);
 	});
 
