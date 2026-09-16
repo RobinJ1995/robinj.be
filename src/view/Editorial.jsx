@@ -11,24 +11,28 @@ import EmailAddress from '../component/EmailAddress';
 const MONO = '"IBM Plex Mono", ui-monospace, monospace';
 const SERIF = '"Newsreader", ui-serif, Georgia, serif';
 
-const EditorialApp = ({page, onNavigate, onToggleView}) => (
-	<div className="editorial" style={{
+const EditorialApp = ({page, onNavigate, onToggleView}) => {
+	const viewSource = <ViewSourceToggle page={page} onToggleView={onToggleView} />;
+
+	return (
+		<div className="editorial" style={{
 		background: 'var(--ed-bg)', color: 'var(--ed-text)',
 		fontFamily: '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif',
 		minHeight: '100%', width: '100%', display: 'flex',
 		fontFeatureSettings: '"ss01", "cv01"',
 	}}>
-		<EdSidebar page={page} onNavigate={onNavigate} onToggleView={onToggleView} />
+		<EdSidebar page={page} onNavigate={onNavigate} />
 		<main style={{flex: 1, padding: '64px 80px 80px', overflow: 'hidden', minWidth: 0}}>
-			{page === 'cv' && <EdCV />}
-			{page === 'projects' && <EdProjects />}
-			{page === 'contact' && <EdContact />}
+			{page === 'cv' && <EdCV toggle={viewSource} />}
+			{page === 'projects' && <EdProjects toggle={viewSource} />}
+			{page === 'contact' && <EdContact toggle={viewSource} />}
 			{page === '404' && <EdNotFound onNavigate={onNavigate} />}
 		</main>
-	</div>
-);
+		</div>
+	);
+};
 
-const EdSidebar = ({page, onNavigate, onToggleView}) => (
+const EdSidebar = ({page, onNavigate}) => (
 	<aside className="ed-sidebar" style={{
 		width: 320, flexShrink: 0, padding: '56px 36px 40px',
 		borderRight: '1px solid var(--ed-rule)',
@@ -84,17 +88,6 @@ const EdSidebar = ({page, onNavigate, onToggleView}) => (
 		</nav>
 
 		<div style={{marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--ed-dim)'}}>
-			<a href={`/${page === 'cv' ? 'cv' : page}/source`} onClick={onToggleView}
-				title="View source" className="ed-source-pill"
-				style={{
-					alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14,
-					padding: '6px 12px 6px 10px', borderRadius: 999,
-					border: '1px solid var(--ed-rule)', background: 'var(--ed-surface)',
-					color: 'var(--ed-dim)', fontFamily: MONO, textDecoration: 'none',
-					fontSize: 11, letterSpacing: '0.02em', transition: 'color .2s, border-color .2s',
-				}}>
-				<span style={{color: 'var(--ed-accent)', fontWeight: 600}}>&lt;/&gt;</span> view source
-			</a>
 			<div className="ed-contact-link">✉ <EmailAddress>{CONTENT.email}</EmailAddress></div>
 			<a className="ed-contact-link" href={`https://${CONTENT.linkedin}`} style={{color: 'inherit', textDecoration: 'none'}}>↗ {CONTENT.linkedin}</a>
 			<a className="ed-contact-link" href={`https://${CONTENT.github}`} style={{color: 'inherit', textDecoration: 'none'}}>↗ {CONTENT.github}</a>
@@ -105,11 +98,28 @@ const EdSidebar = ({page, onNavigate, onToggleView}) => (
 	</aside>
 );
 
-const EdEyebrow = ({children}) => (
-	<div style={{
-		fontFamily: MONO, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
-		color: 'var(--ed-accent)', marginBottom: 18,
-	}}>{children}</div>
+const EdEyebrow = ({children, toggle = null}) => (
+	<div style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18}}>
+		<div style={{
+			fontFamily: MONO, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
+			color: 'var(--ed-accent)',
+		}}>{children}</div>
+		{toggle}
+	</div>
+);
+
+// Sits on the page's eyebrow line, the way the old site put it beside the page
+// heading: quiet until hovered, and no label — the glyph and tooltip carry it.
+const ViewSourceToggle = ({page, onToggleView}) => (
+	<a href={`/${page}/source`} onClick={onToggleView}
+		title="View source" aria-label="View source" className="ed-source-toggle"
+		style={{
+			display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+			height: 22, padding: '0 10px', borderRadius: 999,
+			border: '1px solid var(--ed-rule)', background: 'var(--ed-surface)',
+			fontFamily: MONO, fontSize: 11, fontWeight: 600, lineHeight: 1,
+			color: 'var(--ed-dim)', textDecoration: 'none',
+		}}>&lt;/&gt;</a>
 );
 
 const EdDisplay = ({children, size = 64}) => (
@@ -182,10 +192,10 @@ const EdWorkRow = ({item, last}) => (
 	</div>
 );
 
-const EdCV = () => (
+const EdCV = ({toggle}) => (
 	<div style={{maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 56}}>
 		<header style={{display: 'flex', flexDirection: 'column', gap: 22}}>
-			<EdEyebrow>CV</EdEyebrow>
+			<EdEyebrow toggle={toggle}>CV</EdEyebrow>
 			<EdDisplay>
 				Senior Software Engineer<br />
 				<em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>working on authorisation,</em><br />
@@ -265,10 +275,10 @@ const Prose = ({markdown}) => parseMarkdown(markdown).map((block, i) => (block.t
 		<Inline nodes={block.inline} />
 	</p>));
 
-const EdProjects = () => (
+const EdProjects = ({toggle}) => (
 	<div style={{maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 48}}>
 		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
-			<EdEyebrow>Side quests</EdEyebrow>
+			<EdEyebrow toggle={toggle}>Side quests</EdEyebrow>
 			<EdDisplay size={56}>
 				Things I built<br />
 				<em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>because I wanted to.</em>
@@ -309,10 +319,10 @@ const EdProjects = () => (
 	</div>
 );
 
-const EdContact = () => (
+const EdContact = ({toggle}) => (
 	<div style={{maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 40}}>
 		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
-			<EdEyebrow>Get in touch</EdEyebrow>
+			<EdEyebrow toggle={toggle}>Get in touch</EdEyebrow>
 			<EdDisplay>
 				Where to <em style={{fontStyle: 'italic', color: 'var(--ed-accent)'}}>find me</em>.
 			</EdDisplay>

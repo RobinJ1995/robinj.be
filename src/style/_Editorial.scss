@@ -13,8 +13,9 @@
 		color: var(--ed-text) !important;
 	}
 
-	.ed-source-pill:hover {
-		color: var(--ed-text) !important;
+	// Quiet by default, lights up on hover — like the old view-source icon.
+	.ed-source-toggle:hover {
+		color: var(--ed-accent) !important;
 		border-color: var(--ed-accent) !important;
 	}
 
