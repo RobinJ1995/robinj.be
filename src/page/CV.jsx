@@ -13,6 +13,7 @@ const CV = () => (<div className="cv">
 			type="Full-time"
 			location="Dublin, Ireland (Remote)"
 			start={new Date(2024, 8, 9)}
+  end={new Date(2026, 8, 25)}
 		>
 			<p>Work on Beeline Professional, the Extended Workforce Platform, with my specific area of
 			involvement being the ABAC <span className="abbrev">(Attribute-Based Access Control)</span
