@@ -320,7 +320,6 @@ const TerminalWhoami = () => {
 # ${CONTENT.tagline}
 # ─────────────────────────────
 export ROLE="Senior Software Engineer"
-export CURRENT_COMPANY="Beeline"
 export LOCATION="${CONTENT.location}"
 `}
 			</pre>

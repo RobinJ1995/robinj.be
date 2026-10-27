@@ -70,7 +70,7 @@ export const CONTENT = Object.freeze({
 			type: 'Full-time',
 			location: 'Dublin, Ireland (Remote)',
 			start: 'Sep 2024',
-			end: 'Present',
+			end: 'Sep 2026',
 			description: `Work on Beeline Professional, the Extended Workforce Platform, with my specific area of
 				involvement being the ABAC (Attribute-Based Access Control) solution.
 
