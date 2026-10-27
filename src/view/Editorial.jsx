@@ -181,12 +181,7 @@ const EdWorkRow = ({item, last}) => (
 				<span style={{width: 3, height: 3, borderRadius: '50%', background: 'var(--ed-dim)'}} />
 				<span>{item.type}</span>
 			</div>
-			<p style={{margin: '12px 0 0', fontSize: 14.5, lineHeight: 1.55}}>{item.summary}</p>
-			{item.bullets && (
-				<ul style={{margin: '10px 0 0', paddingLeft: 16, color: 'var(--ed-dim)', fontSize: 13.5, lineHeight: 1.6}}>
-					{item.bullets.map((b, i) => <li key={i}>{b}</li>)}
-				</ul>
-			)}
+			<Prose markdown={item.description} />
 			{item.tech && <TechChips tech={item.tech} />}
 		</div>
 	</div>
