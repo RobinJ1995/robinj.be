@@ -166,11 +166,7 @@ const EdWorkRow = ({item, last}) => (
 		<div>
 			<div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'}}>
 				<div style={{fontFamily: SERIF, fontSize: 22, lineHeight: 1.2}}>
-					{item.title}{item.promoted && <span style={{
-						fontFamily: MONO, fontSize: 10, color: 'var(--ed-accent)', marginLeft: 10,
-						padding: '2px 6px', border: '1px solid var(--ed-accent)', borderRadius: 999,
-						letterSpacing: '0.08em', textTransform: 'uppercase', verticalAlign: 'middle',
-					}}>promoted</span>}
+					{item.title}
 				</div>
 				<div style={{fontSize: 12, color: 'var(--ed-dim)'}}>{item.location}</div>
 			</div>

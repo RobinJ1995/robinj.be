@@ -342,7 +342,7 @@ const TerminalCV = () => {
 	CONTENT.work.forEach(w => {
 		lines.push('');
 		lines.push(<>{Sub('###')} {w.title} {Com('@')} <b>{w.company}</b> {Tag(`[${w.start} → ${w.end}]`)}</>);
-		lines.push(<>{Com(`  ${w.location} · ${w.type}${w.promoted ? ' · promoted' : ''}`)}</>);
+		lines.push(<>{Com(`  ${w.location} · ${w.type}`)}</>);
 		markdownBody(w.description).forEach(line => lines.push(line));
 		if (w.tech) {
 			lines.push(<>  {Tag('tech:')} {w.tech.map((t, i) => <React.Fragment key={i}>{i ? ', ' : ''}{Str(`"${t}"`)}</React.Fragment>)}</>);

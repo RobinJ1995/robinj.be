@@ -44,7 +44,6 @@ export default [
 		location: 'Dublin, Ireland',
 		start: 'Jul 2017',
 		end: 'Feb 2022',
-		promoted: true,
 		description: `During my time at Rapid7, I have worked extensive on the company's log search
 			product (InsightOps), including the log search engine, alerting, REST APIs and
 			integrations with several AWS services.
