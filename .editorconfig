@@ -1,8 +1,21 @@
-[*]
-insert_final_newline = true
+root = true
 
-[*.{js,css,scss}]
+[*]
 charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{js,jsx,css,scss}]
 indent_style = tab
 indent_size = 4
-max_line_length = 100
+
+[*.{json,yml,yaml,html,conf}]
+indent_style = space
+indent_size = 2
+
+[*.svg]
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
