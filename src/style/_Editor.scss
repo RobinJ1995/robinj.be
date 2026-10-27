@@ -46,13 +46,69 @@
 	}
 }
 
-@media (max-width: 720px) {
-	.editor {
-		overflow-x: auto;
+// Phones (and narrow windows): the file list becomes a strip of tabs above the
+// file, in place of the sidebar and the tab bar.
+@container window (max-width: 720px) {
+	.editor-chrome-side {
+		width: 40px !important;
+	}
 
-		aside {
-			width: 168px !important;
+	.editor-title {
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	.editor-body {
+		flex-direction: column !important;
+	}
+
+	.editor-sidebar {
+		width: 100% !important;
+		padding: 0 !important;
+		border-right: none !important;
+		border-bottom: 1px solid var(--editor-rule);
+	}
+
+	.editor-sidebar-extra,
+	.editor-tabs,
+	.editor-status-extra {
+		display: none !important;
+	}
+
+	.editor-files {
+		flex-direction: row !important;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.editor .editor-file {
+		flex-shrink: 0;
+		gap: 8px !important;
+		padding: 10px 12px !important;
+		border-left: none !important;
+		white-space: nowrap;
+
+		&[aria-current='page'] {
+			box-shadow: inset 0 -2px var(--editor-accent);
 		}
 	}
-}
 
+	.editor-gutter {
+		min-width: 24px !important;
+		margin-right: 10px !important;
+		padding-right: 8px !important;
+	}
+
+	.editor-line {
+		padding-right: 12px !important;
+	}
+
+	.editor-whoami {
+		padding: 18px 16px !important;
+	}
+
+	.editor-statusbar {
+		padding: 0 10px !important;
+	}
+}

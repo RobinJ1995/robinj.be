@@ -91,9 +91,9 @@ const EditorApp = ({page, onNavigate, onToggleView, onClose = null}) => {
 			color: 'var(--editor-text)', fontSize: 13.5, display: 'flex', flexDirection: 'column',
 		}}>
 			<EditorChrome page={page} onToggleView={onToggleView} onClose={onClose} />
-			<div style={{flex: 1, display: 'flex', minHeight: 0}}>
+			<div className="editor-body" style={{flex: 1, display: 'flex', minHeight: 0}}>
 				<EditorSidebar page={file} git={git} onOpen={openFile} />
-				<div style={{flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0}}>
+				<div style={{flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0}}>
 					<EditorTabs tabs={tabs} page={file} onNavigate={onNavigate} onCloseTab={closeTab} />
 					<div style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
 						{file === 'whoami' && <EditorWhoami />}
@@ -128,7 +128,7 @@ const EditorChrome = ({page, onToggleView, onClose}) => {
 			height: 38, background: 'var(--editor-chrome)', borderBottom: '1px solid var(--editor-rule)',
 			display: 'flex', alignItems: 'center', padding: '0 10px 0 14px', gap: 14, flexShrink: 0,
 		}}>
-			<div style={{width: 150, display: 'flex'}}>
+			<div className="editor-chrome-side" style={{width: 150, display: 'flex'}}>
 				<a href={renderedHref} onClick={onToggleView} title="Run" aria-label="Run" className="editor-run">
 					<RunIcon />
 				</a>
@@ -136,7 +136,7 @@ const EditorChrome = ({page, onToggleView, onClose}) => {
 			<div className="editor-title" style={{flex: 1, textAlign: 'center', color: 'var(--editor-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
 				~/portfolio
 			</div>
-			<div style={{display: 'flex', width: 150, justifyContent: 'flex-end'}}>
+			<div className="editor-chrome-side" style={{display: 'flex', width: 150, justifyContent: 'flex-end'}}>
 				<a href={renderedHref} onClick={close}
 					title="Close" aria-label="Close the source view" className="editor-close"
 					style={{
@@ -213,13 +213,25 @@ const useGitStats = () => {
 };
 
 const EditorSidebar = ({page, git, onOpen}) => {
+	const filesRef = useRef(null);
+
+	// On a phone the file list is a strip that scrolls sideways: keep the open file in view.
+	useEffect(() => {
+		const files = filesRef.current;
+		const active = files?.querySelector('[aria-current]');
+		if (active && files.scrollWidth > files.clientWidth) {
+			const offset = active.getBoundingClientRect().left - files.getBoundingClientRect().left;
+			files.scrollLeft += offset - (files.clientWidth - active.offsetWidth) / 2;
+		}
+	}, [page]);
+
 	return (
-		<aside style={{
+		<aside className="editor-sidebar" style={{
 			width: 260, flexShrink: 0, background: 'var(--editor-sidebar)',
 			borderRight: '1px solid var(--editor-rule)', padding: '18px 0',
 			display: 'flex', flexDirection: 'column',
 		}}>
-			<div style={{padding: '0 18px 14px', display: 'flex', alignItems: 'center', gap: 12}}>
+			<div className="editor-sidebar-extra" style={{padding: '0 18px 14px', display: 'flex', alignItems: 'center', gap: 12}}>
 				<div style={{width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--editor-rule)'}}>
 					<img src="/img/me.webp" alt={CONTENT.name} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
 				</div>
@@ -229,14 +241,14 @@ const EditorSidebar = ({page, git, onOpen}) => {
 				</div>
 			</div>
 
-			<div style={{
+			<div className="editor-sidebar-extra" style={{
 				padding: '6px 18px', color: 'var(--editor-dim)', fontSize: 10, letterSpacing: '0.1em',
 				textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6,
 			}}>
 				<span>▾</span><span>portfolio</span>
 			</div>
 
-			<nav style={{display: 'flex', flexDirection: 'column'}}>
+			<nav ref={filesRef} className="editor-files" style={{display: 'flex', flexDirection: 'column'}}>
 				{FILES.map(f => {
 					const active = page === f.id;
 					return (
@@ -258,7 +270,7 @@ const EditorSidebar = ({page, git, onOpen}) => {
 				})}
 			</nav>
 
-			<div style={{marginTop: 18, padding: '0 18px'}}>
+			<div className="editor-sidebar-extra" style={{marginTop: 18, padding: '0 18px'}}>
 				<div style={{color: 'var(--editor-dim)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8}}>▾ git</div>
 				<div style={{fontSize: 11.5, color: 'var(--editor-dim)', lineHeight: 1.6, paddingLeft: 14}}>
 					<div><span style={{color: 'var(--editor-accent)'}}>●</span> branch: <span style={{color: 'var(--editor-text)'}}>{git.branch}</span></div>
@@ -267,7 +279,7 @@ const EditorSidebar = ({page, git, onOpen}) => {
 				</div>
 			</div>
 
-			<div style={{marginTop: 'auto', padding: '14px 18px', borderTop: '1px solid var(--editor-rule)', fontSize: 11, color: 'var(--editor-dim)', lineHeight: 1.6}}>
+			<div className="editor-sidebar-extra" style={{marginTop: 'auto', padding: '14px 18px', borderTop: '1px solid var(--editor-rule)', fontSize: 11, color: 'var(--editor-dim)', lineHeight: 1.6}}>
 				<div><EmailAddress>{CONTENT.email}</EmailAddress></div>
 				<div>{CONTENT.github}</div>
 			</div>
@@ -276,7 +288,7 @@ const EditorSidebar = ({page, git, onOpen}) => {
 };
 
 const EditorTabs = ({tabs, page, onNavigate, onCloseTab}) => (
-	<div style={{
+	<div className="editor-tabs" style={{
 		display: 'flex', borderBottom: '1px solid var(--editor-rule)', background: 'var(--editor-chrome)',
 		flexShrink: 0, paddingTop: 4, paddingLeft: 4, minHeight: 38,
 	}}>
@@ -314,15 +326,15 @@ const EditorTabs = ({tabs, page, onNavigate, onCloseTab}) => (
 const EditorStatusbar = ({page, git}) => {
 	const f = FILES.find(x => x.id === page);
 	return (
-		<div style={{
+		<div className="editor-statusbar" style={{
 			height: 24, flexShrink: 0, background: 'var(--editor-statusbar-bg)',
 			borderTop: '1px solid var(--editor-rule)', display: 'flex', alignItems: 'center',
 			padding: '0 14px', fontSize: 11, color: 'var(--editor-dim)', gap: 16,
 		}}>
 			<span><span style={{color: 'var(--editor-accent)'}}>●</span> ready</span>
-			<span>{git.branch}</span>
-			<span>UTF-8</span>
-			<span>LF</span>
+			<span className="editor-status-extra">{git.branch}</span>
+			<span className="editor-status-extra">UTF-8</span>
+			<span className="editor-status-extra">LF</span>
 			<span>{kindLang(f?.kind)}</span>
 			<span style={{marginLeft: 'auto'}}>Robin Jacobs · {git.head ?? '…'}</span>
 		</div>
@@ -343,13 +355,13 @@ const CodePane = ({name, lines}) => {
 				const hang = obj ? l.hang : 0;
 				return (
 					<div key={i} style={{display: 'flex', alignItems: 'flex-start'}}>
-						<div contentEditable={false} style={{
+						<div contentEditable={false} className="editor-gutter" style={{
 							color: 'var(--editor-com)', textAlign: 'right', userSelect: 'none', cursor: 'default',
 							paddingRight: 14, marginRight: 18, minWidth: 36, flexShrink: 0,
 							borderRight: '1px solid var(--editor-rule)', alignSelf: 'stretch',
 							fontSize: 11.5, fontVariantNumeric: 'tabular-nums',
 						}}>{i + 1}</div>
-						<div style={{
+						<div className="editor-line" style={{
 							flex: 1, paddingRight: 32, minWidth: 0,
 							whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
 							paddingLeft: hang ? `${hang}ch` : 0,
@@ -379,7 +391,7 @@ const EditorWhoami = () => {
 		</span>
 	);
 	return (
-		<div key={version} {...text} style={{height: '100%', overflowY: 'auto', background: 'var(--editor-surface)', padding: '24px 28px', lineHeight: 1.7}}>
+		<div key={version} {...text} className={`${text.className} editor-whoami`} style={{height: '100%', overflowY: 'auto', background: 'var(--editor-surface)', padding: '24px 28px', lineHeight: 1.7}}>
 			<div>{prompt}<span>whoami</span></div>
 			<div style={{color: 'var(--editor-text)', marginBottom: 14}}>{CONTENT.name}</div>
 

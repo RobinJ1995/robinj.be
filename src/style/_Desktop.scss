@@ -118,6 +118,12 @@ $restyle-transitions: ();
 	height: 100%;
 }
 
+// The website and editor are laid out by the width of their window (on a phone,
+// the screen): see the @container rules in _Editorial.scss and _Editor.scss.
+.dt-window-content {
+	container: window / inline-size;
+}
+
 .dt-wallpaper,
 .dt-workspace-peek,
 .dt-topbar,
@@ -743,6 +749,14 @@ $restyle-transitions: ();
 		main {
 			overflow-x: hidden !important;
 			overflow-y: auto !important;
+		}
+	}
+
+	// In a narrow window the sidebar is a header, above the scrolling page.
+	@container window (max-width: 900px) {
+		.dt-window-content > .editorial .ed-sidebar {
+			flex-shrink: 0;
+			height: auto !important;
 		}
 	}
 
