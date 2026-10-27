@@ -44,6 +44,10 @@ export const PAGES = Object.freeze({
 
 export const ROBIN_AT_ROBINJ_DOT_BE = 'robin@robinj.be';
 
+const UNIX_EPOCH = new Date(0);
+export const YEARS_IN_IRELAND = new Date(new Date() - new Date(2015, 8, 1))
+	.getUTCFullYear() - UNIX_EPOCH.getUTCFullYear();
+
 // Single source of truth for the site's content. Both the editorial and the
 // terminal/IDE views are driven from this object.
 export const CONTENT = Object.freeze({
@@ -243,20 +247,91 @@ export const CONTENT = Object.freeze({
 	],
 
 	volunteering: [
-		{title: 'System admin & developer', org: 'Student Information Network (SIN)', location: 'Geel, Belgium', start: 'Sep 2013', end: 'Aug 2016'},
-		{title: 'Coach', org: 'CoderDojo Belgium', location: 'Geel, Belgium', start: 'Jan 2015', end: 'Jun 2016'},
-		{title: 'Mentor', org: 'CoderDojo Letterkenny', location: 'Letterkenny, Ireland', start: 'Sep 2015', end: 'Feb 2016'},
-		{title: 'Mentor', org: 'Teen-Turn', location: 'Dublin, Ireland', start: 'Sep 2019', end: 'Dec 2019', note: 'Winner — EU Digital Impact Organisation of the Year.'},
+		{
+			title: 'Mentor',
+			org: 'Teen-Turn',
+			logo: '/img/experience/teen-turn.webp',
+			location: 'Dublin, Ireland',
+			start: 'Sep 2019',
+			end: 'Dec 2019',
+			description: `Teen-Turn aims to provide teen girls the opportunity to gain hands-on technology
+				experience so that they can visualise themselves in those kinds of careers and
+				therefore make third level course choices accordingly.
+
+				Winner *EU Digital Impact Organisation of the Year*`,
+		},
+		{
+			title: 'Mentor',
+			org: 'CoderDojo Letterkenny',
+			logo: '/img/experience/coderdojo.webp',
+			location: 'Letterkenny, Ireland',
+			start: 'Sep 2015',
+			end: 'Feb 2016',
+			description: `Guiding children between the ages of 7 and 18 years old in learning basic programming
+				principles in a playful environment.
+
+				This CoderDojo mainly focused on teaching kids basic programming logic with
+				Scratch.`,
+		},
+		{
+			title: 'Coach',
+			org: 'CoderDojo Belgium',
+			logo: '/img/experience/coderdojo.webp',
+			location: 'Geel, Belgium',
+			start: 'Jan 2015',
+			end: 'Jun 2016',
+			description: `Guiding children between the ages of 7 and 18 years old in learning basic programming
+				principles in a playful environment.
+
+				The CoderDojo for which I volunteered offered a multitude of trajectories for the
+				kids to follow, including Scratch, Python, Arduino, HTML/CSS and C#.`,
+		},
+		{
+			title: 'System administrator & developer',
+			org: 'Student Information Network (SIN)',
+			logo: '/img/experience/sin.webp',
+			location: 'Geel, Belgium',
+			start: 'Sep 2013',
+			end: 'Aug 2016',
+			description: `Volunteering as a system administrator and web developer for a student organisation
+				offering web hosting, tech support, and other web services (including cloud storage)
+				to students of the college.
+
+				Because of my volunteering I learnt a lot about Linux system administration and
+				virtualisation as well as gained more experience in PHP development and integration
+				with other services.`,
+		},
 	],
 
 	education: [
-		{degree: 'BSc Applied Computing', school: 'Letterkenny Institute of Technology', location: 'Letterkenny, Ireland', start: '2015', end: '2016', note: 'A "semester" abroad that has now lasted a decade.'},
-		{degree: 'BSc Applied Computer Science', school: 'Thomas More University', location: 'Geel, Belgium', start: '2013', end: '2016'},
-		{degree: 'Industrial Sciences & Applied Computing', school: 'SO-Zenit', location: 'Turnhout, Belgium', start: '2007', end: '2013'},
+		{
+			degree: 'Applied Computing',
+			school: 'Letterkenny Institute of Technology',
+			location: 'Letterkenny, Ireland',
+			start: 'Sep 2015',
+			end: 'Feb 2016',
+			description: `- 4th year Honours Degree Applied Computing
+				- Special Purpose Award in Social/Civic Engagement`,
+		},
+		{
+			degree: 'Applied Computer Science',
+			school: 'Thomas More University of Applied Sciences',
+			location: 'Geel, Belgium',
+			start: 'Sep 2013',
+			end: 'Jun 2016',
+			description: 'Bachelor Applied Computer Science ending with a year abroad at Letterkenny Institute of Technology and an internship at CloudRanger (Druva).',
+		},
+		{
+			degree: 'Industrial Sciences & Applied Computing',
+			school: 'SO-Zenit',
+			location: 'Turnhout, Belgium',
+			start: 'Sep 2007',
+			end: 'Jun 2013'
+		},
 	],
 
 	languages: [
-		{name: 'Dutch', level: 'Native'},
+		{name: 'Dutch', level: 'Native speaker'},
 		{name: 'English', level: 'Bilingual proficiency · CEFR C2'},
 		{name: 'French', level: 'Notions'},
 	],

@@ -341,13 +341,13 @@ export LOCATION="${CONTENT.location}"
 	);
 };
 
-// cv.md is itself Markdown, so a work description prints as written: one
-// logical line per paragraph or bullet, with a blank line between blocks.
-const markdownBody = markdown => parseMarkdown(markdown).flatMap((block, i) => [
+// cv.md is itself Markdown, so a description prints as written: one logical
+// line per paragraph or bullet, with a blank line between blocks.
+const markdownBody = (markdown, hang = 2) => parseMarkdown(markdown).flatMap((block, i) => [
 	...(i ? [''] : []),
 	...(block.type === 'ul'
-		? block.items.map(item => ({hang: 2, node: <>{H('-')} {inlineToText(item)}</>}))
-		: [{hang: 2, node: <>{inlineToText(block.inline)}</>}]),
+		? block.items.map(item => ({hang, node: <>{H('-')} {inlineToText(item)}</>}))
+		: [{hang, node: <>{inlineToText(block.inline)}</>}]),
 ]);
 
 const TerminalCV = () => {
@@ -370,18 +370,17 @@ const TerminalCV = () => {
 	CONTENT.education.forEach(e => {
 		lines.push('');
 		lines.push(<>{Sub('###')} {e.degree} {Com('@')} <b>{e.school}</b> {Tag(`[${e.start} → ${e.end}]`)}</>);
-		lines.push(<>{Com(`  ${e.location}${e.note ? ` // ${e.note}` : ''}`)}</>);
+		lines.push(<>{Com(`  ${e.location}`)}</>);
+		markdownBody(e.description).forEach(line => lines.push(line));
 	});
 	lines.push('');
 	lines.push(<>{H('##')} Volunteering</>);
 	CONTENT.volunteering.forEach(v => {
 		lines.push(<>  {H('-')} <b>{v.title}</b> {Com('@')} {v.org} {Tag(`[${v.start} → ${v.end}]`)} {Com(v.location)}</>);
-		if (v.note) {
-			lines.push(<>     {Str(`"${v.note}"`)}</>);
-		}
+		markdownBody(v.description, 4).forEach(line => lines.push(line));
 	});
 	lines.push('');
-	lines.push(<>{H('##')} Languages</>);
+	lines.push(<>{H('##')} (Non-Programming) Languages</>);
 	CONTENT.languages.forEach(l => {
 		lines.push(<>  {H('-')} <b>{l.name}</b>: {l.level}</>);
 	});

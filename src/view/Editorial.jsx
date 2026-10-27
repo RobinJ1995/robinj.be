@@ -158,13 +158,14 @@ const EdWorkRow = ({item, last}) => (
 			<div style={{color: item.end === 'Present' ? 'var(--ed-accent)' : 'var(--ed-dim)'}}>↓</div>
 			<div>{item.end}</div>
 		</div>
-		<div style={{
+		{/* Without a logo the slot stays empty, so the text lines up with the rows that have one. */}
+		{item.logo ? <div style={{
 			width: 56, height: 56, borderRadius: 10, overflow: 'hidden',
 			background: 'var(--ed-surface)', border: '1px solid var(--ed-rule)',
 			display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8,
 		}}>
 			<img src={item.logo} alt={item.company} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block'}} />
-		</div>
+		</div> : <div />}
 		<div>
 			<div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'}}>
 				<div style={{fontFamily: SERIF, fontSize: 22, lineHeight: 1.2}}>
@@ -178,8 +179,10 @@ const EdWorkRow = ({item, last}) => (
 			</div>
 			<div style={{fontSize: 14, color: 'var(--ed-dim)', marginTop: 2, display: 'flex', gap: 10, alignItems: 'baseline'}}>
 				<span style={{color: 'var(--ed-text)'}}>{item.company}</span>
-				<span style={{width: 3, height: 3, borderRadius: '50%', background: 'var(--ed-dim)'}} />
-				<span>{item.type}</span>
+				{item.type && <>
+					<span style={{width: 3, height: 3, borderRadius: '50%', background: 'var(--ed-dim)'}} />
+					<span>{item.type}</span>
+				</>}
 			</div>
 			<Prose markdown={item.description} />
 			{item.tech && <TechChips tech={item.tech} />}
@@ -219,40 +222,37 @@ const EdCV = ({toggle}) => (
 					borderBottom: i === CONTENT.education.length - 1 ? '1px solid var(--ed-rule)' : 'none',
 					alignItems: 'baseline',
 				}}>
-					<div style={{fontFamily: MONO, fontSize: 12, color: 'var(--ed-dim)', fontVariantNumeric: 'tabular-nums'}}>{e.start}–{e.end}</div>
+					<div style={{fontFamily: MONO, fontSize: 12, color: 'var(--ed-dim)', fontVariantNumeric: 'tabular-nums'}}>
+						<div>{e.start}</div>
+						<div>↓</div>
+						<div>{e.end}</div>
+					</div>
 					<div>
 						<div style={{fontFamily: SERIF, fontSize: 20, lineHeight: 1.2}}>{e.degree}</div>
 						<div style={{fontSize: 13, color: 'var(--ed-dim)', marginTop: 4}}>
-							{e.school} · {e.location}{e.note ? ` — ${e.note}` : ''}
+							{e.school} · {e.location}
 						</div>
+						<Prose markdown={e.description} />
 					</div>
 				</div>
 			))}
 		</section>
 
-		<section style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56}}>
-			<div>
-				<SectionHead title="Volunteering" />
-				{CONTENT.volunteering.map((v, i) => (
-					<div key={i} style={{padding: '14px 0', borderTop: '1px solid var(--ed-rule)'}}>
-						<div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12}}>
-							<div style={{fontSize: 15, fontWeight: 500}}>{v.title}</div>
-							<div style={{fontFamily: MONO, fontSize: 11, color: 'var(--ed-dim)', fontVariantNumeric: 'tabular-nums', flexShrink: 0}}>{v.start}</div>
-						</div>
-						<div style={{fontSize: 13, color: 'var(--ed-dim)', marginTop: 2}}>{v.org} · {v.location}</div>
-						{v.note && <div style={{fontSize: 12, color: 'var(--ed-accent)', marginTop: 4, fontStyle: 'italic'}}>{v.note}</div>}
-					</div>
-				))}
+		<section>
+			<SectionHead title="Volunteering" />
+			<div style={{display: 'flex', flexDirection: 'column'}}>
+				{CONTENT.volunteering.map((v, i) => <EdWorkRow key={i} item={{...v, company: v.org}} last={i === CONTENT.volunteering.length - 1} />)}
 			</div>
-			<div>
-				<SectionHead title="Languages" />
-				{CONTENT.languages.map((l, i) => (
-					<div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '16px 0', borderTop: '1px solid var(--ed-rule)'}}>
-						<div style={{fontFamily: SERIF, fontSize: 22}}>{l.name}</div>
-						<div style={{fontSize: 12, color: 'var(--ed-dim)', textAlign: 'right'}}>{l.level}</div>
-					</div>
-				))}
-			</div>
+		</section>
+
+		<section>
+			<SectionHead title="(Non-Programming) Languages" />
+			{CONTENT.languages.map((l, i) => (
+				<div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '16px 0', borderTop: '1px solid var(--ed-rule)'}}>
+					<div style={{fontFamily: SERIF, fontSize: 22}}>{l.name}</div>
+					<div style={{fontSize: 12, color: 'var(--ed-dim)', textAlign: 'right'}}>{l.level}</div>
+				</div>
+			))}
 		</section>
 	</div>
 );
