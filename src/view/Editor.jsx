@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {CONTENT} from '../content';
 import {parseMarkdown, inlineToText} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
@@ -13,11 +13,50 @@ const FILES = [
 // Decorative user@host; EmailAddress keeps it out of the static HTML.
 const Host = () => <EmailAddress asText>{CONTENT.email}</EmailAddress>;
 
+const RunIcon = () => (
+	<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+		<path d="M4 2.6v10.8a.9.9 0 0 0 1.37.77l8.6-5.4a.9.9 0 0 0 0-1.54l-8.6-5.4A.9.9 0 0 0 4 2.6z" fill="currentColor" />
+	</svg>
+);
+
+// A caret that moves around (mouse, arrow keys) while nothing changes: like the
+// rest of the system, the files are read-only. Input can be cancelled, except
+// an IME's; after one, the view is rebuilt (`key`) as it was.
+const useReadOnlyText = label => {
+	const ref = useRef(null);
+	const [version, setVersion] = useState(0);
+
+	useEffect(() => {
+		const el = ref.current;
+		const refuse = e => e.preventDefault();
+		const restore = () => setVersion(v => v + 1);
+		el.addEventListener('beforeinput', refuse);
+		el.addEventListener('compositionend', restore);
+
+		return () => {
+			el.removeEventListener('beforeinput', refuse);
+			el.removeEventListener('compositionend', restore);
+		};
+	}, [version]);
+
+	return [version, {
+		ref,
+		className: 'editor-text',
+		contentEditable: true,
+		suppressContentEditableWarning: true,
+		spellCheck: false,
+		role: 'textbox',
+		'aria-label': label,
+		'aria-multiline': true,
+		'aria-readonly': true,
+	}];
+};
+
 const kindGlyph = k => ({md: 'M', json: '{}', yml: 'Y', txt: 'T'}[k] || '·');
-const kindColor = k => ({md: 'var(--tm-accent2)', json: 'var(--tm-num)', yml: 'var(--tm-str)', txt: 'var(--tm-dim)'}[k] || 'var(--tm-dim)');
+const kindColor = k => ({md: 'var(--editor-accent2)', json: 'var(--editor-num)', yml: 'var(--editor-str)', txt: 'var(--editor-dim)'}[k] || 'var(--editor-dim)');
 const kindLang = k => ({md: 'Markdown', json: 'JSON', yml: 'YAML', txt: 'Plain Text'}[k] || '');
 
-const TerminalApp = ({page, onNavigate, onToggleView, onClose = null}) => {
+const EditorApp = ({page, onNavigate, onToggleView, onClose = null}) => {
 	const git = useGitStats();
 	// A tab for each file viewed in this editor; closing one doesn't change the page.
 	const [tabs, setTabs] = useState([page]);
@@ -46,36 +85,36 @@ const TerminalApp = ({page, onNavigate, onToggleView, onClose = null}) => {
 	};
 
 	return (
-		<div className="terminal" style={{
-			width: '100%', height: '100%', background: 'var(--tm-bg)',
-			fontFamily: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
-			color: 'var(--tm-text)', fontSize: 13.5, display: 'flex', flexDirection: 'column',
+		<div className="editor" style={{
+			width: '100%', height: '100%', background: 'var(--editor-bg)',
+			fontFamily: 'var(--editor-font)',
+			color: 'var(--editor-text)', fontSize: 13.5, display: 'flex', flexDirection: 'column',
 		}}>
-			<TerminalChrome page={page} onToggleView={onToggleView} onClose={onClose} />
+			<EditorChrome page={page} onToggleView={onToggleView} onClose={onClose} />
 			<div style={{flex: 1, display: 'flex', minHeight: 0}}>
-				<TerminalSidebar page={file} git={git} onOpen={openFile} />
+				<EditorSidebar page={file} git={git} onOpen={openFile} />
 				<div style={{flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0}}>
-					<TerminalTabs tabs={tabs} page={file} onNavigate={onNavigate} onCloseTab={closeTab} />
+					<EditorTabs tabs={tabs} page={file} onNavigate={onNavigate} onCloseTab={closeTab} />
 					<div style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
-						{file === 'whoami' && <TerminalWhoami />}
-						{file === 'cv' && <TerminalCV />}
-						{file === 'side-quests' && <TerminalProjects />}
-						{file === 'contact' && <TerminalContact />}
+						{file === 'whoami' && <EditorWhoami />}
+						{file === 'cv' && <EditorCV />}
+						{file === 'side-quests' && <EditorProjects />}
+						{file === 'contact' && <EditorContact />}
 						{file === null && (
 							<div style={{
 								height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-								background: 'var(--tm-surface)', color: 'var(--tm-dim)', fontSize: 13,
+								background: 'var(--editor-surface)', color: 'var(--editor-dim)', fontSize: 13,
 							}}>No open files</div>
 						)}
 					</div>
-					<TerminalStatusbar page={file} git={git} />
+					<EditorStatusbar page={file} git={git} />
 				</div>
 			</div>
 		</div>
 	);
 };
 
-const TerminalChrome = ({page, onToggleView, onClose}) => {
+const EditorChrome = ({page, onToggleView, onClose}) => {
 	const renderedHref = `/${page}`;
 	const close = onClose
 		? e => {
@@ -85,30 +124,24 @@ const TerminalChrome = ({page, onToggleView, onClose}) => {
 		: onToggleView;
 
 	return (
-		<div className="tm-chrome" style={{
-			height: 38, background: 'var(--tm-chrome)', borderBottom: '1px solid var(--tm-rule)',
+		<div className="editor-chrome" style={{
+			height: 38, background: 'var(--editor-chrome)', borderBottom: '1px solid var(--editor-rule)',
 			display: 'flex', alignItems: 'center', padding: '0 10px 0 14px', gap: 14, flexShrink: 0,
 		}}>
 			<div style={{width: 150, display: 'flex'}}>
-				<a href={renderedHref} onClick={onToggleView}
-					title="View rendered site" className="tm-toggle"
-					style={{
-						display: 'flex', alignItems: 'center', gap: 7, padding: '4px 10px', borderRadius: 6,
-						border: '1px solid var(--tm-rule)', background: 'var(--tm-toggle-bg)',
-						color: 'var(--tm-dim)', fontSize: 11, textDecoration: 'none',
-					}}>
-					<span style={{color: 'var(--tm-accent)'}}>▤</span> rendered
+				<a href={renderedHref} onClick={onToggleView} title="Run" aria-label="Run" className="editor-run">
+					<RunIcon />
 				</a>
 			</div>
-			<div className="tm-title" style={{flex: 1, textAlign: 'center', color: 'var(--tm-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
-				<Host /> — ~/portfolio
+			<div className="editor-title" style={{flex: 1, textAlign: 'center', color: 'var(--editor-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
+				~/portfolio
 			</div>
 			<div style={{display: 'flex', width: 150, justifyContent: 'flex-end'}}>
 				<a href={renderedHref} onClick={close}
-					title="Close" aria-label="Close the source view" className="tm-close"
+					title="Close" aria-label="Close the source view" className="editor-close"
 					style={{
-						width: 26, height: 26, borderRadius: '50%', background: 'var(--tm-close-bg)',
-						color: 'var(--tm-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+						width: 26, height: 26, borderRadius: '50%', background: 'var(--editor-close-bg)',
+						color: 'var(--editor-text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
 					}}>
 					<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
 						<path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -179,25 +212,25 @@ const useGitStats = () => {
 	return stats;
 };
 
-const TerminalSidebar = ({page, git, onOpen}) => {
+const EditorSidebar = ({page, git, onOpen}) => {
 	return (
 		<aside style={{
-			width: 260, flexShrink: 0, background: 'var(--tm-sidebar)',
-			borderRight: '1px solid var(--tm-rule)', padding: '18px 0',
+			width: 260, flexShrink: 0, background: 'var(--editor-sidebar)',
+			borderRight: '1px solid var(--editor-rule)', padding: '18px 0',
 			display: 'flex', flexDirection: 'column',
 		}}>
 			<div style={{padding: '0 18px 14px', display: 'flex', alignItems: 'center', gap: 12}}>
-				<div style={{width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--tm-rule)'}}>
+				<div style={{width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--editor-rule)'}}>
 					<img src="/img/me.webp" alt={CONTENT.name} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
 				</div>
 				<div style={{minWidth: 0}}>
-					<div style={{fontSize: 13, fontWeight: 600, color: 'var(--tm-text)'}}>{CONTENT.name}</div>
-					<div style={{fontSize: 11, color: 'var(--tm-dim)'}}>{CONTENT.location}</div>
+					<div style={{fontSize: 13, fontWeight: 600, color: 'var(--editor-text)'}}>{CONTENT.name}</div>
+					<div style={{fontSize: 11, color: 'var(--editor-dim)'}}>{CONTENT.location}</div>
 				</div>
 			</div>
 
 			<div style={{
-				padding: '6px 18px', color: 'var(--tm-dim)', fontSize: 10, letterSpacing: '0.1em',
+				padding: '6px 18px', color: 'var(--editor-dim)', fontSize: 10, letterSpacing: '0.1em',
 				textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6,
 			}}>
 				<span>▾</span><span>portfolio</span>
@@ -210,12 +243,12 @@ const TerminalSidebar = ({page, git, onOpen}) => {
 						<a key={f.id} href={`/${f.id}/source`} aria-label={f.name}
 							aria-current={active ? 'page' : undefined}
 							onClick={e => onOpen(f.id, e)}
-							className="tm-file"
+							className="editor-file"
 							style={{
 								textAlign: 'left', padding: '7px 18px 7px 32px', fontSize: 13, textDecoration: 'none',
-								color: active ? 'var(--tm-text)' : 'var(--tm-dim)',
-								background: active ? 'var(--tm-surface)' : 'transparent',
-								borderLeft: `2px solid ${active ? 'var(--tm-accent)' : 'transparent'}`,
+								color: active ? 'var(--editor-text)' : 'var(--editor-dim)',
+								background: active ? 'var(--editor-surface)' : 'transparent',
+								borderLeft: `2px solid ${active ? 'var(--editor-accent)' : 'transparent'}`,
 								display: 'flex', alignItems: 'center', gap: 10,
 							}}>
 							<span style={{color: kindColor(f.kind)}}>{kindGlyph(f.kind)}</span>
@@ -226,15 +259,15 @@ const TerminalSidebar = ({page, git, onOpen}) => {
 			</nav>
 
 			<div style={{marginTop: 18, padding: '0 18px'}}>
-				<div style={{color: 'var(--tm-dim)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8}}>▾ git</div>
-				<div style={{fontSize: 11.5, color: 'var(--tm-dim)', lineHeight: 1.6, paddingLeft: 14}}>
-					<div><span style={{color: 'var(--tm-accent)'}}>●</span> branch: <span style={{color: 'var(--tm-text)'}}>{git.branch}</span></div>
-					<div><span style={{color: 'var(--tm-accent2)'}}>●</span> last commit: {git.lastCommit}</div>
-					<div><span style={{color: 'var(--tm-num)'}}>●</span> {git.commitCount != null ? `${git.commitCount} commits` : '… commits'}</div>
+				<div style={{color: 'var(--editor-dim)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8}}>▾ git</div>
+				<div style={{fontSize: 11.5, color: 'var(--editor-dim)', lineHeight: 1.6, paddingLeft: 14}}>
+					<div><span style={{color: 'var(--editor-accent)'}}>●</span> branch: <span style={{color: 'var(--editor-text)'}}>{git.branch}</span></div>
+					<div><span style={{color: 'var(--editor-accent2)'}}>●</span> last commit: {git.lastCommit}</div>
+					<div><span style={{color: 'var(--editor-num)'}}>●</span> {git.commitCount != null ? `${git.commitCount} commits` : '… commits'}</div>
 				</div>
 			</div>
 
-			<div style={{marginTop: 'auto', padding: '14px 18px', borderTop: '1px solid var(--tm-rule)', fontSize: 11, color: 'var(--tm-dim)', lineHeight: 1.6}}>
+			<div style={{marginTop: 'auto', padding: '14px 18px', borderTop: '1px solid var(--editor-rule)', fontSize: 11, color: 'var(--editor-dim)', lineHeight: 1.6}}>
 				<div><EmailAddress>{CONTENT.email}</EmailAddress></div>
 				<div>{CONTENT.github}</div>
 			</div>
@@ -242,22 +275,22 @@ const TerminalSidebar = ({page, git, onOpen}) => {
 	);
 };
 
-const TerminalTabs = ({tabs, page, onNavigate, onCloseTab}) => (
+const EditorTabs = ({tabs, page, onNavigate, onCloseTab}) => (
 	<div style={{
-		display: 'flex', borderBottom: '1px solid var(--tm-rule)', background: 'var(--tm-chrome)',
+		display: 'flex', borderBottom: '1px solid var(--editor-rule)', background: 'var(--editor-chrome)',
 		flexShrink: 0, paddingTop: 4, paddingLeft: 4, minHeight: 38,
 	}}>
 		{tabs.map(id => {
 			const f = FILES.find(x => x.id === id);
 			const active = page === id;
 			return (
-				<div key={id} className="tm-tab" style={{
+				<div key={id} className="editor-tab" style={{
 					fontSize: 12,
-					color: active ? 'var(--tm-text)' : 'var(--tm-dim)',
-					background: active ? 'var(--tm-surface)' : 'transparent',
-					borderTop: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
-					borderLeft: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
-					borderRight: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
+					color: active ? 'var(--editor-text)' : 'var(--editor-dim)',
+					background: active ? 'var(--editor-surface)' : 'transparent',
+					borderTop: `1px solid ${active ? 'var(--editor-rule)' : 'transparent'}`,
+					borderLeft: `1px solid ${active ? 'var(--editor-rule)' : 'transparent'}`,
+					borderRight: `1px solid ${active ? 'var(--editor-rule)' : 'transparent'}`,
 					borderRadius: '6px 6px 0 0', marginRight: 1, position: 'relative', top: 1,
 					display: 'flex', alignItems: 'center',
 				}}>
@@ -268,9 +301,9 @@ const TerminalTabs = ({tabs, page, onNavigate, onCloseTab}) => (
 						<span style={{color: kindColor(f.kind), fontSize: 10}}>{kindGlyph(f.kind)}</span>
 						{f.name}
 					</a>
-					<button type="button" className="tm-tab-close" aria-label={`Close ${f.name}`} onClick={e => onCloseTab(id, e)} style={{
-						padding: '8px 12px 9px 8px', border: 0, background: 'transparent', cursor: 'pointer',
-						color: 'var(--tm-dim)', fontFamily: 'inherit', fontSize: 14, lineHeight: 1,
+					<button type="button" className="editor-tab-close" aria-label={`Close ${f.name}`} onClick={e => onCloseTab(id, e)} style={{
+						padding: '8px 12px 9px 8px', border: 0, background: 'transparent',
+						color: 'var(--editor-dim)', fontFamily: 'inherit', fontSize: 14, lineHeight: 1,
 					}}>×</button>
 				</div>
 			);
@@ -278,15 +311,15 @@ const TerminalTabs = ({tabs, page, onNavigate, onCloseTab}) => (
 	</div>
 );
 
-const TerminalStatusbar = ({page, git}) => {
+const EditorStatusbar = ({page, git}) => {
 	const f = FILES.find(x => x.id === page);
 	return (
 		<div style={{
-			height: 24, flexShrink: 0, background: 'var(--tm-statusbar-bg)',
-			borderTop: '1px solid var(--tm-rule)', display: 'flex', alignItems: 'center',
-			padding: '0 14px', fontSize: 11, color: 'var(--tm-dim)', gap: 16,
+			height: 24, flexShrink: 0, background: 'var(--editor-statusbar-bg)',
+			borderTop: '1px solid var(--editor-rule)', display: 'flex', alignItems: 'center',
+			padding: '0 14px', fontSize: 11, color: 'var(--editor-dim)', gap: 16,
 		}}>
-			<span><span style={{color: 'var(--tm-accent)'}}>●</span> ready</span>
+			<span><span style={{color: 'var(--editor-accent)'}}>●</span> ready</span>
 			<span>{git.branch}</span>
 			<span>UTF-8</span>
 			<span>LF</span>
@@ -299,54 +332,59 @@ const TerminalStatusbar = ({page, git}) => {
 // ─── Content viewers ─────────────────────────────────────────────────────────
 
 // A line is a node, or {node, hang} to indent it by `hang` columns. One gutter number per line, however it wraps.
-const CodePane = ({lines}) => (
-	<div style={{height: '100%', overflowY: 'auto', background: 'var(--tm-surface)', padding: '18px 0', fontSize: 13, lineHeight: 1.7}}>
-		{lines.map((l, i) => {
-			const obj = l && typeof l === 'object' && 'node' in l;
-			const node = obj ? l.node : l;
-			const hang = obj ? l.hang : 0;
-			return (
-				<div key={i} style={{display: 'flex', alignItems: 'flex-start'}}>
-					<div style={{
-						color: 'var(--tm-com)', textAlign: 'right', userSelect: 'none',
-						paddingRight: 14, marginRight: 18, minWidth: 36, flexShrink: 0,
-						borderRight: '1px solid var(--tm-rule)', alignSelf: 'stretch',
-						fontSize: 11.5, fontVariantNumeric: 'tabular-nums',
-					}}>{i + 1}</div>
-					<div style={{
-						flex: 1, paddingRight: 32, minWidth: 0,
-						whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
-						paddingLeft: hang ? `${hang}ch` : 0,
-					}}>{node === '' ? '​' : node}</div>
-				</div>
-			);
-		})}
-	</div>
-);
+const CodePane = ({name, lines}) => {
+	const [version, text] = useReadOnlyText(name);
 
-const H = s => <span style={{color: 'var(--tm-kw)', fontWeight: 600}}>{s}</span>;
-const Sub = s => <span style={{color: 'var(--tm-accent2)', fontWeight: 600}}>{s}</span>;
-const Str = s => <span style={{color: 'var(--tm-str)'}}>{s}</span>;
-const Com = s => <span style={{color: 'var(--tm-com)', fontStyle: 'italic'}}>{s}</span>;
-const Tag = s => <span style={{color: 'var(--tm-num)'}}>{s}</span>;
-const Key = s => <span style={{color: 'var(--tm-kw)'}}>{s}</span>;
+	return (
+		<div key={version} {...text} style={{height: '100%', overflowY: 'auto', background: 'var(--editor-surface)', padding: '18px 0', fontSize: 13, lineHeight: 1.7}}>
+			{lines.map((l, i) => {
+				const obj = l && typeof l === 'object' && 'node' in l;
+				const node = obj ? l.node : l;
+				const hang = obj ? l.hang : 0;
+				return (
+					<div key={i} style={{display: 'flex', alignItems: 'flex-start'}}>
+						<div contentEditable={false} style={{
+							color: 'var(--editor-com)', textAlign: 'right', userSelect: 'none', cursor: 'default',
+							paddingRight: 14, marginRight: 18, minWidth: 36, flexShrink: 0,
+							borderRight: '1px solid var(--editor-rule)', alignSelf: 'stretch',
+							fontSize: 11.5, fontVariantNumeric: 'tabular-nums',
+						}}>{i + 1}</div>
+						<div style={{
+							flex: 1, paddingRight: 32, minWidth: 0,
+							whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+							paddingLeft: hang ? `${hang}ch` : 0,
+						}}>{node === '' ? '​' : node}</div>
+					</div>
+				);
+			})}
+		</div>
+	);
+};
 
-const TerminalWhoami = () => {
+const H = s => <span style={{color: 'var(--editor-kw)', fontWeight: 600}}>{s}</span>;
+const Sub = s => <span style={{color: 'var(--editor-accent2)', fontWeight: 600}}>{s}</span>;
+const Str = s => <span style={{color: 'var(--editor-str)'}}>{s}</span>;
+const Com = s => <span style={{color: 'var(--editor-com)', fontStyle: 'italic'}}>{s}</span>;
+const Tag = s => <span style={{color: 'var(--editor-num)'}}>{s}</span>;
+const Key = s => <span style={{color: 'var(--editor-kw)'}}>{s}</span>;
+
+const EditorWhoami = () => {
+	const [version, text] = useReadOnlyText('whoami.txt');
 	const prompt = (
 		<span>
-			<span style={{color: 'var(--tm-accent)'}}><Host /></span>
-			<span style={{color: 'var(--tm-dim)'}}>:</span>
-			<span style={{color: 'var(--tm-accent2)'}}>~</span>
-			<span style={{color: 'var(--tm-dim)'}}>$ </span>
+			<span style={{color: 'var(--editor-accent)'}}><Host /></span>
+			<span style={{color: 'var(--editor-dim)'}}>:</span>
+			<span style={{color: 'var(--editor-accent2)'}}>~</span>
+			<span style={{color: 'var(--editor-dim)'}}>$ </span>
 		</span>
 	);
 	return (
-		<div style={{height: '100%', overflowY: 'auto', background: 'var(--tm-surface)', padding: '24px 28px', lineHeight: 1.7}}>
+		<div key={version} {...text} style={{height: '100%', overflowY: 'auto', background: 'var(--editor-surface)', padding: '24px 28px', lineHeight: 1.7}}>
 			<div>{prompt}<span>whoami</span></div>
-			<div style={{color: 'var(--tm-text)', marginBottom: 14}}>{CONTENT.name}</div>
+			<div style={{color: 'var(--editor-text)', marginBottom: 14}}>{CONTENT.name}</div>
 
 			<div>{prompt}<span>cat ~/.profile</span></div>
-			<pre style={{margin: '4px 0 16px', fontFamily: 'inherit', whiteSpace: 'pre-wrap', color: 'var(--tm-text)'}}>
+			<pre style={{margin: '4px 0 16px', fontFamily: 'inherit', whiteSpace: 'pre-wrap', color: 'var(--editor-text)'}}>
 {`# ─────────────────────────────
 # ${CONTENT.name}
 # ${CONTENT.tagline}
@@ -357,17 +395,17 @@ export LOCATION="${CONTENT.location}"
 			</pre>
 
 			<div>{prompt}<span>fortune --about-me</span></div>
-			<div style={{color: 'var(--tm-text)', maxWidth: 700, marginBottom: 6}}>{CONTENT.bio[0]}</div>
-			<div style={{color: 'var(--tm-text)', maxWidth: 700, marginBottom: 18}}>{CONTENT.bio[1]}</div>
+			<div style={{color: 'var(--editor-text)', maxWidth: 700, marginBottom: 6}}>{CONTENT.bio[0]}</div>
+			<div style={{color: 'var(--editor-text)', maxWidth: 700, marginBottom: 18}}>{CONTENT.bio[1]}</div>
 
 			<div>{prompt}<span>ls -la ./contact</span></div>
-			<div style={{margin: '4px 0 16px', color: 'var(--tm-text)', whiteSpace: 'pre-wrap'}}>
+			<div style={{margin: '4px 0 16px', color: 'var(--editor-text)', whiteSpace: 'pre-wrap'}}>
 				<div>-rw-r--r--  robin  e-mail     <EmailAddress>{CONTENT.email}</EmailAddress></div>
 				<div>{`-rw-r--r--  robin  linkedin   ${CONTENT.linkedin}`}</div>
 				<div>{`-rw-r--r--  robin  github     ${CONTENT.github}`}</div>
 			</div>
 
-			<div>{prompt}<span className="tm-cursor">&nbsp;</span></div>
+			<div>{prompt}<span className="editor-cursor">&nbsp;</span></div>
 		</div>
 	);
 };
@@ -380,7 +418,7 @@ const markdownBody = (markdown, hang = 2) => parseMarkdown(markdown).flatMap((bl
 		: [{hang, node: <>{inlineToText(block.inline)}</>}]),
 ]);
 
-const TerminalCV = () => {
+const EditorCV = () => {
 	const lines = [];
 	lines.push(<>{H('#')} CV</>);
 	lines.push(<>{Com('> ' + CONTENT.bio[0])}</>);
@@ -415,7 +453,7 @@ const TerminalCV = () => {
 		lines.push(<>  {H('-')} <b>{l.name}</b>: {l.level}</>);
 	});
 
-	return <CodePane lines={lines} />;
+	return <CodePane name="cv.md" lines={lines} />;
 };
 
 // The description as a YAML folded block (`>`), one line per paragraph or bullet.
@@ -423,13 +461,13 @@ const foldedBlock = markdown => parseMarkdown(markdown).flatMap((block, i) => [
 	...(i ? [''] : []),
 	...(block.type === 'ul'
 		? block.items.map(item => ({
-			hang: 4, node: <span style={{color: 'var(--tm-text)'}}>{`- ${inlineToText(item)}`}</span>,
+			hang: 4, node: <span style={{color: 'var(--editor-text)'}}>{`- ${inlineToText(item)}`}</span>,
 		}))
-		: [{hang: 4, node: <span style={{color: 'var(--tm-text)'}}>{inlineToText(block.inline)}</span>}]),
+		: [{hang: 4, node: <span style={{color: 'var(--editor-text)'}}>{inlineToText(block.inline)}</span>}]),
 ]);
 
-const TerminalProjects = () => {
-	const Dash = <span style={{color: 'var(--tm-dim)'}}>-</span>;
+const EditorProjects = () => {
+	const Dash = <span style={{color: 'var(--editor-dim)'}}>-</span>;
 	const list = items => <>{items.map((t, j) => <React.Fragment key={j}>{j ? ', ' : '['}{Str(t)}</React.Fragment>)}]</>;
 	const lines = [];
 	CONTENT.projects.forEach((p, i) => {
@@ -446,20 +484,20 @@ const TerminalProjects = () => {
 		}
 	});
 
-	return <CodePane lines={lines} />;
+	return <CodePane name="side-quests.yml" lines={lines} />;
 };
 
-const TerminalContact = () => {
+const EditorContact = () => {
 	const lines = [
-		<>{Com('# Hi! The fastest ways to reach me:')}</>,
+		<>{Com('# Hi!')}</>,
 		<>{Key('name')}: {Str(CONTENT.name)}</>,
 		<>{Key('location')}: {Str(CONTENT.location)}</>,
 		<>{Key('channels')}:</>,
-		<>  {Key('- email')}: <span style={{color: 'var(--tm-str)'}}><EmailAddress>{CONTENT.email}</EmailAddress></span></>,
+		<>  {Key('- email')}: <span style={{color: 'var(--editor-str)'}}><EmailAddress>{CONTENT.email}</EmailAddress></span></>,
 		<>  {Key('- linkedin')}: {Str(`https://${CONTENT.linkedin}`)}</>,
 		<>  {Key('- github')}: {Str(`https://${CONTENT.github}`)}</>,
 	];
-	return <CodePane lines={lines} />;
+	return <CodePane name="contact.yml" lines={lines} />;
 };
 
-export default TerminalApp;
+export default EditorApp;

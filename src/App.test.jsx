@@ -59,43 +59,43 @@ describe('routing', () => {
 });
 
 describe('view source toggles between the two designs (requirement 3)', () => {
-	it('renders the terminal/source design for a "/source" route', () => {
+	it('renders the editor/source design for a "/source" route', () => {
 		const {container} = render(<App initialPath="/cv/source" />);
 
-		expect(container.querySelector('.terminal')).not.toBeNull();
+		expect(container.querySelector('.editor')).not.toBeNull();
 		expect(container.querySelector('.editorial')).toBeNull();
 		expect(screen.getAllByText('side-quests.yml').length).toBeGreaterThan(0);
 	});
 
-	it('toggles between the editorial and terminal views via the toggle buttons', () => {
+	it('toggles between the editorial and editor views via the toggle buttons', () => {
 		const {container} = render(<App initialPath="/cv" />);
 		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(container.querySelector('.terminal')).toBeNull();
+		expect(container.querySelector('.editor')).toBeNull();
 
 		fireEvent.click(screen.getByTitle('View source'));
-		expect(container.querySelector('.terminal')).not.toBeNull();
+		expect(container.querySelector('.editor')).not.toBeNull();
 		expect(container.querySelector('.editorial')).toBeNull();
 
-		fireEvent.click(screen.getByTitle('View rendered site'));
+		fireEvent.click(screen.getByRole('link', {name: 'Run'}));
 		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(container.querySelector('.terminal')).toBeNull();
+		expect(container.querySelector('.editor')).toBeNull();
 	});
 
 	it('closes back to the rendered view via the window close button', () => {
 		const {container} = render(<App initialPath="/side-quests/source" />);
-		expect(container.querySelector('.terminal')).not.toBeNull();
+		expect(container.querySelector('.editor')).not.toBeNull();
 
 		fireEvent.click(screen.getByTitle('Close'));
 
 		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(container.querySelector('.terminal')).toBeNull();
+		expect(container.querySelector('.editor')).toBeNull();
 		expect(screen.getByText('Sprint Retrospective')).toBeInTheDocument();
 	});
 
 	it('opens an editor tab per file viewed, and closes them', () => {
 		const pushSpy = vi.spyOn(window.history, 'pushState');
 		const {container} = render(<App initialPath="/cv/source" />);
-		const tabs = () => [...container.querySelectorAll('.tm-tab a')].map(a => a.textContent.trim());
+		const tabs = () => [...container.querySelectorAll('.editor-tab a')].map(a => a.textContent.trim());
 		expect(tabs()).toEqual(['Mcv.md']);
 
 		fireEvent.click(screen.getAllByRole('link', {name: 'contact.yml'})[0]);
@@ -114,9 +114,9 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 
 	it('toggles from whoami\'s source to its rendered page', () => {
 		const {container} = render(<App initialPath="/whoami/source" />);
-		expect(container.querySelector('.terminal')).not.toBeNull();
+		expect(container.querySelector('.editor')).not.toBeNull();
 
-		fireEvent.click(screen.getByTitle('View rendered site'));
+		fireEvent.click(screen.getByRole('link', {name: 'Run'}));
 
 		expect(container.querySelector('.editorial')).not.toBeNull();
 		expect(screen.getByRole('heading', {level: 1, name: 'Robin Jacobs'})).toBeInTheDocument();

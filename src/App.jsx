@@ -2,8 +2,9 @@ import React, {useState, useEffect} from 'react';
 import './style/App.scss';
 import {PAGES} from './constants';
 import EditorialApp from './view/Editorial';
-import TerminalApp from './view/Terminal';
+import EditorApp from './view/Editor';
 import Desktop from './view/Desktop';
+import Console from './view/Console';
 
 // Pure path parsers (no `window`), so they run identically on the server and client.
 const parseViewSource = path => String(path)
@@ -104,9 +105,20 @@ const App = ({initialPath}) => {
 
 	const showWindow = win => navigate(win === 'source' ? `${sourcePage}/source` : page.name);
 
-	const renderWindow = (win, onClose) => (win === 'source'
-		? <TerminalApp page={sourcePage} onNavigate={navigate} onToggleView={toggleViewSource} onClose={onClose} />
-		: <EditorialApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />);
+	const renderWindow = (win, {close, raise, focused, system}) => {
+		if (win === 'console') {
+			const openInEditor = name => {
+				raise('source');
+				navigate(`${name}/source`);
+			};
+
+			return <Console focused={focused} system={system} onClose={close} onOpenFile={openInEditor} />;
+		}
+
+		return win === 'source'
+			? <EditorApp page={sourcePage} onNavigate={navigate} onToggleView={toggleViewSource} onClose={close} />
+			: <EditorialApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />;
+	};
 
 	return (
 		<Desktop

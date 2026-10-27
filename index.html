@@ -16,7 +16,7 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" /></noscript>
     <title>Robin Jacobs</title>
-    <!-- Apply a saved style and accent colour before first paint. -->
+    <!-- Apply a saved style, accent colour and font before first paint. -->
     <script>
       try {
         var theme = localStorage.getItem('theme');
@@ -26,6 +26,9 @@
         var accent = localStorage.getItem('accent');
         if (/^[a-z]+$/.test(accent || '')) {
           document.documentElement.dataset.accent = accent;
+        }
+        if (localStorage.getItem('font') === 'dyslexic') {
+          document.documentElement.dataset.font = 'dyslexic';
         }
       } catch (e) {}
     </script>

@@ -24,7 +24,6 @@ $accents: (
 	--dt-headerbar-dim: rgba(0, 0, 6, .5);
 	--dt-headerbar-shade: rgba(0, 0, 6, .12);
 	--dt-entry: rgba(0, 0, 6, .07);
-	--dt-dialog: #ffffff;
 }
 
 @mixin dark-desktop-tokens {
@@ -34,7 +33,6 @@ $accents: (
 	--dt-headerbar-dim: rgba(255, 255, 255, .55);
 	--dt-headerbar-shade: rgba(0, 0, 6, .36);
 	--dt-entry: rgba(255, 255, 255, .1);
-	--dt-dialog: #36363a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,13 +58,13 @@ $accents: (
 :root[data-accent] {
 	--ed-accent: color-mix(in oklab, var(--dt-accent) 85%, black);
 	--ed-accent-soft: color-mix(in srgb, var(--ed-accent) 12%, transparent);
-	--tm-accent: var(--ed-accent);
+	--editor-accent: var(--ed-accent);
 }
 
 @mixin dark-accent-tokens {
 	--ed-accent: color-mix(in oklab, var(--dt-accent) 60%, white);
 	--ed-accent-soft: color-mix(in srgb, var(--ed-accent) 14%, transparent);
-	--tm-accent: var(--ed-accent);
+	--editor-accent: var(--ed-accent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -85,9 +83,9 @@ $accents: (
 // down nested text, and restart every frame on inline-styled elements.
 $colour-tokens: (
 	ed-bg, ed-surface, ed-text, ed-dim, ed-faint, ed-accent, ed-accent-soft, ed-rule,
-	tm-bg, tm-chrome, tm-surface, tm-sidebar, tm-text, tm-dim, tm-faint, tm-rule, tm-accent, tm-accent2,
-	tm-kw, tm-str, tm-com, tm-num, tm-toggle-bg, tm-close-bg, tm-close-bg-hover, tm-statusbar-bg,
-	dt-accent, dt-dialog, dt-entry, dt-headerbar, dt-headerbar-backdrop, dt-headerbar-dim, dt-headerbar-fg, dt-headerbar-shade,
+	editor-bg, editor-chrome, editor-surface, editor-sidebar, editor-text, editor-dim, editor-faint, editor-rule, editor-accent, editor-accent2,
+	editor-kw, editor-str, editor-com, editor-num, editor-close-bg, editor-close-bg-hover, editor-statusbar-bg,
+	dt-accent, dt-entry, dt-headerbar, dt-headerbar-backdrop, dt-headerbar-dim, dt-headerbar-fg, dt-headerbar-shade,
 );
 $restyle-transitions: ();
 
@@ -112,6 +110,7 @@ $restyle-transitions: ();
 }
 
 .desktop,
+.dt-screen,
 .dt-stage,
 .dt-window,
 .dt-window-frame,
@@ -120,22 +119,17 @@ $restyle-transitions: ();
 }
 
 .dt-wallpaper,
+.dt-workspace-peek,
 .dt-topbar,
 .dt-headerbar,
 .dt-window-activate,
 .dt-dock,
-.dt-dialog {
+.dt-notification {
 	display: none;
 }
 
 .dt-window:not(.is-focused) {
 	display: none;
-}
-
-@keyframes dt-fade {
-	from {
-		opacity: 0;
-	}
 }
 
 @keyframes dt-pop {
@@ -165,34 +159,83 @@ $restyle-transitions: ();
 	}
 }
 
+@keyframes dt-notify {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -16px);
+	}
+}
+
+// GNOME Shell's start-up animation, after logging in.
+@keyframes dt-login {
+	from {
+		opacity: 0;
+		transform: scale(.75);
+	}
+}
+
 @media (min-width: $desktop) {
 	.desktop {
 		--dt-dock-left: 0px;
 		--dt-dock-bottom: 0px;
 
 		position: relative;
-		overflow: hidden;
-		background: #04060f;
+		// Clip rather than hide: a hidden overflow can still be scrolled, e.g. by
+		// focusing the terminal's input, which shifted the whole desktop.
+		overflow: clip;
+		background: #000;
 		font-family: var(--dt-font);
+		cursor: default;
 	}
 
-	// Blurred behind the windows, sharp in Activities. Scaled up so the blur
-	// doesn't pull in a dark edge.
-	.dt-wallpaper {
+	// Everything on screen, so that it can zoom in after booting. Its background is
+	// the shell's own, seen around the workspace in Activities.
+	.dt-screen {
+		position: absolute;
+		inset: 0;
+		background: #222226;
+
+		&.is-starting {
+			animation: dt-login .5s cubic-bezier(.25, .46, .45, .94) both;
+		}
+	}
+
+	// The workspace's wallpaper: blurred behind the windows, scaled up around its
+	// centre so the blur doesn't pull in a dark edge. The --ov-* geometry comes
+	// from workspaceCard() in Desktop.jsx.
+	.dt-wallpaper,
+	.dt-workspace-peek {
 		display: block;
 		position: absolute;
 		inset: 0;
 		background: url('/img/wallpaper.webp') center 70% / cover no-repeat;
+		transform-origin: 0 0;
+		transition: transform .35s cubic-bezier(.25, .46, .45, .94), filter .35s ease, border-radius .35s, box-shadow .35s;
+	}
+
+	.dt-wallpaper {
 		filter: blur(6px);
-		transform: scale(1.04);
-		transition: filter .35s ease;
+		transform: translate(-2%, -2%) scale(1.04);
+	}
+
+	// The next workspace waits off to the right.
+	.dt-workspace-peek {
+		transform: translate(calc(100% + 48px), 0) scale(1);
 	}
 
 	.is-overview .dt-wallpaper {
 		filter: none;
+		transform: translate(var(--ov-x), var(--ov-y)) scale(var(--ov-scale));
+		border-radius: calc(30px / var(--ov-scale));
+		box-shadow: 0 calc(4px / var(--ov-scale)) calc(16px / var(--ov-scale)) calc(4px / var(--ov-scale)) rgba(0, 0, 0, .3);
 	}
 
-	// Top bar: always dark, like GNOME Shell's.
+	.is-overview .dt-workspace-peek {
+		transform: translate(var(--ov-peek-x), var(--ov-peek-y)) scale(var(--ov-peek-scale));
+		border-radius: calc(30px / var(--ov-peek-scale));
+	}
+
+	// Top bar: always dark, like GNOME Shell's; see-through in Activities.
 	.dt-topbar {
 		position: absolute;
 		inset: 0 0 auto;
@@ -206,6 +249,11 @@ $restyle-transitions: ();
 		color: #fff;
 		font-size: 14.5px;
 		font-weight: 700;
+		transition: background .35s;
+	}
+
+	.is-overview .dt-topbar {
+		background: transparent;
 	}
 
 	.dt-panel-button {
@@ -219,7 +267,6 @@ $restyle-transitions: ();
 		background: transparent;
 		color: inherit;
 		font: inherit;
-		cursor: pointer;
 		transition: background .15s;
 
 		&:hover {
@@ -299,7 +346,6 @@ $restyle-transitions: ();
 			background: transparent;
 			color: #fff;
 			font: inherit;
-			cursor: pointer;
 			transition: background .15s;
 
 			&:hover:not([aria-checked='true']) {
@@ -342,14 +388,13 @@ $restyle-transitions: ();
 		position: absolute;
 		inset: 32px 0 0;
 		height: auto;
-		transition: background .3s;
 	}
 
 	// Windows: the website on the left, the editor behind it to the right and
 	// lower, so its edges show. The browser is no wider than the website it shows.
 	.dt-window {
 		position: absolute;
-		z-index: 1;
+		z-index: var(--z, 1);
 		height: auto;
 		transition: transform .35s cubic-bezier(.25, .46, .45, .94);
 
@@ -367,8 +412,11 @@ $restyle-transitions: ();
 			width: min(1400px, calc(100% - var(--dt-dock-left) - 224px));
 		}
 
-		&.is-focused {
-			z-index: 2;
+		&[data-win='console'] {
+			top: 120px;
+			left: calc(var(--dt-dock-left) + 140px);
+			width: min(860px, calc(100% - var(--dt-dock-left) - 180px));
+			height: min(540px, calc(100% - var(--dt-dock-bottom) - 160px));
 		}
 
 		&:not(.is-focused) {
@@ -380,7 +428,7 @@ $restyle-transitions: ();
 		}
 
 		&.is-closing {
-			z-index: 3;
+			z-index: 10;
 			pointer-events: none;
 			animation: dt-close .18s ease-out forwards;
 		}
@@ -390,7 +438,7 @@ $restyle-transitions: ();
 		display: flex;
 		flex-direction: column;
 		border-radius: 12px;
-		overflow: hidden;
+		overflow: clip;
 		box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), 0 3px 12px rgba(0, 0, 0, .35);
 		transition: box-shadow .2s;
 
@@ -469,6 +517,16 @@ $restyle-transitions: ();
 		}
 	}
 
+	.dt-headerbar-title {
+		justify-self: center;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 14.5px;
+		font-weight: 700;
+	}
+
 	// A flat libadwaita header bar button.
 	.dt-headerbar-button {
 		flex-shrink: 0;
@@ -482,7 +540,6 @@ $restyle-transitions: ();
 		border-radius: 6px;
 		background: transparent;
 		color: inherit;
-		cursor: pointer;
 
 		&:hover {
 			background: color-mix(in srgb, currentColor 7%, transparent);
@@ -498,7 +555,7 @@ $restyle-transitions: ();
 	}
 
 	.dt-close,
-	.dt-window .tm-close {
+	.dt-window .editor-close {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -509,7 +566,7 @@ $restyle-transitions: ();
 		border-radius: 50%;
 		background: color-mix(in srgb, currentColor 10%, transparent) !important;
 		color: inherit;
-		cursor: pointer;
+		cursor: default;
 
 		&:hover {
 			background: color-mix(in srgb, currentColor 15%, transparent) !important;
@@ -521,13 +578,13 @@ $restyle-transitions: ();
 	}
 
 	// The editor keeps its own colours, as GNOME Text Editor follows its style scheme.
-	.dt-window .tm-chrome {
+	.dt-window .editor-chrome {
 		height: 46px !important;
 		padding: 0 11px 0 12px !important;
 	}
 
-	.dt-window .tm-title {
-		color: var(--tm-text) !important;
+	.dt-window .editor-title {
+		color: var(--editor-text) !important;
 		font-family: var(--dt-font);
 		font-size: 14.5px !important;
 		font-weight: 700;
@@ -541,9 +598,134 @@ $restyle-transitions: ();
 		}
 
 		.dt-headerbar > *,
-		.tm-chrome > * {
+		.editor-chrome > * {
 			opacity: .5;
 		}
+	}
+
+	// The terminal: GNOME Console's header bar over an xterm.js screen in the editor's
+	// colours, slightly see-through, blurring what's behind it.
+	.console {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		background: color-mix(in srgb, var(--editor-surface) 84%, transparent);
+		backdrop-filter: blur(20px) saturate(1.3);
+	}
+
+	// The scrollbar hugs the window's edges: no padding right or below, and up
+	// over the top padding, as tall as the screen (--scrollbar-stretch, session.js).
+	.console-screen {
+		flex: 1;
+		min-height: 0;
+		padding: 8px 0 0 12px;
+
+		.xterm-scrollable-element > .scrollbar.vertical {
+			transform-origin: top;
+			transform: translateY(-8px) scaleY(var(--scrollbar-stretch, 1));
+		}
+
+		.xterm-viewport,
+		.xterm-scrollable-element {
+			background-color: transparent !important;
+		}
+
+		// xterm scrolls with its own scrollbar; this element's native one is a
+		// leftover, and shows (8px short of the top) where scrollbars always show.
+		.xterm-viewport {
+			scrollbar-width: none;
+
+			&::-webkit-scrollbar {
+				display: none;
+			}
+		}
+	}
+
+	.console-failed {
+		margin: auto;
+		color: var(--editor-dim);
+		font-size: 13px;
+	}
+
+	// Shutting down, booting, a kernel panic: a text console over everything.
+	.dt-power {
+		position: absolute;
+		inset: 0;
+		z-index: 100;
+		display: grid;
+		place-items: center;
+		background: #000;
+	}
+
+	// The newest lines at the bottom; older ones scroll off the top.
+	.dt-tty {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		overflow: hidden;
+		padding: 8px 10px;
+
+		pre {
+			margin: 0;
+			color: #aaa;
+			font: 14px/1.3 'JetBrains Mono', ui-monospace, monospace;
+			white-space: pre-wrap;
+			word-break: break-all;
+		}
+	}
+
+	.dt-tty-ok {
+		color: #5f5;
+	}
+
+	.dt-tty-failed {
+		color: #f55;
+	}
+
+	.dt-tty-welcome {
+		color: #57e389;
+	}
+
+	.dt-power-button {
+		position: relative;
+		display: grid;
+		place-items: center;
+		width: 88px;
+		height: 88px;
+		border: 2px solid rgba(255, 255, 255, .3);
+		border-radius: 50%;
+		background: none;
+		color: #fff;
+		cursor: pointer;
+		transition: border-color .2s, box-shadow .2s;
+
+		&:hover,
+		&:focus-visible {
+			border-color: #fff;
+			box-shadow: 0 0 24px rgba(255, 255, 255, .25);
+			outline: none;
+		}
+
+		svg {
+			width: 40px;
+			height: 40px;
+		}
+	}
+
+	// Pointers: the shell and its apps use the arrow, links included. The website
+	// behaves as any website does; the editor's text takes the text cursor.
+	.dt-window[data-win='site'] .dt-window-content {
+		cursor: auto;
+	}
+
+	.dt-window[data-win='source'] a {
+		cursor: default;
+	}
+
+	.dt-window[data-win='source'] .editor-text a {
+		cursor: text;
 	}
 
 	// The website scrolls inside its window instead of the page.
@@ -582,10 +764,13 @@ $restyle-transitions: ();
 		width: 64px;
 		height: 64px;
 		padding: 8px;
+		border: 0;
 		border-radius: 16px;
+		background: none;
+		cursor: default;
 		transition: background .15s;
 
-		svg {
+		img {
 			display: block;
 			width: 100%;
 			height: 100%;
@@ -627,24 +812,10 @@ $restyle-transitions: ();
 		}
 	}
 
-	// Activities.
-	.is-overview .dt-stage {
-		background: rgba(0, 0, 0, .2);
-	}
-
+	// Activities. Windows keep their stacking order as they move into place.
 	.is-overview .dt-window {
-		z-index: 1;
-
-		&:hover {
-			z-index: 2;
-		}
-
 		&.is-closing {
 			animation-name: dt-fade-out;
-		}
-
-		.dt-window-activate {
-			cursor: pointer;
 		}
 
 		&:hover .dt-window-frame {
@@ -652,45 +823,81 @@ $restyle-transitions: ();
 		}
 	}
 
-	// libadwaita alert dialog.
-	.dt-dialog {
+	// A GNOME Shell notification banner, dropped in below the top bar.
+	.dt-notification {
 		display: flex;
 		flex-direction: column;
-		gap: 22px;
+		gap: 10px;
 		position: absolute;
-		top: 50%;
-		left: calc(50% + var(--dt-dock-left) / 2);
-		width: 340px;
-		padding: 32px 24px 24px;
-		transform: translate(-50%, -50%);
-		border-radius: 18px;
-		background: var(--dt-dialog);
-		box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 12px 40px rgba(0, 0, 0, .45);
-		color: var(--dt-headerbar-fg);
-		z-index: 4;
-		text-align: center;
-		animation: dt-fade .25s ease-out;
+		top: 42px;
+		left: 50%;
+		z-index: 12;
+		width: min(420px, calc(100% - 32px));
+		padding: 12px 12px 14px 16px;
+		transform: translateX(-50%);
+		border-radius: 16px;
+		background: #303034;
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 8px 24px rgba(0, 0, 0, .45);
+		color: #fff;
+		animation: dt-notify .3s cubic-bezier(.2, .8, .2, 1);
 
 		p {
 			margin: 0;
-			font-size: 18px;
+			font-size: 15px;
 			font-weight: 700;
 		}
 	}
 
-	.dt-dialog-button {
-		display: block;
-		padding: 11px 16px;
-		border-radius: 12px;
-		background: var(--dt-accent);
+	.dt-notification-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: rgba(255, 255, 255, .7);
+		font-size: 13px;
+
+		img {
+			width: 16px;
+			height: 16px;
+		}
+	}
+
+	.dt-notification-close {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		margin-left: auto;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, .1);
 		color: #fff;
-		font-size: 15px;
+
+		&:hover {
+			background: rgba(255, 255, 255, .17);
+		}
+	}
+
+	// GNOME Shell's %notification_button: 8px corners, the text colour at 15% / 30% / 20%.
+	.dt-notification-action {
+		padding: 6px 12px;
+		border-radius: 8px;
+		background: rgba(255, 255, 255, .15);
+		color: #fff;
+		font-size: 14px;
 		font-weight: 700;
+		text-align: center;
 		text-decoration: none;
+		cursor: default;
 		transition: background .15s;
 
 		&:hover {
-			background: color-mix(in oklab, var(--dt-accent) 88%, white);
+			background: rgba(255, 255, 255, .3);
+		}
+
+		&:active {
+			background: rgba(255, 255, 255, .2);
 		}
 	}
 }
@@ -750,15 +957,17 @@ $restyle-transitions: ();
 
 @media (prefers-reduced-motion: reduce) {
 	.dt-window,
-	.dt-stage,
-	.dt-wallpaper {
+	.dt-wallpaper,
+	.dt-workspace-peek,
+	.dt-topbar {
 		transition: none;
 	}
 
 	.dt-window.is-opening,
 	.dt-window.is-closing,
+	.dt-screen.is-starting,
 	.dt-quick-settings,
-	.dt-dialog {
+	.dt-notification {
 		animation: none;
 	}
 

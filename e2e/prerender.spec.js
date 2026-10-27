@@ -31,11 +31,11 @@ for (const {path, title, text} of CONTENT) {
 	});
 }
 
-test('prerenders the terminal/source design for /cv/source (requirement 3)', async ({page}) => {
+test('prerenders the editor/source design for /cv/source (requirement 3)', async ({page}) => {
 	await page.goto('/cv/source', {waitUntil: 'domcontentloaded'});
 
 	await expect(page).toHaveTitle('CV  (Source) • Robin Jacobs');
-	await expect(page.locator('.terminal')).toBeVisible();
+	await expect(page.locator('.editor')).toBeVisible();
 	await expect(page.locator('#root')).toContainText('side-quests.yml');
 	await expect(page.locator('#root')).toContainText('Work Experience');
 });

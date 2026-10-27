@@ -57,8 +57,8 @@ const parseBlock = block => {
 	return out;
 };
 
-// Markdown -> blocks: {type:'p', inline} | {type:'ul', items:[inline]}
-export const parseMarkdown = markdown => String(markdown)
+// Markdown -> blocks: {type:'p', inline} | {type:'ul', items:[inline]}. No Markdown, no blocks.
+export const parseMarkdown = markdown => String(markdown ?? '')
 	.trim()
 	.split(/\n\s*\n/)
 	.flatMap(parseBlock);

@@ -1,0 +1,58 @@
+// Hover states only. Layout and colour are inline styles, hence the !important.
+.editor {
+	a {
+		transition: background 0.2s, color 0.2s, border-color 0.2s;
+		color: inherit;
+		text-decoration: none;
+	}
+
+	// A flat header bar button, as in GNOME Builder.
+	.editor-run {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 34px;
+		height: 34px;
+		border-radius: 6px;
+		color: var(--editor-text);
+
+		&:hover {
+			background: color-mix(in srgb, currentColor 7%, transparent);
+		}
+
+		&:active {
+			background: color-mix(in srgb, currentColor 16%, transparent);
+		}
+	}
+
+	.editor-text {
+		caret-color: var(--editor-accent);
+		cursor: text;
+		outline: none;
+	}
+
+	.editor-file:hover {
+		color: var(--editor-text) !important;
+		background: var(--editor-surface) !important;
+	}
+
+	.editor-tab:hover,
+	.editor-tab-close:hover {
+		color: var(--editor-text) !important;
+	}
+
+	.editor-close:hover {
+		background: var(--editor-close-bg-hover) !important;
+	}
+}
+
+@media (max-width: 720px) {
+	.editor {
+		overflow-x: auto;
+
+		aside {
+			width: 168px !important;
+		}
+	}
+}
+

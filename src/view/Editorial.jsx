@@ -4,8 +4,9 @@ import {CONTENT} from '../content';
 import {parseMarkdown} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
-const MONO = '"IBM Plex Mono", ui-monospace, monospace';
-const SERIF = '"Newsreader", ui-serif, Georgia, serif';
+// See the font tokens in App.scss: the font setting swaps them.
+const MONO = 'var(--ed-mono)';
+const SERIF = 'var(--ed-serif)';
 
 const EditorialApp = ({page, onNavigate, onToggleView}) => {
 	const viewSource = <ViewSourceToggle page={page} onToggleView={onToggleView} />;
@@ -19,7 +20,7 @@ const EditorialApp = ({page, onNavigate, onToggleView}) => {
 	return (
 		<div className="editorial" style={{
 		background: 'var(--ed-bg)', color: 'var(--ed-text)',
-		fontFamily: '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif',
+		fontFamily: 'var(--ed-sans)',
 		minHeight: '100%', width: '100%', display: 'flex',
 		fontFeatureSettings: '"ss01", "cv01"',
 	}}>
