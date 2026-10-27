@@ -73,7 +73,7 @@ export const CONTENT = Object.freeze({
 				Took ownership of the in-house ABAC+ReBAC authorisation system; specified and
 				implemented several proposals to simplify system internals as well as improve user
 				self-service for security policies.`,
-			tech: ['Java', 'Authorisation', 'ABAC', 'ReBAC'],
+			tech: ['Kotlin', 'Java', 'Kubernetes', 'Spring Boot', 'ABAC'],
 		},
 		{
 			title: 'Senior Software Engineer',
