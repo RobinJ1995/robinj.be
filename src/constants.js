@@ -196,7 +196,7 @@ export const CONTENT = Object.freeze({
 	projects: [
 		{
 			name: 'Sprint Retrospective',
-			tagline: 'Realtime retrospective tool.',
+			tagline: 'Real-time sprint retrospective tool.',
 			url: 'sprintretro.app',
 			logo: '/img/project/sprintretrospective.webp',
 			description: `One of those projects that started out as a throwaway experiment to play with some
@@ -218,7 +218,7 @@ export const CONTENT = Object.freeze({
 		},
 		{
 			name: 'DistroHopper',
-			tagline: 'Android home screen replacement themed after Linux distros.',
+			tagline: 'Linux desktop-themed Android home screen replacement.',
 			url: 'play.google.com/store/apps/details?id=be.robinj.distrohopper',
 			logo: '/img/project/distrohopper.webp',
 			description: `Custom home screen replacement for Android with themes resembling various Linux
@@ -232,7 +232,7 @@ export const CONTENT = Object.freeze({
 		},
 		{
 			name: 'SINControl',
-			tagline: 'Control panel for a Debian server used by a student org.',
+			tagline: 'Control panel for Debian-based webhosting services, built for student organisation.',
 			url: 'github.com/RobinJ1995/penguinControl',
 			logo: '/img/project/sincontrol.svg',
 			description: `Control panel for both users and administrators of a Debian server.

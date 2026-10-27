@@ -367,10 +367,8 @@ const contactLabelStyle = {
 
 const EdNotFound = ({onNavigate}) => (
 	<div style={{maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 18}}>
-		<EdEyebrow>Error 404</EdEyebrow>
-		<EdDisplay>
-			This page <em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>wandered off</em>.
-		</EdDisplay>
+		<EdEyebrow>[404] Not Found</EdEyebrow>
+		<div aria-hidden="true" style={{fontSize: 250, lineHeight: 1}}>🤷‍♂️</div>
 		<p style={{margin: 0, maxWidth: 560, fontSize: 16, lineHeight: 1.55, color: 'var(--ed-dim)'}}>
 			The page you requested does not exist.
 		</p>
