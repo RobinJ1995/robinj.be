@@ -402,6 +402,7 @@ const foldedBlock = markdown => parseMarkdown(markdown).flatMap((block, i) => [
 
 const TerminalProjects = () => {
 	const Dash = <span style={{color: 'var(--tm-dim)'}}>-</span>;
+	const list = items => <>{items.map((t, j) => <React.Fragment key={j}>{j ? ', ' : '['}{Str(t)}</React.Fragment>)}]</>;
 	const lines = [];
 	CONTENT.projects.forEach((p, i) => {
 		if (i) {
@@ -411,7 +412,10 @@ const TerminalProjects = () => {
 		lines.push(<>  {Key('url')}: {Str(`https://${p.url}`)}</>);
 		lines.push(<>  {Key('description')}: {Str('>')}</>);
 		foldedBlock(p.description).forEach(line => lines.push(line));
-		lines.push(<>  {Key('stack')}: {p.tech.map((t, j) => <React.Fragment key={j}>{j ? ', ' : '['}{Str(t)}</React.Fragment>)}]</>);
+		lines.push(<>  {Key('stack')}: {list(p.tech)}</>);
+		if (p.integrations) {
+			lines.push(<>  {Key('integration_with')}: {list(p.integrations)}</>);
+		}
 	});
 
 	return <CodePane lines={lines} />;

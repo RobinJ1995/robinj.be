@@ -242,7 +242,8 @@ export const CONTENT = Object.freeze({
 
 				This was built during my time volunteering for the Student Information Network (SIN)
 				organisation at Thomas More University of Applied Sciences.`,
-			tech: ['PHP', 'Laravel', 'MariaDB', 'Apache', 'Postfix', 'ownCloud'],
+			tech: ['PHP', 'Laravel', 'MariaDB'],
+			integrations: ['Apache', 'ProFTPD', 'Postfix', 'MariaDB', 'Linux NSS', 'Gitlab', 'ownCloud', 'Cron'],
 		},
 	],
 

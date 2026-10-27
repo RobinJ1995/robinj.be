@@ -136,14 +136,18 @@ const SectionHead = ({title}) => (
 	</div>
 );
 
-const TechChips = ({tech}) => (
-	<div style={{display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14}}>
-		{tech.map((t, i) => (
-			<span key={i} style={{
-				fontSize: 11, padding: '3px 9px', background: 'var(--ed-accent-soft)', color: 'var(--ed-accent)',
-				borderRadius: 999, fontFamily: MONO, letterSpacing: '0.01em',
-			}}>{t}</span>
-		))}
+// An optional label (e.g. "Integration with:") sits on its own line above the chips.
+const TechChips = ({tech, label = null}) => (
+	<div style={{marginTop: 14}}>
+		{label && <div style={{fontFamily: MONO, fontSize: 11, color: 'var(--ed-dim)', marginBottom: 6}}>{label}</div>}
+		<div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
+			{tech.map((t, i) => (
+				<span key={i} style={{
+					fontSize: 11, padding: '3px 9px', background: 'var(--ed-accent-soft)', color: 'var(--ed-accent)',
+					borderRadius: 999, fontFamily: MONO, letterSpacing: '0.01em',
+				}}>{t}</span>
+			))}
+		</div>
 	</div>
 );
 
@@ -307,6 +311,7 @@ const EdProjects = ({toggle}) => (
 						<div style={{fontSize: 14, color: 'var(--ed-dim)', fontStyle: 'italic', marginTop: 4}}>{p.tagline}</div>
 						<Prose markdown={p.description} />
 						<TechChips tech={p.tech} />
+						{p.integrations && <TechChips tech={p.integrations} label="Integration with:" />}
 					</div>
 				</article>
 			))}
