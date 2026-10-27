@@ -21,14 +21,12 @@ export const PAGES = Object.freeze({
 		menu: true,
 		source: true,
 	},
-	// whoami has no rendered equivalent; only exists in source view
 	Whoami: {
 		name: 'whoami',
 		url: '/whoami',
 		title: 'whoami',
 		menu: false,
 		source: true,
-		sourceOnly: true,
 	},
 	NotFound: {
 		name: '404',

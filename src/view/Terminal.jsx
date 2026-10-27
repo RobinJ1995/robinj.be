@@ -17,34 +17,75 @@ const kindGlyph = k => ({md: 'M', json: '{}', yml: 'Y', txt: 'T'}[k] || '·');
 const kindColor = k => ({md: 'var(--tm-accent2)', json: 'var(--tm-num)', yml: 'var(--tm-str)', txt: 'var(--tm-dim)'}[k] || 'var(--tm-dim)');
 const kindLang = k => ({md: 'Markdown', json: 'JSON', yml: 'YAML', txt: 'Plain Text'}[k] || '');
 
-const TerminalApp = ({page, onNavigate, onToggleView}) => (
-	<div className="terminal" style={{
-		width: '100%', height: '100%', background: 'var(--tm-bg)',
-		fontFamily: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
-		color: 'var(--tm-text)', fontSize: 13.5, display: 'flex', flexDirection: 'column',
-	}}>
-		<TerminalChrome page={page} onToggleView={onToggleView} />
-		<div style={{flex: 1, display: 'flex', minHeight: 0}}>
-			<TerminalSidebar page={page} onNavigate={onNavigate} />
-			<div style={{flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0}}>
-				<TerminalTabs page={page} onNavigate={onNavigate} />
-				<div style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
-					{page === 'whoami' && <TerminalWhoami />}
-					{page === 'cv' && <TerminalCV />}
-					{page === 'side-quests' && <TerminalProjects />}
-					{page === 'contact' && <TerminalContact />}
-				</div>
-				<TerminalStatusbar page={page} />
-			</div>
-		</div>
-	</div>
-);
+const TerminalApp = ({page, onNavigate, onToggleView, onClose = null}) => {
+	const git = useGitStats();
+	// A tab for each file viewed in this editor; closing one doesn't change the page.
+	const [tabs, setTabs] = useState([page]);
+	const file = tabs.includes(page) ? page : null;
 
-const TerminalChrome = ({page, onToggleView}) => {
-	const renderedHref = `/${page === 'whoami' ? 'cv' : page}`;
+	useEffect(() => {
+		setTabs(t => (t.includes(page) ? t : [...t, page]));
+	}, [page]);
+
+	const openFile = (id, e) => {
+		setTabs(t => (t.includes(id) ? t : [...t, id]));
+		if (id === page) {
+			e.preventDefault();
+		} else {
+			onNavigate(`${id}/source`, e);
+		}
+	};
+
+	const closeTab = (id, e) => {
+		e.preventDefault();
+		const rest = tabs.filter(t => t !== id);
+		setTabs(rest);
+		if (id === page && rest.length > 0) {
+			onNavigate(`${rest[Math.min(tabs.indexOf(id), rest.length - 1)]}/source`);
+		}
+	};
 
 	return (
-		<div style={{
+		<div className="terminal" style={{
+			width: '100%', height: '100%', background: 'var(--tm-bg)',
+			fontFamily: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
+			color: 'var(--tm-text)', fontSize: 13.5, display: 'flex', flexDirection: 'column',
+		}}>
+			<TerminalChrome page={page} onToggleView={onToggleView} onClose={onClose} />
+			<div style={{flex: 1, display: 'flex', minHeight: 0}}>
+				<TerminalSidebar page={file} git={git} onOpen={openFile} />
+				<div style={{flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0}}>
+					<TerminalTabs tabs={tabs} page={file} onNavigate={onNavigate} onCloseTab={closeTab} />
+					<div style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
+						{file === 'whoami' && <TerminalWhoami />}
+						{file === 'cv' && <TerminalCV />}
+						{file === 'side-quests' && <TerminalProjects />}
+						{file === 'contact' && <TerminalContact />}
+						{file === null && (
+							<div style={{
+								height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+								background: 'var(--tm-surface)', color: 'var(--tm-dim)', fontSize: 13,
+							}}>No open files</div>
+						)}
+					</div>
+					<TerminalStatusbar page={file} git={git} />
+				</div>
+			</div>
+		</div>
+	);
+};
+
+const TerminalChrome = ({page, onToggleView, onClose}) => {
+	const renderedHref = `/${page}`;
+	const close = onClose
+		? e => {
+			e.preventDefault();
+			onClose();
+		}
+		: onToggleView;
+
+	return (
+		<div className="tm-chrome" style={{
 			height: 38, background: 'var(--tm-chrome)', borderBottom: '1px solid var(--tm-rule)',
 			display: 'flex', alignItems: 'center', padding: '0 10px 0 14px', gap: 14, flexShrink: 0,
 		}}>
@@ -59,11 +100,11 @@ const TerminalChrome = ({page, onToggleView}) => {
 					<span style={{color: 'var(--tm-accent)'}}>▤</span> rendered
 				</a>
 			</div>
-			<div style={{flex: 1, textAlign: 'center', color: 'var(--tm-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
-				<Host /> — ~/portfolio — 132×42
+			<div className="tm-title" style={{flex: 1, textAlign: 'center', color: 'var(--tm-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
+				<Host /> — ~/portfolio
 			</div>
 			<div style={{display: 'flex', width: 150, justifyContent: 'flex-end'}}>
-				<a href={renderedHref} onClick={onToggleView}
+				<a href={renderedHref} onClick={close}
 					title="Close" aria-label="Close the source view" className="tm-close"
 					style={{
 						width: 26, height: 26, borderRadius: '50%', background: 'var(--tm-close-bg)',
@@ -97,7 +138,7 @@ const relativeTime = iso => {
 };
 
 const useGitStats = () => {
-	const [stats, setStats] = useState({branch: 'main', lastCommit: '…', commitCount: null});
+	const [stats, setStats] = useState({branch: 'master', lastCommit: '…', commitCount: null, head: null});
 
 	useEffect(() => {
 		const ctrl = new AbortController();
@@ -107,8 +148,8 @@ const useGitStats = () => {
 			try {
 				const repo = await fetch(`https://api.github.com/repos/${GIT_REPO}`, {signal: ctrl.signal})
 					.then(r => (r.ok ? r.json() : Promise.reject(new Error('repo'))));
-				const branch = repo.default_branch || 'main';
-				const next = {branch, lastCommit: relativeTime(repo.pushed_at) || '…', commitCount: null};
+				const branch = repo.default_branch || 'master';
+				const next = {branch, lastCommit: relativeTime(repo.pushed_at) || '…'};
 
 				const res = await fetch(`https://api.github.com/repos/${GIT_REPO}/commits?per_page=1&sha=${branch}`, {signal: ctrl.signal});
 				if (res.ok) {
@@ -117,6 +158,8 @@ const useGitStats = () => {
 					if (match) {
 						next.commitCount = Number(match[1]);
 					}
+					const [latest] = await res.json();
+					next.head = latest?.sha?.slice(0, 7) ?? null;
 				}
 
 				setStats(prev => ({...prev, ...next}));
@@ -136,9 +179,7 @@ const useGitStats = () => {
 	return stats;
 };
 
-const TerminalSidebar = ({page, onNavigate}) => {
-	const git = useGitStats();
-
+const TerminalSidebar = ({page, git, onOpen}) => {
 	return (
 		<aside style={{
 			width: 260, flexShrink: 0, background: 'var(--tm-sidebar)',
@@ -168,7 +209,7 @@ const TerminalSidebar = ({page, onNavigate}) => {
 					return (
 						<a key={f.id} href={`/${f.id}/source`} aria-label={f.name}
 							aria-current={active ? 'page' : undefined}
-							onClick={e => onNavigate(`${f.id}/source`, e)}
+							onClick={e => onOpen(f.id, e)}
 							className="tm-file"
 							style={{
 								textAlign: 'left', padding: '7px 18px 7px 32px', fontSize: 13, textDecoration: 'none',
@@ -201,37 +242,43 @@ const TerminalSidebar = ({page, onNavigate}) => {
 	);
 };
 
-const TerminalTabs = ({page, onNavigate}) => (
+const TerminalTabs = ({tabs, page, onNavigate, onCloseTab}) => (
 	<div style={{
 		display: 'flex', borderBottom: '1px solid var(--tm-rule)', background: 'var(--tm-chrome)',
-		flexShrink: 0, paddingTop: 4, paddingLeft: 4,
+		flexShrink: 0, paddingTop: 4, paddingLeft: 4, minHeight: 38,
 	}}>
-		{FILES.map(f => {
-			const active = page === f.id;
+		{tabs.map(id => {
+			const f = FILES.find(x => x.id === id);
+			const active = page === id;
 			return (
-				<a key={f.id} href={`/${f.id}/source`} aria-label={f.name}
-					onClick={e => onNavigate(`${f.id}/source`, e)}
-					className="tm-tab"
-					style={{
-						padding: '8px 16px 9px', fontSize: 12, textDecoration: 'none',
-						color: active ? 'var(--tm-text)' : 'var(--tm-dim)',
-						background: active ? 'var(--tm-surface)' : 'transparent',
-						borderTop: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
-						borderLeft: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
-						borderRight: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
-						borderRadius: '6px 6px 0 0', marginRight: 1, position: 'relative', top: 1,
+				<div key={id} className="tm-tab" style={{
+					fontSize: 12,
+					color: active ? 'var(--tm-text)' : 'var(--tm-dim)',
+					background: active ? 'var(--tm-surface)' : 'transparent',
+					borderTop: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
+					borderLeft: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
+					borderRight: `1px solid ${active ? 'var(--tm-rule)' : 'transparent'}`,
+					borderRadius: '6px 6px 0 0', marginRight: 1, position: 'relative', top: 1,
+					display: 'flex', alignItems: 'center',
+				}}>
+					<a href={`/${id}/source`} aria-label={f.name} onClick={e => onNavigate(`${id}/source`, e)} style={{
+						padding: '8px 0 9px 16px', color: 'inherit', textDecoration: 'none',
 						display: 'flex', alignItems: 'center', gap: 7,
 					}}>
-					<span style={{color: kindColor(f.kind), fontSize: 10}}>{kindGlyph(f.kind)}</span>
-					{f.name}
-					<span style={{marginLeft: 4, color: 'var(--tm-dim)', fontSize: 14, lineHeight: 1}}>×</span>
-				</a>
+						<span style={{color: kindColor(f.kind), fontSize: 10}}>{kindGlyph(f.kind)}</span>
+						{f.name}
+					</a>
+					<button type="button" className="tm-tab-close" aria-label={`Close ${f.name}`} onClick={e => onCloseTab(id, e)} style={{
+						padding: '8px 12px 9px 8px', border: 0, background: 'transparent', cursor: 'pointer',
+						color: 'var(--tm-dim)', fontFamily: 'inherit', fontSize: 14, lineHeight: 1,
+					}}>×</button>
+				</div>
 			);
 		})}
 	</div>
 );
 
-const TerminalStatusbar = ({page}) => {
+const TerminalStatusbar = ({page, git}) => {
 	const f = FILES.find(x => x.id === page);
 	return (
 		<div style={{
@@ -240,11 +287,11 @@ const TerminalStatusbar = ({page}) => {
 			padding: '0 14px', fontSize: 11, color: 'var(--tm-dim)', gap: 16,
 		}}>
 			<span><span style={{color: 'var(--tm-accent)'}}>●</span> ready</span>
-			<span>main</span>
+			<span>{git.branch}</span>
 			<span>UTF-8</span>
 			<span>LF</span>
 			<span>{kindLang(f?.kind)}</span>
-			<span style={{marginLeft: 'auto'}}>Robin Jacobs · v0.20.26</span>
+			<span style={{marginLeft: 'auto'}}>Robin Jacobs · {git.head ?? '…'}</span>
 		</div>
 	);
 };
@@ -304,7 +351,7 @@ const TerminalWhoami = () => {
 # ${CONTENT.name}
 # ${CONTENT.tagline}
 # ─────────────────────────────
-export ROLE="Senior Software Engineer"
+export ROLE="${CONTENT.role}"
 export LOCATION="${CONTENT.location}"
 `}
 			</pre>

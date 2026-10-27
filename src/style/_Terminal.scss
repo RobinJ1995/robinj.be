@@ -16,7 +16,8 @@
 		background: var(--tm-surface) !important;
 	}
 
-	.tm-tab:hover {
+	.tm-tab:hover,
+	.tm-tab-close:hover {
 		color: var(--tm-text) !important;
 	}
 

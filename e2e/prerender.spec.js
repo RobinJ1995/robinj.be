@@ -10,6 +10,7 @@ const CONTENT = [
 	{path: '/cv', title: 'CV  • Robin Jacobs', text: ['Work Experience', 'Beeline']},
 	{path: '/contact', title: 'Contact  • Robin Jacobs', text: ['linkedin.com/in/robin-jacobs']},
 	{path: '/side-quests', title: 'Side Quests  • Robin Jacobs', text: ['Sprint Retrospective', 'DistroHopper']},
+	{path: '/whoami', title: 'whoami  • Robin Jacobs', text: ['Robin Jacobs', 'Senior Software Engineer']},
 ];
 
 test('redirects the old /projects URLs to /side-quests', async ({page}) => {

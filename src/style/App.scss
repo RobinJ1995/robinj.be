@@ -33,38 +33,52 @@
 	--tm-statusbar-bg: #ecdfb0;
 }
 
-@media (prefers-color-scheme: dark) {
-	:root {
-		// Editorial palette — dark
-		--ed-bg: #100f0d;
-		--ed-surface: #181612;
-		--ed-text: #ece8e0;
-		--ed-dim: rgba(236, 232, 224, .58);
-		--ed-faint: rgba(236, 232, 224, .12);
-		--ed-accent: #86c898;
-		--ed-accent-soft: rgba(134, 200, 152, .14);
-		--ed-rule: rgba(236, 232, 224, .10);
+// Dark when the OS prefers it (unless the visitor picked light), or when the visitor picked it.
+@mixin dark-tokens {
+	// Editorial palette — dark
+	--ed-bg: #100f0d;
+	--ed-surface: #181612;
+	--ed-text: #ece8e0;
+	--ed-dim: rgba(236, 232, 224, .58);
+	--ed-faint: rgba(236, 232, 224, .12);
+	--ed-accent: #86c898;
+	--ed-accent-soft: rgba(134, 200, 152, .14);
+	--ed-rule: rgba(236, 232, 224, .10);
 
-		// Terminal palette — dark
-		--tm-bg: #0d1117;
-		--tm-chrome: #161b22;
-		--tm-surface: #11161d;
-		--tm-sidebar: #0a0e14;
-		--tm-text: #cdd6e1;
-		--tm-dim: #7a8497;
-		--tm-faint: #272f3b;
-		--tm-rule: #1d242e;
-		--tm-accent: #7ee787;
-		--tm-accent2: #79c0ff;
-		--tm-kw: #ff7b72;
-		--tm-str: #a5d6ff;
-		--tm-com: #6e7681;
-		--tm-num: #d2a8ff;
-		--tm-toggle-bg: rgba(255, 255, 255, .05);
-		--tm-close-bg: rgba(255, 255, 255, .10);
-		--tm-close-bg-hover: rgba(255, 255, 255, .20);
-		--tm-statusbar-bg: #0a0e14;
+	// Terminal palette — dark
+	--tm-bg: #0d1117;
+	--tm-chrome: #161b22;
+	--tm-surface: #11161d;
+	--tm-sidebar: #0a0e14;
+	--tm-text: #cdd6e1;
+	--tm-dim: #7a8497;
+	--tm-faint: #272f3b;
+	--tm-rule: #1d242e;
+	--tm-accent: #7ee787;
+	--tm-accent2: #79c0ff;
+	--tm-kw: #ff7b72;
+	--tm-str: #a5d6ff;
+	--tm-com: #6e7681;
+	--tm-num: #d2a8ff;
+	--tm-toggle-bg: rgba(255, 255, 255, .05);
+	--tm-close-bg: rgba(255, 255, 255, .10);
+	--tm-close-bg-hover: rgba(255, 255, 255, .20);
+	--tm-statusbar-bg: #0a0e14;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		@include dark-tokens;
 	}
+}
+
+:root[data-theme='dark'] {
+	@include dark-tokens;
+	color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
 }
 
 *, *::before, *::after {
@@ -98,3 +112,4 @@ body {
 
 @import 'Editorial';
 @import 'Terminal';
+@import 'Desktop';

@@ -3,6 +3,7 @@ import {ROBIN_AT_ROBINJ_DOT_BE} from '../constants';
 export default {
 	name: 'Robin Jacobs',
 	tagline: 'Developer & open-source enthusiast',
+	role: 'Senior Software Engineer',
 	location: 'Dublin, Ireland',
 	email: ROBIN_AT_ROBINJ_DOT_BE,
 	linkedin: 'linkedin.com/in/robin-jacobs',

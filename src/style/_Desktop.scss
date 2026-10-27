@@ -1,0 +1,768 @@
+@use 'sass:list';
+
+// Below this width there's no desktop: the focused view fills the page as before.
+$desktop: 900px;
+
+// GNOME's accent colours. Green, the site's own accent, is the default; picking
+// another one recolours the shell and the site's accents.
+$accents: (
+	'blue': #3584e4,
+	'green': #3a944a,
+	'yellow': #c88800,
+	'red': #e62d42,
+	'purple': #9141ac,
+);
+
+:root {
+	--dt-font: 'Adwaita Sans', 'Inter', Cantarell, system-ui, sans-serif;
+	--dt-accent: #3a944a;
+
+	// libadwaita header bars, light.
+	--dt-headerbar: #ffffff;
+	--dt-headerbar-backdrop: #fafafb;
+	--dt-headerbar-fg: rgba(0, 0, 6, .8);
+	--dt-headerbar-dim: rgba(0, 0, 6, .5);
+	--dt-headerbar-shade: rgba(0, 0, 6, .12);
+	--dt-entry: rgba(0, 0, 6, .07);
+	--dt-dialog: #ffffff;
+}
+
+@mixin dark-desktop-tokens {
+	--dt-headerbar: #2e2e32;
+	--dt-headerbar-backdrop: #222226;
+	--dt-headerbar-fg: #ffffff;
+	--dt-headerbar-dim: rgba(255, 255, 255, .55);
+	--dt-headerbar-shade: rgba(0, 0, 6, .36);
+	--dt-entry: rgba(255, 255, 255, .1);
+	--dt-dialog: #36363a;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		@include dark-desktop-tokens;
+	}
+}
+
+:root[data-theme='dark'] {
+	@include dark-desktop-tokens;
+}
+
+@each $name, $color in $accents {
+	:root[data-accent='#{$name}'] {
+		--dt-accent: #{$color};
+	}
+
+	.dt-accent-switch [data-value='#{$name}'] {
+		--swatch: #{$color};
+	}
+}
+
+:root[data-accent] {
+	--ed-accent: color-mix(in oklab, var(--dt-accent) 85%, black);
+	--ed-accent-soft: color-mix(in srgb, var(--ed-accent) 12%, transparent);
+	--tm-accent: var(--ed-accent);
+}
+
+@mixin dark-accent-tokens {
+	--ed-accent: color-mix(in oklab, var(--dt-accent) 60%, white);
+	--ed-accent-soft: color-mix(in srgb, var(--ed-accent) 14%, transparent);
+	--tm-accent: var(--ed-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root[data-accent]:not([data-theme='light']) {
+		@include dark-accent-tokens;
+	}
+}
+
+:root[data-accent][data-theme='dark'] {
+	@include dark-accent-tokens;
+}
+
+// While the style or accent changes, the colour tokens themselves ease over, so
+// everything using them moves in step. Registering them as colours is what makes
+// them animatable. Per-element colour transitions don't work for this: they lag
+// down nested text, and restart every frame on inline-styled elements.
+$colour-tokens: (
+	ed-bg, ed-surface, ed-text, ed-dim, ed-faint, ed-accent, ed-accent-soft, ed-rule,
+	tm-bg, tm-chrome, tm-surface, tm-sidebar, tm-text, tm-dim, tm-faint, tm-rule, tm-accent, tm-accent2,
+	tm-kw, tm-str, tm-com, tm-num, tm-toggle-bg, tm-close-bg, tm-close-bg-hover, tm-statusbar-bg,
+	dt-accent, dt-dialog, dt-entry, dt-headerbar, dt-headerbar-backdrop, dt-headerbar-dim, dt-headerbar-fg, dt-headerbar-shade,
+);
+$restyle-transitions: ();
+
+@each $token in $colour-tokens {
+	@property --#{$token} {
+		syntax: '<color>';
+		inherits: true;
+		initial-value: transparent;
+	}
+
+	$restyle-transitions: list.append($restyle-transitions, --#{$token} .4s ease, $separator: comma);
+}
+
+.is-restyling {
+	transition: $restyle-transitions;
+}
+
+// Nothing else transitions meanwhile, or it would chase the moving tokens. The
+// switch keeps its glide.
+.is-restyling *:not(.dt-switch-indicator) {
+	transition: none !important;
+}
+
+.desktop,
+.dt-stage,
+.dt-window,
+.dt-window-frame,
+.dt-window-content {
+	height: 100%;
+}
+
+.dt-wallpaper,
+.dt-topbar,
+.dt-headerbar,
+.dt-window-activate,
+.dt-dock,
+.dt-dialog {
+	display: none;
+}
+
+.dt-window:not(.is-focused) {
+	display: none;
+}
+
+@keyframes dt-fade {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes dt-pop {
+	from {
+		opacity: 0;
+		transform: translateY(-6px) scale(.98);
+	}
+}
+
+@keyframes dt-open {
+	from {
+		opacity: 0;
+		transform: scale(.94);
+	}
+}
+
+@keyframes dt-close {
+	to {
+		opacity: 0;
+		transform: scale(.9);
+	}
+}
+
+@keyframes dt-fade-out {
+	to {
+		opacity: 0;
+	}
+}
+
+@media (min-width: $desktop) {
+	.desktop {
+		--dt-dock-left: 0px;
+		--dt-dock-bottom: 0px;
+
+		position: relative;
+		overflow: hidden;
+		background: #04060f;
+		font-family: var(--dt-font);
+	}
+
+	// Blurred behind the windows, sharp in Activities. Scaled up so the blur
+	// doesn't pull in a dark edge.
+	.dt-wallpaper {
+		display: block;
+		position: absolute;
+		inset: 0;
+		background: url('/img/wallpaper.webp') center 70% / cover no-repeat;
+		filter: blur(6px);
+		transform: scale(1.04);
+		transition: filter .35s ease;
+	}
+
+	.is-overview .dt-wallpaper {
+		filter: none;
+	}
+
+	// Top bar: always dark, like GNOME Shell's.
+	.dt-topbar {
+		position: absolute;
+		inset: 0 0 auto;
+		z-index: 10;
+		height: 32px;
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		padding: 0 4px;
+		background: #000;
+		color: #fff;
+		font-size: 14.5px;
+		font-weight: 700;
+	}
+
+	.dt-panel-button {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		height: 26px;
+		padding: 0 12px;
+		border: 0;
+		border-radius: 999px;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		transition: background .15s;
+
+		&:hover {
+			background: rgba(255, 255, 255, .17);
+		}
+
+		&[aria-pressed='true'],
+		&[aria-expanded='true'] {
+			background: rgba(255, 255, 255, .25);
+		}
+	}
+
+	.dt-workspaces {
+		justify-self: start;
+		gap: 5px;
+	}
+
+	.dt-workspace-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, .5);
+
+		&.is-active {
+			width: 32px;
+			background: #fff;
+		}
+	}
+
+	.dt-clock {
+		display: flex;
+		gap: 10px;
+		padding: 0 12px;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.dt-status {
+		justify-self: end;
+	}
+
+	.dt-quick-settings {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 6px;
+		width: 340px;
+		padding: 14px;
+		border-radius: 24px;
+		background: #303034;
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 8px 32px rgba(0, 0, 0, .5);
+		font-size: 14px;
+		font-weight: 700;
+		animation: dt-pop .15s ease-out;
+	}
+
+	// libadwaita-style toggle group; the highlight glides to the chosen option.
+	.dt-switch {
+		position: relative;
+		display: grid;
+		grid-template-columns: repeat(var(--count), 1fr);
+		gap: 4px;
+		padding: 4px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, .08);
+
+		button {
+			position: relative;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			height: 40px;
+			border: 0;
+			border-radius: 999px;
+			background: transparent;
+			color: #fff;
+			font: inherit;
+			cursor: pointer;
+			transition: background .15s;
+
+			&:hover:not([aria-checked='true']) {
+				background: rgba(255, 255, 255, .08);
+			}
+		}
+	}
+
+	.dt-switch-indicator {
+		position: absolute;
+		top: 4px;
+		bottom: 4px;
+		left: 4px;
+		width: calc((100% - 8px - (var(--count) - 1) * 4px) / var(--count));
+		border-radius: 999px;
+		background: var(--dt-accent);
+		transform: translateX(calc(var(--selected) * (100% + 4px)));
+		transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+	}
+
+	.dt-accent-switch {
+		button {
+			height: 30px;
+
+			&::before {
+				content: '';
+				width: 18px;
+				height: 18px;
+				border-radius: 50%;
+				background: var(--swatch);
+			}
+		}
+
+		.dt-switch-indicator {
+			background: rgba(255, 255, 255, .22);
+		}
+	}
+
+	.dt-stage {
+		position: absolute;
+		inset: 32px 0 0;
+		height: auto;
+		transition: background .3s;
+	}
+
+	// Windows: the website on the left, the editor behind it to the right and
+	// lower, so its edges show. The browser is no wider than the website it shows.
+	.dt-window {
+		position: absolute;
+		z-index: 1;
+		height: auto;
+		transition: transform .35s cubic-bezier(.25, .46, .45, .94);
+
+		&[data-win='site'] {
+			top: 24px;
+			bottom: calc(var(--dt-dock-bottom) + 56px);
+			left: calc(var(--dt-dock-left) + 24px);
+			width: min(1280px, calc(100% - var(--dt-dock-left) - 48px));
+		}
+
+		&[data-win='source'] {
+			top: 72px;
+			right: 24px;
+			bottom: calc(var(--dt-dock-bottom) + 20px);
+			width: min(1400px, calc(100% - var(--dt-dock-left) - 224px));
+		}
+
+		&.is-focused {
+			z-index: 2;
+		}
+
+		&:not(.is-focused) {
+			display: block;
+		}
+
+		&.is-opening {
+			animation: dt-open .25s cubic-bezier(.2, .8, .2, 1);
+		}
+
+		&.is-closing {
+			z-index: 3;
+			pointer-events: none;
+			animation: dt-close .18s ease-out forwards;
+		}
+	}
+
+	.dt-window-frame {
+		display: flex;
+		flex-direction: column;
+		border-radius: 12px;
+		overflow: hidden;
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), 0 3px 12px rgba(0, 0, 0, .35);
+		transition: box-shadow .2s;
+
+		.is-focused &,
+		.is-closing & {
+			box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), 0 10px 36px rgba(0, 0, 0, .55);
+		}
+	}
+
+	.dt-window-content {
+		flex: 1;
+		min-height: 0;
+		height: auto;
+	}
+
+	// Clicking any visible part of a window in the background raises it.
+	.dt-window-activate {
+		display: block;
+		position: absolute;
+		inset: 0;
+		padding: 0;
+		border: 0;
+		border-radius: 12px;
+		background: transparent;
+		cursor: default;
+	}
+
+	// libadwaita header bar, as in GNOME Web.
+	.dt-headerbar {
+		display: grid;
+		grid-template-columns: 1fr minmax(0, 600px) 1fr;
+		align-items: center;
+		gap: 12px;
+		height: 46px;
+		flex-shrink: 0;
+		padding: 0 11px;
+		background: var(--dt-headerbar);
+		box-shadow: inset 0 -1px var(--dt-headerbar-shade);
+		color: var(--dt-headerbar-fg);
+		font-family: var(--dt-font);
+	}
+
+	.dt-address-group {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.dt-address {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+		height: 34px;
+		padding: 0 12px;
+		border-radius: 6px;
+		background: var(--dt-entry);
+		color: var(--dt-headerbar-dim);
+		font-size: 14.5px;
+
+		svg {
+			flex-shrink: 0;
+		}
+
+		span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		b {
+			color: var(--dt-headerbar-fg);
+			font-weight: 400;
+		}
+	}
+
+	// A flat libadwaita header bar button.
+	.dt-headerbar-button {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 34px;
+		height: 34px;
+		padding: 0;
+		border: 0;
+		border-radius: 6px;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+
+		&:hover {
+			background: color-mix(in srgb, currentColor 7%, transparent);
+		}
+
+		&:active {
+			background: color-mix(in srgb, currentColor 16%, transparent);
+		}
+	}
+
+	.dt-close {
+		justify-self: end;
+	}
+
+	.dt-close,
+	.dt-window .tm-close {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px !important;
+		height: 24px !important;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: color-mix(in srgb, currentColor 10%, transparent) !important;
+		color: inherit;
+		cursor: pointer;
+
+		&:hover {
+			background: color-mix(in srgb, currentColor 15%, transparent) !important;
+		}
+
+		&:active {
+			background: color-mix(in srgb, currentColor 30%, transparent) !important;
+		}
+	}
+
+	// The editor keeps its own colours, as GNOME Text Editor follows its style scheme.
+	.dt-window .tm-chrome {
+		height: 46px !important;
+		padding: 0 11px 0 12px !important;
+	}
+
+	.dt-window .tm-title {
+		color: var(--tm-text) !important;
+		font-family: var(--dt-font);
+		font-size: 14.5px !important;
+		font-weight: 700;
+		letter-spacing: 0 !important;
+	}
+
+	// Windows in the background get libadwaita's dimmed "backdrop" header bar.
+	.dt-window:not(.is-focused, .is-closing) {
+		.dt-headerbar {
+			background: var(--dt-headerbar-backdrop);
+		}
+
+		.dt-headerbar > *,
+		.tm-chrome > * {
+			opacity: .5;
+		}
+	}
+
+	// The website scrolls inside its window instead of the page.
+	.dt-window-content > .editorial {
+		height: 100% !important;
+		min-height: 0 !important;
+
+		.ed-sidebar {
+			position: static !important;
+			height: 100% !important;
+			overflow-y: auto;
+			scrollbar-width: thin;
+		}
+
+		main {
+			overflow-x: hidden !important;
+			overflow-y: auto !important;
+		}
+	}
+
+	// Dock: on the left when there's width to spare, at the bottom when there's height.
+	.dt-dock {
+		display: flex;
+		gap: 4px;
+		position: absolute;
+		z-index: 5;
+		padding: 6px;
+		border-radius: 22px;
+		background: rgba(54, 54, 58, .6);
+		backdrop-filter: blur(20px) saturate(1.4);
+	}
+
+	.dt-dock-item {
+		position: relative;
+		display: block;
+		width: 64px;
+		height: 64px;
+		padding: 8px;
+		border-radius: 16px;
+		transition: background .15s;
+
+		svg {
+			display: block;
+			width: 100%;
+			height: 100%;
+		}
+
+		&:hover,
+		&:focus-visible {
+			background: rgba(255, 255, 255, .1);
+		}
+
+		// Running indicator.
+		&.is-running::before {
+			content: '';
+			position: absolute;
+			width: 5px;
+			height: 5px;
+			border-radius: 50%;
+			background: #fff;
+		}
+
+		&::after {
+			content: attr(data-label);
+			position: absolute;
+			padding: 6px 12px;
+			border-radius: 999px;
+			background: rgba(46, 46, 50, .95);
+			color: #fff;
+			font-size: 14px;
+			font-weight: 600;
+			white-space: nowrap;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity .15s;
+		}
+
+		&:hover::after,
+		&:focus-visible::after {
+			opacity: 1;
+		}
+	}
+
+	// Activities.
+	.is-overview .dt-stage {
+		background: rgba(0, 0, 0, .2);
+	}
+
+	.is-overview .dt-window {
+		z-index: 1;
+
+		&:hover {
+			z-index: 2;
+		}
+
+		&.is-closing {
+			animation-name: dt-fade-out;
+		}
+
+		.dt-window-activate {
+			cursor: pointer;
+		}
+
+		&:hover .dt-window-frame {
+			box-shadow: 0 0 0 calc(5px / var(--ov-scale, 1)) rgba(255, 255, 255, .6), 0 10px 36px rgba(0, 0, 0, .55);
+		}
+	}
+
+	// libadwaita alert dialog.
+	.dt-dialog {
+		display: flex;
+		flex-direction: column;
+		gap: 22px;
+		position: absolute;
+		top: 50%;
+		left: calc(50% + var(--dt-dock-left) / 2);
+		width: 340px;
+		padding: 32px 24px 24px;
+		transform: translate(-50%, -50%);
+		border-radius: 18px;
+		background: var(--dt-dialog);
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 12px 40px rgba(0, 0, 0, .45);
+		color: var(--dt-headerbar-fg);
+		z-index: 4;
+		text-align: center;
+		animation: dt-fade .25s ease-out;
+
+		p {
+			margin: 0;
+			font-size: 18px;
+			font-weight: 700;
+		}
+	}
+
+	.dt-dialog-button {
+		display: block;
+		padding: 11px 16px;
+		border-radius: 12px;
+		background: var(--dt-accent);
+		color: #fff;
+		font-size: 15px;
+		font-weight: 700;
+		text-decoration: none;
+		transition: background .15s;
+
+		&:hover {
+			background: color-mix(in oklab, var(--dt-accent) 88%, white);
+		}
+	}
+}
+
+@media (min-width: $desktop) and (orientation: landscape) {
+	.desktop {
+		--dt-dock-left: 88px;
+	}
+
+	.dt-dock {
+		flex-direction: column;
+		top: 50%;
+		left: 12px;
+		transform: translateY(-50%);
+	}
+
+	.dt-dock-item {
+		&.is-running::before {
+			top: 50%;
+			left: 1px;
+			margin-top: -2.5px;
+		}
+
+		&::after {
+			top: 50%;
+			left: calc(100% + 14px);
+			transform: translateY(-50%);
+		}
+	}
+}
+
+@media (min-width: $desktop) and (orientation: portrait) {
+	.desktop {
+		--dt-dock-bottom: 88px;
+	}
+
+	.dt-dock {
+		bottom: 12px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+
+	.dt-dock-item {
+		&.is-running::before {
+			bottom: 2px;
+			left: 50%;
+			margin-left: -2.5px;
+		}
+
+		&::after {
+			bottom: calc(100% + 14px);
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dt-window,
+	.dt-stage,
+	.dt-wallpaper {
+		transition: none;
+	}
+
+	.dt-window.is-opening,
+	.dt-window.is-closing,
+	.dt-quick-settings,
+	.dt-dialog {
+		animation: none;
+	}
+
+	.dt-switch-indicator {
+		transition: none;
+	}
+}

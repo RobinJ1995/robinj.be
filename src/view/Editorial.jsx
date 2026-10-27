@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useRef, useEffect} from 'react';
 import {PAGES} from '../constants';
 import {CONTENT} from '../content';
 import {parseMarkdown} from '../markdown';
@@ -9,6 +9,12 @@ const SERIF = '"Newsreader", ui-serif, Georgia, serif';
 
 const EditorialApp = ({page, onNavigate, onToggleView}) => {
 	const viewSource = <ViewSourceToggle page={page} onToggleView={onToggleView} />;
+	const mainRef = useRef(null);
+
+	// Inside a desktop window <main> is the scroller, so a new page starts at its top.
+	useEffect(() => {
+		mainRef.current?.scrollTo?.(0, 0);
+	}, [page]);
 
 	return (
 		<div className="editorial" style={{
@@ -18,10 +24,11 @@ const EditorialApp = ({page, onNavigate, onToggleView}) => {
 		fontFeatureSettings: '"ss01", "cv01"',
 	}}>
 		<EdSidebar page={page} onNavigate={onNavigate} />
-		<main style={{flex: 1, padding: '64px 80px 80px', overflow: 'hidden', minWidth: 0}}>
+		<main ref={mainRef} style={{flex: 1, padding: '64px 80px 80px', overflow: 'hidden', minWidth: 0}}>
 			{page === 'cv' && <EdCV toggle={viewSource} />}
 			{page === 'side-quests' && <EdProjects toggle={viewSource} />}
 			{page === 'contact' && <EdContact toggle={viewSource} />}
+			{page === 'whoami' && <EdWhoami toggle={viewSource} />}
 			{page === '404' && <EdNotFound onNavigate={onNavigate} />}
 		</main>
 		</div>
@@ -321,22 +328,57 @@ const EdContact = ({toggle}) => (
 		</header>
 
 		<div style={{display: 'flex', flexDirection: 'column', gap: 0}}>
-			{/* Not an <a>, so the address stays out of the static HTML. */}
-			<div className="ed-contact-row" style={contactRowStyle(false)}>
-				<div style={contactLabelStyle}>E-mail</div>
-				<div style={{fontFamily: SERIF, fontSize: 24}}><EmailAddress>{CONTENT.email}</EmailAddress></div>
-				<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+			<ContactLinks />
+		</div>
+	</div>
+);
+
+const ContactLinks = () => (
+	<>
+		{/* Not an <a>, so the address stays out of the static HTML. */}
+		<div className="ed-contact-row" style={contactRowStyle(false)}>
+			<div style={contactLabelStyle}>E-mail</div>
+			<div style={{fontFamily: SERIF, fontSize: 24}}><EmailAddress>{CONTENT.email}</EmailAddress></div>
+			<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+		</div>
+		<a className="ed-contact-row" href={`https://${CONTENT.linkedin}`} style={contactRowStyle(false)}>
+			<div style={contactLabelStyle}>LinkedIn</div>
+			<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.linkedin}</div>
+			<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+		</a>
+		<a className="ed-contact-row" href={`https://${CONTENT.github}`} style={contactRowStyle(true)}>
+			<div style={contactLabelStyle}>GitHub</div>
+			<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.github}</div>
+			<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+		</a>
+	</>
+);
+
+// The rendered side of whoami.txt: who, what and where, then how to reach me.
+const EdWhoami = ({toggle}) => (
+	<div style={{maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 40}}>
+		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
+			<EdEyebrow toggle={toggle}>whoami</EdEyebrow>
+			<EdDisplay>{CONTENT.name}</EdDisplay>
+			<p style={{margin: 0, fontFamily: SERIF, fontSize: 20, fontStyle: 'italic', color: 'var(--ed-dim)'}}>{CONTENT.tagline}</p>
+		</header>
+
+		<div style={{display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 620, fontSize: 16, lineHeight: 1.6}}>
+			{CONTENT.bio.map((paragraph, i) => <p key={i} style={{margin: 0}}>{paragraph}</p>)}
+		</div>
+
+		<div style={{display: 'flex', flexDirection: 'column', gap: 0}}>
+			<div style={contactRowStyle(false)}>
+				<div style={contactLabelStyle}>Role</div>
+				<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.role}</div>
+				<div />
 			</div>
-			<a className="ed-contact-row" href={`https://${CONTENT.linkedin}`} style={contactRowStyle(false)}>
-				<div style={contactLabelStyle}>LinkedIn</div>
-				<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.linkedin}</div>
-				<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
-			</a>
-			<a className="ed-contact-row" href={`https://${CONTENT.github}`} style={contactRowStyle(true)}>
-				<div style={contactLabelStyle}>GitHub</div>
-				<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.github}</div>
-				<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
-			</a>
+			<div style={contactRowStyle(false)}>
+				<div style={contactLabelStyle}>Based in</div>
+				<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.location}</div>
+				<div />
+			</div>
+			<ContactLinks />
 		</div>
 	</div>
 );

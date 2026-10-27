@@ -1,6 +1,7 @@
 import {describe, it, expect, vi, afterEach} from 'vitest';
 import {render, screen, fireEvent, cleanup, act} from '@testing-library/react';
 import App from './App';
+import {routes, render as prerender} from './entry-server';
 
 afterEach(cleanup);
 
@@ -91,13 +92,42 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 		expect(screen.getByText('Sprint Retrospective')).toBeInTheDocument();
 	});
 
-	it('falls back to the CV when toggling to the rendered view from whoami', () => {
+	it('opens an editor tab per file viewed, and closes them', () => {
+		const pushSpy = vi.spyOn(window.history, 'pushState');
+		const {container} = render(<App initialPath="/cv/source" />);
+		const tabs = () => [...container.querySelectorAll('.tm-tab a')].map(a => a.textContent.trim());
+		expect(tabs()).toEqual(['Mcv.md']);
+
+		fireEvent.click(screen.getAllByRole('link', {name: 'contact.yml'})[0]);
+		expect(tabs()).toEqual(['Mcv.md', 'Ycontact.yml']);
+		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/contact/source');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close contact.yml'}));
+		expect(tabs()).toEqual(['Mcv.md']);
+		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/cv/source');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close cv.md'}));
+		expect(tabs()).toEqual([]);
+		expect(screen.getByText('No open files')).toBeInTheDocument();
+		pushSpy.mockRestore();
+	});
+
+	it('toggles from whoami\'s source to its rendered page', () => {
 		const {container} = render(<App initialPath="/whoami/source" />);
 		expect(container.querySelector('.terminal')).not.toBeNull();
 
 		fireEvent.click(screen.getByTitle('View rendered site'));
 
 		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(screen.getByText('Work Experience')).toBeInTheDocument();
+		expect(screen.getByRole('heading', {level: 1, name: 'Robin Jacobs'})).toBeInTheDocument();
+	});
+});
+
+describe('e-mail obfuscation', () => {
+	it.each(routes)('keeps the address out of the prerendered HTML for %s', route => {
+		const {html} = prerender(route);
+
+		expect(html).not.toContain('robin@robinj.be');
+		expect(html).not.toContain('mailto:');
 	});
 });
