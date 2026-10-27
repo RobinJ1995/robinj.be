@@ -63,7 +63,6 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 
 		expect(container.querySelector('.terminal')).not.toBeNull();
 		expect(container.querySelector('.editorial')).toBeNull();
-		// The file tabs are unique to the source view.
 		expect(screen.getAllByText('side-quests.yml').length).toBeGreaterThan(0);
 	});
 

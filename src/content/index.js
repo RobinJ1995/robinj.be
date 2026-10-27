@@ -1,5 +1,3 @@
-// Single source of truth for the site's content. Both the editorial and the
-// terminal/IDE views are driven from this object; each section lives in its own file.
 import profile from './profile';
 import work from './work';
 import sideQuests from './side-quests';

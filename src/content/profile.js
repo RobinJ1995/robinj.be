@@ -1,6 +1,5 @@
 import {ROBIN_AT_ROBINJ_DOT_BE} from '../constants';
 
-// Who I am and where to find me; shown in the sidebar, whoami and contact.
 export default {
 	name: 'Robin Jacobs',
 	tagline: 'Developer & open-source enthusiast',

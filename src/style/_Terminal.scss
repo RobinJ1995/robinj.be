@@ -1,7 +1,4 @@
-// Terminal view — interaction only. Layout & colour come from the component's
-// inline styles + the --tm-* tokens. The EmailAddress link carries no inline
-// colour, so it inherits its surroundings; hover states use !important to win
-// over the components' inline colours.
+// Hover states only. Layout and colour are inline styles, hence the !important.
 .terminal {
 	a {
 		transition: background 0.2s, color 0.2s, border-color 0.2s;
@@ -28,8 +25,6 @@
 	}
 }
 
-// Small screens: narrow the file-tree sidebar and let the window scroll
-// horizontally rather than breaking the page layout.
 @media (max-width: 720px) {
 	.terminal {
 		overflow-x: auto;

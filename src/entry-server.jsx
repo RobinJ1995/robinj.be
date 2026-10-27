@@ -7,7 +7,6 @@ export const routes = (() => {
 	const list = ['/'];
 
 	for (const page of Object.values(PAGES)) {
-		// Source-only pages (whoami) have no rendered route.
 		if (!page.sourceOnly) {
 			list.push(page.url);
 		}

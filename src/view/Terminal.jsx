@@ -3,11 +3,6 @@ import {CONTENT} from '../content';
 import {parseMarkdown, inlineToText} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
-// Direction B — Terminal / IDE.
-// CV-as-terminal-session. Window chrome, monospace, file browser on left.
-// Colours come from CSS custom properties (--tm-*) in style/App.scss, swapped by
-// prefers-color-scheme, so this view is theme-aware with no JS.
-
 const FILES = [
 	{id: 'whoami', name: 'whoami.txt', kind: 'txt'},
 	{id: 'cv', name: 'cv.md', kind: 'md'},
@@ -15,10 +10,7 @@ const FILES = [
 	{id: 'contact', name: 'contact.yml', kind: 'yml'},
 ];
 
-// The terminal prompt/title show `robin@robinj.be` as a user@host string. It's
-// purely decorative (not a contact link), so it uses EmailAddress in text mode:
-// same spam-harvester defence (address absent from the static HTML, revealed
-// after mount), just without the mailto link.
+// Decorative user@host; EmailAddress keeps it out of the static HTML.
 const Host = () => <EmailAddress asText>{CONTENT.email}</EmailAddress>;
 
 const kindGlyph = k => ({md: 'M', json: '{}', yml: 'Y', txt: 'T'}[k] || '·');
@@ -49,8 +41,6 @@ const TerminalApp = ({page, onNavigate, onToggleView}) => (
 );
 
 const TerminalChrome = ({page, onToggleView}) => {
-	// Both the "rendered" button and the window's close button leave the source
-	// view. whoami has no rendered equivalent, so it falls back to the CV.
 	const renderedHref = `/${page === 'whoami' ? 'cv' : page}`;
 
 	return (
@@ -88,9 +78,7 @@ const TerminalChrome = ({page, onToggleView}) => {
 	);
 };
 
-// The git block reflects the real GitHub repository. It renders design-time
-// placeholders during SSR / before the fetch resolves, then updates on mount —
-// so no data lands in the static HTML and there is no hydration mismatch.
+// Fetched on mount, so SSR and hydration both render the placeholders.
 const GIT_REPO = 'RobinJ1995/robinj.be';
 
 const relativeTime = iso => {
@@ -113,7 +101,6 @@ const useGitStats = () => {
 
 	useEffect(() => {
 		const ctrl = new AbortController();
-		// Never leave the request hanging on a slow/unreachable network.
 		const timer = setTimeout(() => ctrl.abort(), 6000);
 
 		(async () => {
@@ -134,7 +121,7 @@ const useGitStats = () => {
 
 				setStats(prev => ({...prev, ...next}));
 			} catch {
-				/* Offline / rate-limited — keep the placeholders. */
+				/* Offline or rate-limited: keep the placeholders. */
 			} finally {
 				clearTimeout(timer);
 			}
@@ -262,11 +249,9 @@ const TerminalStatusbar = ({page}) => {
 	);
 };
 
-// ─── Content viewers (rendered like the file types they represent) ─────────
+// ─── Content viewers ─────────────────────────────────────────────────────────
 
-// A logical line is either a ReactNode, or { node, hang } where `hang` is the
-// number of monospace columns to indent wrapped continuation lines by. Each
-// logical line gets exactly one gutter number and grows downward when it wraps.
+// A line is a node, or {node, hang} to indent it by `hang` columns. One gutter number per line, however it wraps.
 const CodePane = ({lines}) => (
 	<div style={{height: '100%', overflowY: 'auto', background: 'var(--tm-surface)', padding: '18px 0', fontSize: 13, lineHeight: 1.7}}>
 		{lines.map((l, i) => {
@@ -340,8 +325,7 @@ export LOCATION="${CONTENT.location}"
 	);
 };
 
-// cv.md is itself Markdown, so a description prints as written: one logical
-// line per paragraph or bullet, with a blank line between blocks.
+// Prints the Markdown as written, one line per paragraph or bullet.
 const markdownBody = (markdown, hang = 2) => parseMarkdown(markdown).flatMap((block, i) => [
 	...(i ? [''] : []),
 	...(block.type === 'ul'
@@ -387,9 +371,7 @@ const TerminalCV = () => {
 	return <CodePane lines={lines} />;
 };
 
-// A YAML folded block (`>`) holding the description Markdown. Each paragraph is
-// one logical line that soft-wraps, and each bullet one more — so the gutter
-// numbers follow the content's structure, not how the source string is wrapped.
+// The description as a YAML folded block (`>`), one line per paragraph or bullet.
 const foldedBlock = markdown => parseMarkdown(markdown).flatMap((block, i) => [
 	...(i ? [''] : []),
 	...(block.type === 'ul'

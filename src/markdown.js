@@ -1,10 +1,4 @@
-// A deliberately small Markdown subset, just enough for the project
-// descriptions: blank-line-separated paragraphs, `- ` bullets and *emphasis*.
-//
-// Content is stored in its richest form (Markdown) and each view derives what
-// it needs: the rendered site parses this into elements, the source view prints
-// the original text verbatim. Flattening is lossy, so it only ever happens at
-// render time — never in the stored content.
+// Minimal Markdown subset for content descriptions: paragraphs, `- ` bullets and *emphasis*.
 
 // A line of text -> inline nodes: plain strings and {em} runs.
 export const parseInline = text => {
@@ -28,8 +22,7 @@ export const parseInline = text => {
 	return nodes;
 };
 
-// Lines are trimmed, so the source string may be indented to suit its
-// surrounding code without that indentation leaking into the content.
+// Lines are trimmed, so content can be indented to match the surrounding code.
 const parseBlock = block => {
 	const out = [];
 	let paragraph = [];
@@ -70,8 +63,7 @@ export const parseMarkdown = markdown => String(markdown)
 	.split(/\n\s*\n/)
 	.flatMap(parseBlock);
 
-// Inline nodes -> their Markdown text, emphasis markers restored. Lets the
-// source view print a parsed block exactly as it was written.
+// Inline nodes -> Markdown text, emphasis markers restored.
 export const inlineToText = nodes => nodes
 	.map(node => (typeof node === 'string' ? node : `*${node.em}*`))
 	.join('');

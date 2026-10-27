@@ -47,8 +47,7 @@ const App = ({initialPath}) => {
 		return () => window.removeEventListener('popstate', handlePopState);
 	}, []);
 
-	// `name` may carry a `/source` suffix (e.g. from the terminal file tree) to
-	// select the source view for the target page.
+	// `name` may end in `/source` to open that page's source view.
 	const navigate = (name, e = null, pushHistory = true) => {
 		if (e) {
 			e.preventDefault();
@@ -76,7 +75,7 @@ const App = ({initialPath}) => {
 	let page = findPage(pageName);
 	if (!page) {
 		const notFound = Object.values(PAGES).find(p => p['404']);
-		// Correct client state to the 404 page (no history push); render it now.
+		// Show the 404 without changing the URL.
 		if (typeof window !== 'undefined' && pageName !== notFound.name) {
 			navigate(notFound.name, null, false);
 		}
@@ -93,21 +92,18 @@ const App = ({initialPath}) => {
 		}
 
 		if (viewSource) {
-			// whoami has no rendered equivalent — fall back to the CV.
 			return navigate(page.sourceOnly ? 'cv' : page.name);
 		}
 
 		return navigate(`${page.name}/source`);
 	};
 
-	// The terminal view only renders for pages that have a source representation.
 	const showSource = viewSource && !!page.source;
 
 	if (showSource) {
 		return <TerminalApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />;
 	}
 
-	// whoami / any source-only page has no rendered equivalent → show the CV.
 	const editorialPage = page.sourceOnly ? 'cv' : page.name;
 	return <EditorialApp page={editorialPage} onNavigate={navigate} onToggleView={toggleViewSource} />;
 };

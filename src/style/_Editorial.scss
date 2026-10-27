@@ -1,7 +1,4 @@
-// Editorial view — interaction only. Layout & colour come from the component's
-// inline styles + the --ed-* tokens. The EmailAddress link carries no inline
-// colour, so it inherits its surroundings here; hover states use !important to
-// win over the components' inline colours.
+// Hover states only. Layout and colour are inline styles, hence the !important.
 .editorial {
 	a {
 		transition: all 0.2s;
@@ -13,7 +10,6 @@
 		color: var(--ed-text) !important;
 	}
 
-	// Quiet by default, lights up on hover — like the old view-source icon.
 	.ed-source-toggle:hover {
 		color: var(--ed-accent) !important;
 		border-color: var(--ed-accent) !important;
@@ -36,8 +32,6 @@
 	}
 }
 
-// Small screens: the fixed-width sidebar stacks above a full-width main column
-// (the original site was responsive at this same breakpoint; keep it usable).
 @media (max-width: 720px) {
 	.editorial {
 		flex-direction: column !important;

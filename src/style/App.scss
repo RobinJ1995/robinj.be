@@ -1,6 +1,4 @@
-// Theme tokens. The two views (editorial + terminal) read these CSS custom
-// properties; prefers-color-scheme swaps light/dark with no JS, which keeps the
-// server render and the client hydration identical.
+// Theme tokens. Swapped by prefers-color-scheme in CSS, so SSR and hydration render the same.
 :root {
 	color-scheme: light dark;
 
@@ -85,7 +83,6 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
-// Blinking terminal cursor (whoami session).
 @keyframes blink {
 	50% {
 		border-color: transparent;

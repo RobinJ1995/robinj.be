@@ -4,11 +4,6 @@ import {CONTENT} from '../content';
 import {parseMarkdown} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
-// Direction A — Editorial.
-// Modern serif/sans editorial portfolio. Sticky sidebar nav, generous whitespace.
-// Colours come from CSS custom properties (--ed-*) defined in style/App.scss and
-// swapped by prefers-color-scheme, so this view is theme-aware with no JS.
-
 const MONO = '"IBM Plex Mono", ui-monospace, monospace';
 const SERIF = '"Newsreader", ui-serif, Georgia, serif';
 
@@ -109,8 +104,6 @@ const EdEyebrow = ({children, toggle = null}) => (
 	</div>
 );
 
-// Sits on the page's eyebrow line, the way the old site put it beside the page
-// heading: quiet until hovered, and no label — the glyph and tooltip carry it.
 const ViewSourceToggle = ({page, onToggleView}) => (
 	<a href={`/${page}/source`} onClick={onToggleView}
 		title="View source" aria-label="View source" className="ed-source-toggle"
@@ -137,7 +130,6 @@ const SectionHead = ({title}) => (
 	</div>
 );
 
-// An optional label (e.g. "Integration with:") sits on its own line above the chips.
 const TechChips = ({tech, label = null}) => (
 	<div style={{marginTop: 14}}>
 		{label && <div style={{fontFamily: MONO, fontSize: 11, color: 'var(--ed-dim)', marginBottom: 6}}>{label}</div>}
@@ -163,7 +155,7 @@ const EdWorkRow = ({item, last}) => (
 			<div style={{color: item.end === 'Present' ? 'var(--ed-accent)' : 'var(--ed-dim)'}}>↓</div>
 			<div>{item.end}</div>
 		</div>
-		{/* Without a logo the slot stays empty, so the text lines up with the rows that have one. */}
+		{/* Empty slot keeps the text aligned with rows that have a logo. */}
 		{item.logo ? <div style={{
 			width: 56, height: 56, borderRadius: 10, overflow: 'hidden',
 			background: 'var(--ed-surface)', border: '1px solid var(--ed-rule)',
@@ -266,7 +258,6 @@ const Inline = ({nodes}) => nodes.map((n, i) => (typeof n === 'string'
 	? <React.Fragment key={i}>{n}</React.Fragment>
 	: <em key={i} style={{fontStyle: 'italic'}}>{n.em}</em>));
 
-// Renders the stored Markdown as real prose: paragraphs, emphasis and bullets.
 const Prose = ({markdown}) => parseMarkdown(markdown).map((block, i) => (block.type === 'ul'
 	? <ul key={i} style={{margin: '10px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.6}}>
 		{block.items.map((item, j) => <li key={j}><Inline nodes={item} /></li>)}
@@ -334,8 +325,7 @@ const EdContact = ({toggle}) => (
 		</header>
 
 		<div style={{display: 'flex', flexDirection: 'column', gap: 0}}>
-			{/* E-mail row is a plain container (not an <a>) so the address stays out
-			    of the static HTML — EmailAddress reveals it after mount. */}
+			{/* Not an <a>, so the address stays out of the static HTML. */}
 			<div className="ed-contact-row" style={contactRowStyle(false)}>
 				<div style={contactLabelStyle}>E-mail</div>
 				<div style={{fontFamily: SERIF, fontSize: 24}}><EmailAddress>{CONTENT.email}</EmailAddress></div>

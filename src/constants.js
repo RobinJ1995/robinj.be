@@ -1,6 +1,3 @@
-// Route/page registry. Both views (editorial + terminal) render from CONTENT
-// (src/content); the source-view toggle now switches between the two *designs* rather
-// than showing raw markup, so pages no longer carry an inlined `?raw` source.
 export const PAGES = Object.freeze({
 	CV: {
 		name: 'cv',
@@ -24,7 +21,7 @@ export const PAGES = Object.freeze({
 		menu: true,
 		source: true,
 	},
-	// whoami has no rendered equivalent — it only exists inside the source view.
+	// whoami has no rendered equivalent; only exists in source view
 	Whoami: {
 		name: 'whoami',
 		url: '/whoami',

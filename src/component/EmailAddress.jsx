@@ -14,9 +14,7 @@ const randomSpan = () => {
 
 const PLACEHOLDER = '───';
 
-// `asText` renders the same obfuscation as plain text instead of a mailto link
-// — used for the decorative terminal prompt/title, where the address must show
-// but isn't a contact link.
+// `asText`: same obfuscation, as plain text instead of a mailto link.
 const EmailAddress = ({children, asText = false}) => {
 	const [mounted, setMounted] = useState(false);
 	const [hover, setHover] = useState(false);
