@@ -2,6 +2,8 @@ import {defineConfig, devices} from '@playwright/test';
 import fs from 'node:fs';
 
 const PORT = 4173;
+const IMAGE = 'robinj-be:e2e';
+const CONTAINER = 'robinj-be-e2e';
 
 // Use the browser pre-installed in the dev/runtime image when present; in CI we
 // rely on `npx playwright install chromium` fetching the matching build instead.
@@ -24,9 +26,10 @@ export default defineConfig({
 		{name: 'chromium', use: {...devices['Desktop Chrome'], launchOptions}},
 	],
 	webServer: {
-		command: `node e2e/serve.js`,
+		command: `docker rm -f ${CONTAINER} >/dev/null 2>&1; docker build -t ${IMAGE} . && docker run --rm --name ${CONTAINER} -p ${PORT}:80 ${IMAGE}`,
 		url: `http://localhost:${PORT}`,
 		reuseExistingServer: !process.env.CI,
-		timeout: 30_000,
+		timeout: 300_000,
+		gracefulShutdown: {signal: 'SIGTERM', timeout: 10_000},
 	},
 });
