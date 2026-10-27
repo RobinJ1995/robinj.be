@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import {parseInline, parseMarkdown} from './markdown';
-import {CONTENT} from './constants';
+import {CONTENT} from './content';
 
 describe('parseInline', () => {
 	it('returns a plain string as a single node', () => {

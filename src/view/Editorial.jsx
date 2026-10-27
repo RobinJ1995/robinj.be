@@ -1,5 +1,6 @@
 import React from 'react';
-import {CONTENT, PAGES} from '../constants';
+import {PAGES} from '../constants';
+import {CONTENT} from '../content';
 import {parseMarkdown} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
@@ -278,7 +279,7 @@ const EdProjects = ({toggle}) => (
 	<div style={{maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 48}}>
 		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
 			<EdEyebrow toggle={toggle}>Side Quests</EdEyebrow>
-			<EdDisplay size={56}>
+			<EdDisplay>
 				Things I built<br />
 				<em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>because I wanted to.</em>
 			</EdDisplay>

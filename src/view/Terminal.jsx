@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {CONTENT} from '../constants';
+import {CONTENT} from '../content';
 import {parseMarkdown, inlineToText} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
