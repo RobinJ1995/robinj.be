@@ -7,10 +7,8 @@ const template = fs.readFileSync('build/index.html', 'utf8');
 const outFileFor = route => {
 	if (route === '/') {
 		return 'build/index.html';
-	}
-
-	// nginx serves /404.html as the fallback (try_files ... /404.html ...).
-	if (route === '/404') {
+	} else if (route === '/404') {
+		// nginx serves /404.html as the fallback (try_files ... /404.html ...).
 		return 'build/404.html';
 	}
 
