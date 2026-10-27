@@ -288,7 +288,7 @@ export const CONTENT = Object.freeze({
 				kids to follow, including Scratch, Python, Arduino, HTML/CSS and C#.`,
 		},
 		{
-			title: 'System administrator & developer',
+			title: 'System Administrator & Developer',
 			org: 'Student Information Network (SIN)',
 			logo: '/img/experience/sin.webp',
 			location: 'Geel, Belgium',
