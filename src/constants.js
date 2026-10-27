@@ -10,10 +10,10 @@ export const PAGES = Object.freeze({
 		menu: true,
 		source: true,
 	},
-	Projects: {
-		name: 'projects',
-		url: '/projects',
-		title: 'Projects',
+	SideQuests: {
+		name: 'side-quests',
+		url: '/side-quests',
+		title: 'Side Quests',
 		menu: true,
 		source: true,
 	},

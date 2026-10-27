@@ -11,7 +11,7 @@ import EmailAddress from '../component/EmailAddress';
 const FILES = [
 	{id: 'whoami', name: 'whoami.txt', kind: 'txt'},
 	{id: 'cv', name: 'cv.md', kind: 'md'},
-	{id: 'projects', name: 'side-quests.yml', kind: 'yml'},
+	{id: 'side-quests', name: 'side-quests.yml', kind: 'yml'},
 	{id: 'contact', name: 'contact.yml', kind: 'yml'},
 ];
 
@@ -39,7 +39,7 @@ const TerminalApp = ({page, onNavigate, onToggleView}) => (
 				<div style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
 					{page === 'whoami' && <TerminalWhoami />}
 					{page === 'cv' && <TerminalCV />}
-					{page === 'projects' && <TerminalProjects />}
+					{page === 'side-quests' && <TerminalProjects />}
 					{page === 'contact' && <TerminalContact />}
 				</div>
 				<TerminalStatusbar page={page} />

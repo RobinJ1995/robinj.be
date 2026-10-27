@@ -20,8 +20,8 @@ describe('routing', () => {
 		expect(screen.getByText(/on LinkedIn/)).toBeInTheDocument();
 	});
 
-	it('renders the Projects page for "/projects"', () => {
-		render(<App initialPath="/projects" />);
+	it('renders the Side Quests page for "/side-quests"', () => {
+		render(<App initialPath="/side-quests" />);
 		expect(screen.getByText('Sprint Retrospective')).toBeInTheDocument();
 	});
 
@@ -49,7 +49,7 @@ describe('routing', () => {
 		render(<App initialPath="/cv" />);
 
 		act(() => {
-			const e = new PopStateEvent('popstate', {state: {name: 'projects'}});
+			const e = new PopStateEvent('popstate', {state: {name: 'side-quests'}});
 			window.dispatchEvent(e);
 		});
 
@@ -82,7 +82,7 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 	});
 
 	it('closes back to the rendered view via the window close button', () => {
-		const {container} = render(<App initialPath="/projects/source" />);
+		const {container} = render(<App initialPath="/side-quests/source" />);
 		expect(container.querySelector('.terminal')).not.toBeNull();
 
 		fireEvent.click(screen.getByTitle('Close'));

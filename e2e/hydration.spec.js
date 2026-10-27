@@ -16,8 +16,8 @@ test('hydrates and does client-side navigation without a full reload', async ({p
 		window.__sentinel = 'alive';
 	});
 
-	await page.getByRole('link', {name: 'Projects'}).click();
-	await expect(page).toHaveURL('/projects');
+	await page.getByRole('link', {name: 'Side Quests'}).click();
+	await expect(page).toHaveURL('/side-quests');
 	await expect(page.locator('#root')).toContainText('Sprint Retrospective');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 
@@ -27,7 +27,7 @@ test('hydrates and does client-side navigation without a full reload', async ({p
 
 	// Back button → popstate onto a pushState entry → client-side nav, no reload.
 	await page.goBack();
-	await expect(page).toHaveURL('/projects');
+	await expect(page).toHaveURL('/side-quests');
 	await expect(page.locator('#root')).toContainText('Sprint Retrospective');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 });
@@ -78,7 +78,7 @@ test('produces no hydration-mismatch errors', async ({page}) => {
 		}
 	});
 
-	for (const path of ['/', '/cv/source', '/contact', '/projects']) {
+	for (const path of ['/', '/cv/source', '/contact', '/side-quests']) {
 		await page.goto(path, {waitUntil: 'domcontentloaded'});
 		await waitForHydration(page);
 	}

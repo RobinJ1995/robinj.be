@@ -9,8 +9,15 @@ const CONTENT = [
 	{path: '/', title: 'CV  • Robin Jacobs', text: ['Work Experience', 'Beeline']},
 	{path: '/cv', title: 'CV  • Robin Jacobs', text: ['Work Experience', 'Beeline']},
 	{path: '/contact', title: 'Contact  • Robin Jacobs', text: ['linkedin.com/in/robin-jacobs']},
-	{path: '/projects', title: 'Projects  • Robin Jacobs', text: ['Sprint Retrospective', 'DistroHopper']},
+	{path: '/side-quests', title: 'Side Quests  • Robin Jacobs', text: ['Sprint Retrospective', 'DistroHopper']},
 ];
+
+test('redirects the old /projects URLs to /side-quests', async ({page}) => {
+	await page.goto('/projects');
+	await expect(page).toHaveURL('/side-quests');
+	await page.goto('/projects/source');
+	await expect(page).toHaveURL('/side-quests/source');
+});
 
 for (const {path, title, text} of CONTENT) {
 	test(`prerenders real content for ${path}`, async ({page}) => {

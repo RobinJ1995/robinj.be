@@ -24,7 +24,7 @@ const EditorialApp = ({page, onNavigate, onToggleView}) => {
 		<EdSidebar page={page} onNavigate={onNavigate} />
 		<main style={{flex: 1, padding: '64px 80px 80px', overflow: 'hidden', minWidth: 0}}>
 			{page === 'cv' && <EdCV toggle={viewSource} />}
-			{page === 'projects' && <EdProjects toggle={viewSource} />}
+			{page === 'side-quests' && <EdProjects toggle={viewSource} />}
 			{page === 'contact' && <EdContact toggle={viewSource} />}
 			{page === '404' && <EdNotFound onNavigate={onNavigate} />}
 		</main>
@@ -59,7 +59,7 @@ const EdSidebar = ({page, onNavigate}) => (
 
 		<nav style={{display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4}}>
 			{Object.values(PAGES).filter(p => p.menu).map(p => {
-				const nums = {cv: '01', projects: '02', contact: '03'};
+				const nums = {cv: '01', 'side-quests': '02', contact: '03'};
 				const active = page === p.name;
 				return (
 					<a key={p.name} href={p.url} aria-label={p.title}
@@ -277,7 +277,7 @@ const Prose = ({markdown}) => parseMarkdown(markdown).map((block, i) => (block.t
 const EdProjects = ({toggle}) => (
 	<div style={{maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 48}}>
 		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
-			<EdEyebrow toggle={toggle}>Side quests</EdEyebrow>
+			<EdEyebrow toggle={toggle}>Side Quests</EdEyebrow>
 			<EdDisplay size={56}>
 				Things I built<br />
 				<em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>because I wanted to.</em>
