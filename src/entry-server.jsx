@@ -7,7 +7,9 @@ export const routes = (() => {
 	const list = ['/'];
 
 	for (const page of Object.values(PAGES)) {
-		list.push(page.url);
+		if (!page.sourceOnly) {
+			list.push(page.url);
+		}
 
 		if (page.source) {
 			list.push(`${page.url}/source`);

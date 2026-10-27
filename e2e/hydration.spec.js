@@ -3,12 +3,12 @@ import {test, expect} from '@playwright/test';
 // React attaches __reactProps$… to DOM nodes carrying event handlers once it has
 // hydrated. Waiting for that on an interactive node proves hydration finished.
 const waitForHydration = page => page.waitForFunction(() => {
-	const el = document.querySelector('#page nav a');
+	const el = document.querySelector('#root nav a');
 	return !!el && Object.keys(el).some(k => k.startsWith('__reactProps$'));
 });
 
 test('hydrates and does client-side navigation without a full reload', async ({page}) => {
-	await page.goto('/cv');
+	await page.goto('/cv', {waitUntil: 'domcontentloaded'});
 	await waitForHydration(page);
 
 	// A sentinel on window is wiped by a full page load but survives client-side nav.
@@ -16,8 +16,8 @@ test('hydrates and does client-side navigation without a full reload', async ({p
 		window.__sentinel = 'alive';
 	});
 
-	await page.getByRole('link', {name: 'Projects'}).click();
-	await expect(page).toHaveURL('/projects');
+	await page.getByRole('link', {name: 'Side Quests'}).click();
+	await expect(page).toHaveURL('/side-quests');
 	await expect(page.locator('#root')).toContainText('Sprint Retrospective');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 
@@ -27,13 +27,13 @@ test('hydrates and does client-side navigation without a full reload', async ({p
 
 	// Back button → popstate onto a pushState entry → client-side nav, no reload.
 	await page.goBack();
-	await expect(page).toHaveURL('/projects');
+	await expect(page).toHaveURL('/side-quests');
 	await expect(page.locator('#root')).toContainText('Sprint Retrospective');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 });
 
 test('toggles the source view client-side', async ({page}) => {
-	await page.goto('/cv');
+	await page.goto('/cv', {waitUntil: 'domcontentloaded'});
 	await waitForHydration(page);
 	await page.evaluate(() => {
 		window.__sentinel = 'alive';
@@ -42,14 +42,15 @@ test('toggles the source view client-side', async ({page}) => {
 	await page.getByTitle('View source').click();
 
 	await expect(page).toHaveURL('/cv/source');
-	await expect(page.locator('.view-source')).toContainText("import React from 'react'");
+	await expect(page.locator('.terminal')).toBeVisible();
+	await expect(page.locator('#root')).toContainText('side-quests.yml');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 });
 
 test('reveals the obfuscated e-mail after hydration (requirement 4)', async ({page}) => {
-	await page.goto('/contact');
+	await page.goto('/contact', {waitUntil: 'domcontentloaded'});
 
-	const emailLink = page.locator('main ul li').filter({hasText: 'E-mail:'}).locator('a');
+	const emailLink = page.locator('.ed-contact-row').filter({hasText: 'E-mail'}).locator('a');
 
 	// Placeholder is replaced once the client mounts...
 	await expect(emailLink).not.toHaveText('───');
@@ -76,8 +77,8 @@ test('produces no hydration-mismatch errors', async ({page}) => {
 		}
 	});
 
-	for (const path of ['/', '/cv/source', '/contact', '/projects']) {
-		await page.goto(path);
+	for (const path of ['/', '/cv/source', '/contact', '/side-quests']) {
+		await page.goto(path, {waitUntil: 'domcontentloaded'});
 		await waitForHydration(page);
 	}
 

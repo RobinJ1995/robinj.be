@@ -49,3 +49,24 @@ describe('EmailAddress obfuscation (requirement 4)', () => {
 		expect(link.getAttribute('href')).toBe(`mailto:${EMAIL}`);
 	});
 });
+
+describe('EmailAddress asText mode (decorative, no link)', () => {
+	it('renders only the placeholder in the static render — no address, no link', () => {
+		const html = renderToStaticMarkup(<EmailAddress asText>{EMAIL}</EmailAddress>);
+
+		expect(html).toContain('───');
+		expect(html).not.toContain(EMAIL);
+		expect(html).not.toContain('mailto:');
+		expect(html).not.toContain('<a');
+	});
+
+	it('reveals the address as plain text (no anchor) after mount', () => {
+		const {container} = render(<EmailAddress asText>{EMAIL}</EmailAddress>);
+
+		expect(container.querySelector('a')).toBeNull();
+
+		const clone = container.firstChild.cloneNode(true);
+		clone.querySelectorAll('span[style*="display"]').forEach(s => s.remove());
+		expect(clone.textContent).toBe(EMAIL);
+	});
+});

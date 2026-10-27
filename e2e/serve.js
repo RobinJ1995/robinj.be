@@ -37,6 +37,13 @@ const send = (res, status, file) => {
 
 http.createServer((req, res) => {
 	const urlPath = decodeURIComponent(req.url.split('?')[0]);
+
+	// Mirrors nginx's 301 from the old /projects URLs.
+	const legacy = urlPath.match(/^\/projects(\/source)?\/?$/);
+	if (legacy) {
+		res.writeHead(301, {Location: `/side-quests${legacy[1] || ''}`});
+		return res.end();
+	}
 	const safe = path.normalize(urlPath).replace(/^(\.\.[/\\])+/, '');
 	const direct = path.join(ROOT, safe);
 

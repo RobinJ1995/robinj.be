@@ -14,7 +14,8 @@ const randomSpan = () => {
 
 const PLACEHOLDER = '───';
 
-const EmailAddress = ({children}) => {
+// `asText`: same obfuscation, as plain text instead of a mailto link.
+const EmailAddress = ({children, asText = false}) => {
 	const [mounted, setMounted] = useState(false);
 	const [hover, setHover] = useState(false);
 
@@ -27,11 +28,16 @@ const EmailAddress = ({children}) => {
 	// It's revealed after mount, still randomly obfuscated — the randomness is
 	// deliberate, so don't make it deterministic.
 	if (!mounted) {
-		return <a href="https://robinj.be/">{PLACEHOLDER}</a>;
+		return asText ? <span>{PLACEHOLDER}</span> : <a href="https://robinj.be/">{PLACEHOLDER}</a>;
 	}
 
 	const html = email.split('').map(c => <span
 		key={uuid()}>{randomSpan()}{c}{randomSpan()}</span>);
+
+	if (asText) {
+		return <span>{html}</span>;
+	}
+
 	const link = hover ? `mailto:${email}` : 'https://robinj.be/';
 
 	return (<a
