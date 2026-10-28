@@ -99,11 +99,16 @@ const pkill = api => {
 		signal = parseSignal(args.shift());
 	}
 
-	const opts = options(api, args, {flags: 'fxecn', values: 'u', long: {signal: 's', full: 'f', exact: 'x', echo: 'e', count: 'c', newest: 'n'}});
+	// --signal has no short form: pkill's -s is the session.
+	const opts = options(api, args, {flags: 'fxecn', values: ['u', 'signal'], long: {signal: 'signal', full: 'f', exact: 'x', echo: 'e', count: 'c', newest: 'n'}});
 	if (!opts) {
 		return 2;
-	} else if (opts.has('s')) {
-		signal = parseSignal(opts.get('s'));
+	} else if (opts.has('signal')) {
+		signal = parseSignal(opts.get('signal'));
+	}
+	if (!signal) {
+		api.err(`pkill: Unknown signal "${opts.get('signal')}".\n`);
+		return 2;
 	}
 
 	const [pattern] = opts.operands;
@@ -332,7 +337,7 @@ const topFrame = (api, processes, status, width, height) => {
 		`MiB Mem : ${mib(MEMORY_KIB)} total, ${mib(free)} free, ${mib(used)} used, ${mib(cache)} buff/cache`,
 		`MiB Swap: ${mib(SWAP_KIB)} total, ${mib(SWAP_KIB)} free, ${mib(0)} used. ${mib(free + cache)} avail Mem`,
 		status ?? '',
-		`\x1b[7m${'    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND'.padEnd(width)}\x1b[0m`,
+		`\x1b[7m${clip('    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND'.padEnd(width), width)}\x1b[0m`,
 	];
 	const rows = processes.slice(0, Math.max(height - header.length, 0)).map(proc => {
 		const time = `${Math.floor(proc.time / 60)}:${(proc.time % 60).toFixed(2).padStart(5, '0')}`;
@@ -492,7 +497,7 @@ const htop = api => {
 			return [
 				...header,
 				'',
-				`\x1b[7;32m${(signals === null ? columns : `${'Send signal:'.padEnd(menuWidth)}${columns}`).padEnd(width)}\x1b[0m`,
+				`\x1b[7;32m${clip((signals === null ? columns : `${'Send signal:'.padEnd(menuWidth)}${columns}`).padEnd(width), width)}\x1b[0m`,
 				...rows,
 				`${footer}${' '.repeat(Math.max(width - stripAnsi(footer).length, 0))}\x1b[0m`,
 			].join('\x1b[K\r\n');
@@ -611,7 +616,7 @@ const less = async api => {
 		render: () => {
 			const all = lines();
 			top = Math.min(Math.max(top, 0), last());
-			const shown = all.slice(top, top + page()).map(line => (pattern ? line.replace(new RegExp(pattern.source, 'g'), match => `\x1b[7m${match}\x1b[27m`) : line));
+			const shown = all.slice(top, top + page()).map(line => (pattern ? line.replace(new RegExp(pattern.source, 'gi'), match => `\x1b[7m${match}\x1b[27m`) : line));
 			while (shown.length < page()) {
 				shown.push('~');
 			}
@@ -673,8 +678,8 @@ const less = async api => {
 				},
 			};
 			const action = actions[data]
-				?? (is(data, 'down') && actions.j) ?? (is(data, 'up') && actions.k) ?? (is(data, 'pageDown') && actions.f)
-				?? (is(data, 'pageUp') && actions.b) ?? (is(data, 'home') && actions.g) ?? (is(data, 'end') && actions.G);
+				|| (is(data, 'down') && actions.j) || (is(data, 'up') && actions.k) || (is(data, 'pageDown') && actions.f)
+				|| (is(data, 'pageUp') && actions.b) || (is(data, 'home') && actions.g) || (is(data, 'end') && actions.G);
 			if (action) {
 				action();
 			}
@@ -683,12 +688,13 @@ const less = async api => {
 };
 
 const more = async api => {
-	const input = await pagerInput(api, api.args.find(arg => !arg.startsWith('-')));
+	const operand = api.args.find(arg => !arg.startsWith('-'));
+	const input = await pagerInput(api, operand);
 	if (!input) {
 		api.err("more: bad usage\nTry 'more --help' for more information.\n");
 		return 1;
 	} else if (input.error) {
-		api.err(`more: ${input.error === 'Is a directory' ? `${api.args[0]}: is a directory` : `cannot open ${api.args[0]}: ${input.error}`}\n`);
+		api.err(`more: ${input.error === 'Is a directory' ? `${operand}: is a directory` : `cannot open ${operand}: ${input.error}`}\n`);
 		return 1;
 	} else if (!api.stdout.isTTY) {
 		api.out(input.text);

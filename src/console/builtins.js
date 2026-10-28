@@ -33,25 +33,23 @@ const shellQuote = value => (/^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.
 // \n, \t, \x41, \0101... as in `echo -e`, `printf` and `$'...'`. `\c` stops all output.
 const unescape = (text, octalNeedsZero) => {
 	let stopped = false;
-	const result = text.replace(/\\(?:x([0-9a-fA-F]{1,2})|u([0-9a-fA-F]{1,4})|(0[0-7]{0,3}|[1-7][0-7]{0,2})|(.))/gs, (match, hex, unicode, octal, other, offset) => {
-		if (stopped) {
-			return '';
-		} else if (hex || unicode) {
+	const result = text.replace(/\\(?:x([0-9a-fA-F]{1,2})|u([0-9a-fA-F]{1,4})|(0[0-7]{0,3}|[1-7][0-7]{0,2})|(c.*|.))/gs, (match, hex, unicode, octal, other) => {
+		if (hex || unicode) {
 			return String.fromCodePoint(parseInt(hex ?? unicode, 16));
 		} else if (octal !== undefined) {
 			if (octalNeedsZero && octal[0] !== '0') {
 				return match;
 			}
 			return String.fromCharCode(parseInt(octal, 8) & 255);
-		} else if (other === 'c') {
-			stopped = offset;
+		} else if (other[0] === 'c') {
+			stopped = true;
 			return '';
 		}
 
 		return {a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\'}[other] ?? match;
 	});
 
-	return {text: result, stopped: stopped !== false};
+	return {text: result, stopped};
 };
 
 const integer = (ctx, name, value) => {
@@ -269,13 +267,15 @@ const printf = (ctx, format, args) => {
 	let stopped = false;
 	do {
 		consumed = false;
-		output += format.replace(/%([-+ #0]*)(\*|\d+)?(?:\.(\*|\d*))?([diouxXfFeEgGcsbq%])|\\(?:x[0-9a-fA-F]{1,2}|[0-7]{1,3}|.)/gs, (match, flags = '', width, precision, conversion) => {
+		output += format.replace(/%([-+ #0]*)(\*|\d+)?(?:\.(\*|\d*))?([diouxXfFeEgGcsbq%])|\\(?:x[0-9a-fA-F]{1,2}|[0-7]{1,3}|.)|[^]/gs, (match, flags = '', width, precision, conversion) => {
 			if (stopped) {
 				return '';
 			} else if (match[0] === '\\') {
 				const escaped = unescape(match, false);
 				stopped = escaped.stopped;
 				return escaped.text;
+			} else if (conversion === undefined) {
+				return match;
 			} else if (conversion === '%') {
 				return '%';
 			}
@@ -330,7 +330,12 @@ const printf = (ctx, format, args) => {
 					} else if (conversion === 'e' || conversion === 'E') {
 						text = number.toExponential(digits).replace(/e([-+])(\d)$/, 'e$10$2');
 					} else {
-						text = String(Number(number.toPrecision(digits || 1)));
+						// The shorter of %e and %f, as C decides it, without trailing zeros.
+						const significant = digits || 1;
+						const exponent = Number(number.toExponential(significant - 1).split('e')[1]);
+						text = exponent < -4 || exponent >= significant
+							? number.toExponential(significant - 1).replace(/\.?0+e/, 'e').replace(/e([-+])(\d)$/, 'e$10$2')
+							: number.toFixed(significant - 1 - exponent).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 					}
 					text = /[EG]/.test(conversion) ? text.toUpperCase() : text;
 					return pad((number >= 0 && flags.includes('+') ? '+' : '') + text, flags, w);
@@ -442,7 +447,7 @@ const readFile = (sh, ctx, name, file) => {
 const runText = async (sh, ctx, label, source) => {
 	let program;
 	try {
-		program = parse(source);
+		program = parse(source, ctx.state.aliases);
 	} catch (e) {
 		if (!(e instanceof ParseError)) {
 			throw e;
@@ -709,7 +714,7 @@ export const BUILTINS = {
 		}
 
 		const dashes = args.indexOf('--');
-		const operands = dashes >= 0 ? args.slice(dashes + 1) : args.filter(arg => !/^[-+][a-zA-Z]+$/.test(arg) && arg !== '-o' && arg !== '+o');
+		const operands = dashes >= 0 ? args.slice(dashes + 1) : args.filter((arg, i) => !/^[-+][a-zA-Z]+$/.test(arg) && !/^[-+][a-zA-Z]*o[a-zA-Z]*$/.test(args[i - 1] ?? ''));
 		if (dashes >= 0 || operands.length) {
 			ctx.state.positional = operands;
 		}

@@ -2,8 +2,8 @@
 // substitution / arithmetic, field splitting, pathname expansion, quote removal.
 //
 // `env` is the interpreter's side of it: get(name), getArray(name),
-// set(name, value), positional(), ifs(), arith(text), substitute(program),
-// glob(pattern) and home(user).
+// getElement(name, index), set(name, value), positional(), ifs(), arith(text),
+// substitute(program), glob(pattern) and home(user).
 
 export class ExpansionError extends Error {}
 
@@ -297,7 +297,7 @@ const parameter = async (part, env, quoted) => {
 	} else if (all) {
 		values = env.getArray(name);
 	} else if (part.index !== undefined) {
-		const value = env.getArray(name)?.[Number(await env.arith(part.index))];
+		const value = env.getElement(name, Number(await env.arith(part.index)));
 		values = value === undefined ? undefined : [value];
 	} else {
 		const value = env.get(name);
@@ -318,7 +318,7 @@ const parameter = async (part, env, quoted) => {
 		case undefined:
 			return current();
 		case '-':
-			return missing ? {values: [await operand()]} : current();
+			return missing ? {operand: part.arg} : current();
 		case '=': {
 			if (!missing) {
 				return current();
@@ -330,7 +330,7 @@ const parameter = async (part, env, quoted) => {
 			return {values: [value]};
 		}
 		case '+':
-			return {values: [missing ? '' : await operand()]};
+			return missing ? {values: ['']} : {operand: part.arg};
 		case '?':
 			if (missing) {
 				throw new ExpansionError(`${name}: ${(await operand()) || 'parameter null or not set'}`);
@@ -404,6 +404,19 @@ const addPart = async (fields, part, env, quoted, split) => {
 			let result;
 			if (part.t === 'param') {
 				result = await parameter(part, env, quoted);
+				// A default or alternative word: what was quoted in it stays so.
+				if (result.operand) {
+					for (const inner of tilde(result.operand, env)) {
+						if (inner.t !== 'lit') {
+							await addPart(fields, inner, env, quoted, split);
+						} else if (quoted || !split) {
+							fields.add(inner.v, quoted);
+						} else {
+							fields.split(inner.v, env.ifs());
+						}
+					}
+					break;
+				}
 			} else if (part.t === 'cmd') {
 				result = {values: [(await env.substitute(part.program)).replace(/\n+$/, '')]};
 			} else {

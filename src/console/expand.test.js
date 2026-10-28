@@ -140,6 +140,20 @@ describe('parameter expansion', () => {
 		expect(await run('echo [${nope[0]}] [${nope[@]}]')).toBe('[] []');
 	});
 
+	it('reads elements of sparse arrays, counting back from the end when negative', async () => {
+		const {run} = setup();
+
+		expect(await run('a[5]=x; echo "[${a[5]}]" ${#a[@]} ${a[-1]}')).toBe('[x] 1 x');
+		expect(await run('b=(x y z); echo ${b[-1]} ${b[-3]} ${#b[-2]}')).toBe('z x 1');
+	});
+
+	it('keeps the quoted parts of a default as they are, splitting and globbing the rest', async () => {
+		const {run} = setup();
+
+		expect(await run('unset u; x="1  2"; printf "[%s]" ${u:-"a  b"} ${u:-a  b} ${u:-"*"} ${u:-\\*} ${u:-""} ${u:-$x} ${u:-"$x"} ${HOME:+"x  y"} ${u:-~}; echo')).toBe('[a  b][a][b][*][*][][1][2][1  2][x  y][/home/robin]');
+		expect(await run('echo ${u:-*.md} "${u:-*.md}"')).toBe('cv.md *.md');
+	});
+
 	it('quotes operands as words, with spaces kept', async () => {
 		const {run} = setup();
 
@@ -249,6 +263,13 @@ describe('arithmetic expansion', () => {
 
 		expect(await run('x=4; echo $(( $x * $(echo 2) + "1" ))')).toBe('9');
 		expect(await run('echo $((x = 5)) $x')).toBe('5 5');
+	});
+
+	it('reports a variable that refers to itself, as bash does, and carries on', async () => {
+		const {run} = setup();
+
+		expect(await run("x='x + 1'; echo $((x)); echo $?")).toBe('bash: x + 1: expression recursion level exceeded (error token is "x + 1")\n1');
+		expect(await run('echo $((2 + 2))')).toBe('4');
 	});
 
 	it('reports errors with the offending token', async () => {

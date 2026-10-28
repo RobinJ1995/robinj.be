@@ -465,6 +465,13 @@ describe('variables in the shell', () => {
 		expect(await run('n[1]+=one; echo ${n[@]}')).toBe('one');
 	});
 
+	it('keeps the gaps in sparse arrays, when appending and in subshells', async () => {
+		const {run} = setup();
+
+		expect(await run('a=(x); a[2]=z; a+=(w); echo ${a[@]} ${#a[@]} ${a[3]}; (echo ${a[@]}); echo ${a[@]} | cat')).toBe('x z w 3 w\nx z w\nx z w');
+		expect(await run('unset b; b+=(only); echo ${#b[@]}')).toBe('1');
+	});
+
 	it('passes temporary assignments to programs, not to the shell', async () => {
 		const {run} = setup();
 
@@ -491,6 +498,14 @@ describe('history expansion', () => {
 		expect(await run('!ech')).toBe('echo one two\none two');
 	});
 
+	it('leaves ! alone in ${!name}, $! and [!...], as bash does', async () => {
+		const {run} = setup({system: fakeSystem()});
+
+		expect(await run('x=y; y=z; echo ${!x}')).toBe('z');
+		expect(await run('echo /etc/[!ph]*')).toBe('/etc/os-release /etc/robinj-release /etc/shadow');
+		expect(await run('true & echo "[$!]"')).toBe('[1] 2001\n[2001]');
+	});
+
 	it('leaves escaped and single-quoted marks alone', async () => {
 		const {run} = setup();
 
@@ -511,6 +526,15 @@ describe('history expansion', () => {
 		await run('if true\nthen\n  echo yes\nfi');
 		await run('cat <<EOF\nkept\nEOF');
 		expect(shell.history).toEqual(['for i in 1 2; do echo $i; done', 'if true; then echo yes; fi', 'cat <<EOF\nkept\nEOF']);
+	});
+
+	it('joins multi-line case items and function definitions into lines that run again', async () => {
+		const {shell, run} = setup();
+
+		await run('case x in\n  x)\n    echo matched\n    ;;\nesac');
+		await run('f()\n{\n  echo defined\n}');
+		expect(shell.history).toEqual(['case x in x) echo matched ;; esac', 'f() { echo defined; }']);
+		expect(await run(`${shell.history[0]}; ${shell.history[1]}; f`)).toBe('matched\ndefined');
 	});
 
 	it('skips blank lines and repeats, and keeps at most a thousand', async () => {

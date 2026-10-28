@@ -113,7 +113,7 @@ describe('kubectl get', () => {
 		expect(await run('kubectl get bogus/x')).toBe('error: the server doesn\'t have a resource type "bogus"');
 		expect(await run(`kubectl get pods nope ${POD} -o name`)).toBe(`Error from server (NotFound): pods "nope" not found\npod/${POD}`);
 		expect(shell.state.status).toBe(1);
-		expect(await run('kubectl get pods nope 2>&1 > /dev/null')).toBe('Error from server (NotFound): pods "nope" not found');
+		expect(await run('kubectl get pods nope')).toBe('Error from server (NotFound): pods "nope" not found');
 		expect(await run('kubectl get pods -l app=nope')).toBe('No resources found in default namespace.');
 		expect(shell.state.status).toBe(0);
 		expect(await run('kubectl get secrets -n kube-system')).toBe('No resources found in kube-system namespace.');
@@ -185,7 +185,13 @@ describe('kubectl describe', () => {
 		expect(await run('kubectl describe no | grep -c "  default  "')).toBe('2');
 		expect(await run('kubectl describe ns default')).toBe('Name:         default\nLabels:       kubernetes.io/metadata.name=default\nAnnotations:  <none>\nStatus:       Active\n\nNo resource quota.\n\nNo LimitRange resource.');
 		expect(await run('kubectl describe ns | grep -c ^Name:')).toBe('4');
-		expect(await run('kubectl describe rs robinj-be-website-5f8b9c7d4f | grep Replicas')).toBe('Replicas:     0 current / 0 desired');
+		expect(await run('kubectl describe rs robinj-be-website-5f8b9c7d4f | grep Replicas')).toBe('Replicas:       0 current / 0 desired');
+	});
+
+	it('aligns a replica set\'s fields after its longest label', async () => {
+		const {run} = setup();
+
+		expect(await run('kubectl describe rs robinj-be-website-7c9d8f6b5d | grep "^Controlled\\|^Events\\|^Name:"')).toBe('Name:           robinj-be-website-7c9d8f6b5d\nControlled By:  Deployment/robinj-be-website\nEvents:         <none>');
 	});
 
 	it('separates several objects, and says what it did not find', async () => {
@@ -254,7 +260,18 @@ describe('kubectl logs', () => {
 		expect(await run(`kubectl logs ${POD} --timestamps --prefix | head -1`)).toMatch(new RegExp(`^\\[pod/${POD}/website\\] \\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d\\.\\d{9}Z /docker-entrypoint\\.sh: `));
 	});
 
-	it('follows with -f, a probe every few seconds, until interrupted', async () => {
+	it('takes -f for --follow, not --filename', async () => {
+		vi.useFakeTimers();
+		const {shell, tty} = setup();
+
+		const running = shell.execute(`kubectl logs -f ${POD} --tail=0`);
+		await vi.advanceTimersByTimeAsync(5000);
+		shell.interrupt();
+		await running;
+		expect(tty.take()).toMatch(/^10\.244\.0\.1 - - \[[^\]]+\] "GET \/ HTTP\/1\.1" 200 2330 "-" "kube-probe\/1\.37" "-"\n\n$/);
+	});
+
+	it('follows with --follow, a probe every few seconds, until interrupted', async () => {
 		vi.useFakeTimers();
 		const {shell, tty} = setup();
 
@@ -401,6 +418,16 @@ describe('kubectl, changing things', () => {
 		expect(await run('kubectl delete')).toBe('error: You must provide one or more resources by argument or filename.');
 		expect(await run('kubectl patch bogus x')).toBe('error: the server doesn\'t have a resource type "bogus"');
 		expect(await run('kubectl delete pods')).toBe('error: resource(s) were provided, but no name was specified');
+	});
+
+	it('takes label and annotate changes for what they are, not for names', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('kubectl label pod nope app=x old-')).toBe('Error from server (NotFound): pods "nope" not found');
+		expect(await run(`kubectl annotate pod ${POD} note=hi`)).toBe(`${FORBIDDEN} pods "${POD}" is forbidden: User "robin" cannot patch resource "pods" in API group "" in the namespace "default"`);
+		expect(await run('kubectl label pods app=x')).toBe('error: resource(s) were provided, but no name was specified');
+		expect(await run('kubectl label app=x')).toBe('error: You must provide one or more resources by argument or filename.');
+		expect(shell.state.status).toBe(1);
 	});
 
 	it('is forbidden from scaling', async () => {

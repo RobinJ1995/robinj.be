@@ -1,9 +1,10 @@
 // Shell arithmetic: 64-bit signed integers, C's operators, variables by name.
 
 export class ArithError extends Error {
-	constructor(message, token) {
+	constructor(message, token, expression) {
 		super(message);
 		this.token = token;
+		this.expression = expression;
 	}
 }
 
@@ -58,11 +59,19 @@ const apply = (op, a, b, token) => {
 				throw new ArithError('division by 0', token);
 			}
 			return int(op === '/' ? a / b : a % b);
-		case '**':
+		case '**': {
 			if (b < 0n) {
 				throw new ArithError('exponent less than 0', token);
 			}
-			return int(a ** b);
+			// By squaring, wrapping at every step: a ** b in full can take forever.
+			let result = 1n;
+			for (let base = a, exponent = b; exponent > 0n; base = int(base * base), exponent >>= 1n) {
+				if (exponent & 1n) {
+					result = int(result * base);
+				}
+			}
+			return result;
+		}
 		case '<<': return int(a << (b & 63n));
 		case '>>': return int(a >> (b & 63n));
 		case '<': return a < b ? 1n : 0n;
@@ -79,10 +88,11 @@ const apply = (op, a, b, token) => {
 };
 
 class Evaluator {
-	constructor(text, vars, depth) {
+	constructor(text, vars, depth, innermost) {
 		this.text = text;
 		this.vars = vars;
 		this.depth = depth;
+		this.innermost = innermost;
 		this.tokens = [];
 		this.i = 0;
 
@@ -121,10 +131,11 @@ class Evaluator {
 		} else if (/^\s*-?\d+\s*$/.test(value)) {
 			return int(BigInt(value.trim()));
 		} else if (this.depth >= MAX_DEPTH) {
-			throw new ArithError('expression recursion level exceeded', name);
+			throw new ArithError('expression recursion level exceeded', this.text.trim(), this.text);
 		}
 
-		return new Evaluator(value, this.vars, this.depth + 1).run();
+		this.innermost.text = value;
+		return new Evaluator(value, this.vars, this.depth + 1, this.innermost).run();
 	}
 
 	run() {
@@ -259,4 +270,15 @@ class Evaluator {
 }
 
 // `vars` reads and writes shell variables: {get(name), set(name, value)}.
-export const evaluate = (text, vars) => new Evaluator(text, vars, 0).run();
+export const evaluate = (text, vars) => {
+	const innermost = {text};
+	try {
+		return new Evaluator(text, vars, 0, innermost).run();
+	} catch (e) {
+		// Most engines run out of stack before MAX_DEPTH; Firefox calls it InternalError.
+		if (e instanceof RangeError || e?.name === 'InternalError') {
+			throw new ArithError('expression recursion level exceeded', innermost.text.trim(), innermost.text);
+		}
+		throw e;
+	}
+};

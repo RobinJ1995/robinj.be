@@ -55,11 +55,13 @@ const splitArith = raw => {
 };
 
 class Parser {
-	constructor(src, pos = 0) {
+	constructor(src, pos = 0, aliases = null) {
 		this.src = src;
 		this.pos = pos;
 		this.heredocs = [];
 		this.ahead = null;
+		this.aliases = aliases;
+		this.expanding = [];
 	}
 
 	// --- Characters to tokens ---
@@ -286,15 +288,16 @@ class Parser {
 				body += src[i];
 			}
 			this.pos = i + 1;
-			return {t: 'cmd', program: parse(body)};
+			return {t: 'cmd', program: parse(body, this.aliases)};
 		} else if (next === '(' && src[this.pos + 2] === '(') {
 			this.pos += 3;
 			return {t: 'arith', raw: this.readArith()};
 		} else if (next === '(') {
-			const sub = new Parser(src, this.pos + 2);
+			const sub = new Parser(src, this.pos + 2, this.aliases);
 			const program = sub.compoundList(NONE);
 			sub.expectOp(')');
-			this.pos = sub.pos;
+			// Less whatever its aliases added to its copy of the text.
+			this.pos = sub.pos - (sub.src.length - src.length);
 			return {t: 'cmd', program};
 		} else if (next === '{') {
 			this.pos += 2;
@@ -529,7 +532,7 @@ class Parser {
 				}
 				body += `${line}\n`;
 			}
-			doc.body = doc.quoted ? [{t: 'q', v: body}] : new Parser(body).readQuoted(false);
+			doc.body = doc.quoted ? [{t: 'q', v: body}] : new Parser(body, 0, this.aliases).readQuoted(false);
 		}
 		this.heredocs = [];
 	}
@@ -708,7 +711,9 @@ class Parser {
 				break;
 		}
 
-		if (token.type === 'word' && /^[^$`'"\\=]+$/.test(token.text)) {
+		if (this.expandAlias(token)) {
+			return this.command();
+		} else if (token.type === 'word' && /^[^$`'"\\=]+$/.test(token.text)) {
 			const saved = {pos: this.pos, ahead: this.ahead};
 			this.next();
 			if (this.isOp(this.peek(), '(')) {
@@ -721,6 +726,26 @@ class Parser {
 		}
 
 		return this.simpleCommand();
+	}
+
+	// An unquoted alias in command position is replaced by its text, which is
+	// then read as if typed; an alias isn't expanded again within its own text.
+	expandAlias(token) {
+		const name = token.type === 'word' && token.parts.length === 1 && token.parts[0].t === 'lit' ? token.text : null;
+		const text = name === null ? undefined : this.aliases?.get(name);
+		this.expanding = this.expanding.filter(alias => alias.end > token.start);
+		if (text === undefined || this.expanding.some(alias => alias.name === name)) {
+			return false;
+		}
+
+		for (const alias of this.expanding) {
+			alias.end += text.length - (token.end - token.start);
+		}
+		this.expanding.push({name, end: token.start + text.length});
+		this.src = this.src.slice(0, token.start) + text + this.src.slice(token.end);
+		this.pos = token.start;
+		this.ahead = null;
+		return true;
 	}
 
 	functionDefinition(keyword) {
@@ -785,6 +810,8 @@ class Parser {
 				continue;
 			} else if (token.type !== 'word') {
 				break;
+			} else if (node.words.length === 0 && !assignmentOf(token) && this.expandAlias(token)) {
+				continue;
 			}
 
 			this.next();
@@ -1019,7 +1046,8 @@ const assignmentOf = token => {
 	return {name: match[1], index: match[2], append: match[3] === '+', value, array: token.array};
 };
 
-export const parse = source => new Parser(source).program();
+// `aliases`, a Map, are expanded as the source is read, as an interactive bash does.
+export const parse = (source, aliases = null) => new Parser(source, 0, aliases).program();
 
 // Just the expansions in some text, as in an unquoted here-document: for `$(( ))`.
 export const parseExpansions = text => new Parser(text).readQuoted(false);

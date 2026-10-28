@@ -136,6 +136,13 @@ describe('cat', () => {
 		expect(await run('echo one | cat --number - /etc/hostname')).toBe('     1\tone\n     2\trobinj.be');
 	});
 
+	it('numbers lines as they start, however the input arrives', async () => {
+		const {run} = setup();
+
+		expect(await run('printf "a" | cat -n - /etc/hostname')).toBe('     1\tarobinj.be');
+		expect(await run('printf "x\\n\\ny\\n" | cat -n')).toBe('     1\tx\n     2\t\n     3\ty');
+	});
+
 	it('keeps going after a file it cannot read', async () => {
 		const {shell, run} = setup();
 
@@ -165,6 +172,14 @@ describe('head and tail', () => {
 		expect(await run('tail -n +7 contact.yml')).toBe('  - github: https://github.com/RobinJ1995');
 		expect(await run('tail -c 6 contact.yml')).toBe('J1995');
 		expect(await run('seq 20 | tail -c +46')).toBe('19\n20');
+	});
+
+	it('take a negative count after -n or -c as a count', async () => {
+		const {run} = setup();
+
+		expect(await run('head -n -5 contact.yml')).toBe('# Hi!\nname: Robin Jacobs');
+		expect(await run('head -c -170 contact.yml')).toBe('# Hi!\nname:');
+		expect(await run('tail -n -1 contact.yml; seq 3 | tail -2')).toBe('  - github: https://github.com/RobinJ1995\n2\n3');
 	});
 
 	it('label each of several files, unless quiet; or the only one, when verbose', async () => {
@@ -229,6 +244,24 @@ describe('grep', () => {
 		expect(await run('grep -w Hi contact.yml')).toBe('# Hi!');
 		expect(await run('grep -w H contact.yml')).toBe('');
 		expect(await run('grep -x channels: contact.yml')).toBe('channels:');
+	});
+
+	it('prints only the matches with -o, every one of them', async () => {
+		const shell = setup();
+
+		expect(await shell.run('grep -io dublin contact.yml')).toBe('Dublin');
+		expect(await shell.run('echo "a1 a2 a3" | grep -o "a."')).toBe('a1\na2\na3');
+		expect(await shell.run('grep -onH "https://[a-z.]*" contact.yml')).toBe('contact.yml:6:https://linkedin.com\ncontact.yml:7:https://github.com');
+		expect(await shell.run('echo abc | grep -o "x*"')).toBe('');
+		expect(await coloured(shell, 'echo ab | grep -o b')).toBe('\x1b[01;31m\x1b[Kb\x1b[m\x1b[K\n');
+	});
+
+	it('matches any of several -e patterns', async () => {
+		const {run} = setup();
+
+		expect(await run('grep -c -e linkedin -e github contact.yml')).toBe('2');
+		expect(await run('grep -x -e channels: -e "# Hi!" contact.yml')).toBe('# Hi!\nchannels:');
+		expect(await run('grep -F -e . -e "(" -c contact.yml')).toBe('3');
 	});
 
 	it('names files when there are several, or when asked', async () => {
@@ -547,6 +580,14 @@ describe('env', () => {
 		expect(await run('env -i FOO=bar')).toBe('FOO=bar');
 		expect(await run('env --ignore-environment')).toBe('');
 		expect(await run('export SHOWN=yes; env | grep SHOWN')).toBe('SHOWN=yes');
+	});
+
+	it('hands the command the environment it made', async () => {
+		const {run} = setup();
+
+		expect(await run('env FOO=bar bash -c "echo [\\$FOO]"; env -i bash -c "echo [\\$HOME]"')).toBe('[bar]\n[]');
+		expect(await run('env FOO=1 env | grep ^FOO=; env -i A=1 bash -c "echo [\\$A\\$USER]"')).toBe('FOO=1\n[1]');
+		expect(await run('FOO=bar sh -c "echo \\$FOO"; export SHOWN=yes; bash -c "echo \\$SHOWN"')).toBe('bar\nyes');
 	});
 
 	it('runs a command it can find', async () => {

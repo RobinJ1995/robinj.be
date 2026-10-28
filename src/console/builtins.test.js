@@ -72,6 +72,20 @@ describe('printf', () => {
 		expect(await run('printf "%b\\n" "a\\c" b; echo')).toBe('a');
 	});
 
+	it('stops all output at \\c, the text after it included', async () => {
+		const {run} = setup();
+
+		expect(await run('echo -e "a\\cnever"; echo')).toBe('a');
+		expect(await run('printf "a\\cb"; echo')).toBe('a');
+		expect(await run('printf "%b-%s\\n" "x\\c" y; echo')).toBe('x');
+	});
+
+	it('formats %g as the shorter of %e and %f, as C does', async () => {
+		const {run} = setup();
+
+		expect(await run('printf "%g %G %g %g %g %.3g %g\\n" 1234567 1e20 0.00001 100 0.0001 999999.5 -0.5')).toBe('1.23457e+06 1E+20 1e-05 100 0.0001 1e+06 -0.5');
+	});
+
 	it('reports what is not a number, and fails', async () => {
 		const {shell, run} = setup();
 
@@ -270,6 +284,12 @@ describe('variables', () => {
 		expect(shell.state.status).toBe(1);
 	});
 
+	it('export marks a name before it has a value, and exports it once it has one', async () => {
+		const {run} = setup();
+
+		expect(await run('export NEWVAR; NEWVAR=now; env | grep NEWVAR; export -p | grep NEWVAR')).toBe('NEWVAR=now\ndeclare -x NEWVAR="now"');
+	});
+
 	it('local only works in functions, and shadows the global', async () => {
 		const {shell, run} = setup();
 
@@ -296,6 +316,13 @@ describe('variables', () => {
 		expect(await run('set -e +x; echo $#')).toBe('3');
 		expect(await run('set x y; echo $1')).toBe('x');
 		expect(await run('set --; echo $#')).toBe('0');
+	});
+
+	it('set -o takes the name of an option, not a positional parameter', async () => {
+		const {run} = setup();
+
+		expect(await run('set -- a b; set -o pipefail; set -euo pipefail; set +o errexit; echo $# $1')).toBe('2 a');
+		expect(await run('set -o pipefail c; echo $# $1')).toBe('1 c');
 	});
 
 	it('shift drops positional parameters, if there are enough', async () => {
@@ -407,7 +434,8 @@ describe('alias and unalias', () => {
 			"alias egrep='grep -E --color=auto'", "alias fgrep='grep -F --color=auto'", "alias grep='grep --color=auto'",
 			"alias l.='ls -d .* --color=auto'", "alias ll='ls -l --color=auto'", "alias ls='ls --color=auto'",
 		].join('\n'));
-		expect(await run('alias hi="echo hi"; hi there; alias -p hi')).toBe("hi there\nalias hi='echo hi'");
+		await run('alias hi="echo hi"');
+		expect(await run('hi there; alias -p hi')).toBe("hi there\nalias hi='echo hi'");
 		expect(await run('alias q="it\'s"; alias q')).toBe("alias q='it'\\''s'");
 		expect(await run('alias nope')).toBe('bash: alias: nope: not found');
 		expect(shell.state.status).toBe(1);
@@ -416,8 +444,19 @@ describe('alias and unalias', () => {
 	it('only expands a plain first word', async () => {
 		const {run} = setup();
 
-		expect(await run('alias hi="echo hi"; "hi"')).toBe('bash: hi: command not found');
+		await run('alias hi="echo hi"');
+		expect(await run('"hi"')).toBe('bash: hi: command not found');
 		expect(await run('echo hi ll')).toBe('hi ll');
+	});
+
+	it('expand as text, whole command lines included, from the next line on', async () => {
+		const {run} = setup();
+
+		expect(await run("alias both='echo a; echo b' count='wc -l' e= l1='ls -1'; both")).toBe('bash: both: command not found');
+		expect(await run('both x')).toBe('a\nb x');
+		expect(await run('FOO=1 both; ls | count; l1 | count')).toBe('a\nb\n4\n4');
+		expect(await run('echo $(both) `both`; eval both')).toBe('a b a b\na\nb');
+		expect(await run('e echo empty; if true; then both; fi')).toBe('empty\na\nb');
 	});
 
 	it('unalias removes one, or all', async () => {

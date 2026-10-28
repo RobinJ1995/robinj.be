@@ -8,6 +8,11 @@ export const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'
 // `--` ends them. Reports bad options the way coreutils does; null then.
 export const options = (api, args, {flags = '', values = '', long = {}, numeric = false} = {}) => {
 	const set = new Map();
+	const all = new Map();
+	const put = (key, value) => {
+		set.set(key, value);
+		all.set(key, [...(all.get(key) ?? []), value]);
+	};
 	const operands = [];
 	const fail = message => {
 		api.err(`${api.name}: ${message}\nTry '${api.name} --help' for more information.\n`);
@@ -28,9 +33,9 @@ export const options = (api, args, {flags = '', values = '', long = {}, numeric 
 				if (args[i + 1] === undefined) {
 					return fail(`option '${arg}' requires an argument`);
 				}
-				set.set(key, args[++i]);
+				put(key, args[++i]);
 			} else {
-				set.set(key, value ?? true);
+				put(key, value ?? true);
 			}
 		} else if (arg.startsWith('-') && arg.length > 1 && !(numeric && /^-\d+$/.test(arg))) {
 			for (let j = 1; j < arg.length; j++) {
@@ -40,19 +45,19 @@ export const options = (api, args, {flags = '', values = '', long = {}, numeric 
 					if (value === undefined) {
 						return fail(`option requires an argument -- '${c}'`);
 					}
-					set.set(c, value);
+					put(c, value);
 					break;
 				} else if (!flags.includes(c)) {
 					return fail(`invalid option -- '${c}'`);
 				}
-				set.set(c, true);
+				put(c, true);
 			}
 		} else {
 			operands.push(arg);
 		}
 	}
 
-	return {has: key => set.has(key), get: key => set.get(key), operands};
+	return {has: key => set.has(key), get: key => set.get(key), all: key => all.get(key) ?? [], operands};
 };
 
 // Whether to colour: --color[=always|auto|never], where auto means a terminal.

@@ -79,7 +79,7 @@ const createState = () => {
 const cloneState = state => ({
 	...state,
 	scopes: state.scopes.map(scope => new Map([...scope].map(([name, entry]) => [
-		name, {...entry, value: Array.isArray(entry.value) ? [...entry.value] : entry.value},
+		name, {...entry, value: Array.isArray(entry.value) ? entry.value.slice() : entry.value},
 	]))),
 	functions: new Map(state.functions),
 	aliases: new Map(state.aliases),
@@ -94,6 +94,17 @@ const joinPath = (base, name) => {
 	return base.endsWith('/') ? base + name : `${base}/${name}`;
 };
 
+// Whether `source` parses, or would with more after it.
+const parses = source => {
+	try {
+		parse(source);
+	} catch (e) {
+		return e instanceof ParseError && e.incomplete;
+	}
+
+	return true;
+};
+
 // Multi-line commands go into the history on one line, as bash's cmdhist does.
 const historyLine = source => {
 	if (!source.includes('\n') || source.includes('<<')) {
@@ -101,7 +112,7 @@ const historyLine = source => {
 	}
 
 	return source.split('\n').map(line => line.trim()).filter(Boolean).reduce((joined, line) => {
-		const open = /(?:^|\s)(?:then|do|else|in|\{)$|[|&;({]$/.test(joined) || /^(?:;;|\))/.test(line);
+		const open = /(?:^|\s)(?:then|do|else|in|\{)$|[|&;({]$/.test(joined) || /^(?:;;|\))/.test(line) || !parses(`${joined}; ${line}`);
 		return `${joined}${open ? ' ' : '; '}${line}`;
 	});
 };
@@ -123,7 +134,8 @@ const expandHistory = (line, history) => {
 		}
 
 		const rest = line.slice(i + 1);
-		const event = !single && c === '!' && rest.match(/^(?:!|\$|-?\d+|[^\s!=()"';&|<>]+)/);
+		const inhibited = line[i - 1] === '$' || (line[i - 1] === '[' && rest.includes(']')) || (line.slice(i - 2, i) === '${' && rest.includes('}'));
+		const event = !single && !inhibited && c === '!' && rest.match(/^(?:!|\$|-?\d+|[^\s!=()"';&|<>]+)/);
 		if (!event) {
 			result += c;
 			continue;
@@ -240,13 +252,16 @@ class Shell {
 	}
 
 	setVar(state, name, value, {index, append} = {}) {
-		const entry = this.lookup(state, name) ?? {value: '', exported: false};
-		if (!this.lookup(state, name)) {
+		const existing = this.lookup(state, name);
+		const entry = existing ?? {value: '', exported: false};
+		if (!existing) {
 			state.scopes[0].set(name, entry);
 		}
+		delete entry.unset;
 
 		if (Array.isArray(value)) {
-			entry.value = append ? [...(Array.isArray(entry.value) ? entry.value : [entry.value]), ...value] : [...value];
+			const array = Array.isArray(entry.value) ? entry.value : [entry.value];
+			entry.value = append && existing ? array.concat(value) : [...value];
 		} else if (index !== undefined) {
 			const array = Array.isArray(entry.value) ? entry.value : entry.value === '' ? [] : [entry.value];
 			const i = index < 0 ? array.length + index : index;
@@ -339,7 +354,7 @@ class Shell {
 			});
 		} catch (e) {
 			if (e instanceof ArithError) {
-				throw new ExpansionError(`${expanded.trim()}: ${e.message} (error token is "${e.token}")`);
+				throw new ExpansionError(`${(e.expression ?? expanded).trim()}: ${e.message} (error token is "${e.token}")`);
 			}
 			throw e;
 		}
@@ -753,27 +768,10 @@ class Shell {
 		return io;
 	}
 
-	// Aliases apply to a command's first word, when it's written plainly.
-	aliasWords(words, state) {
-		const [first] = words;
-		const name = first?.length === 1 && first[0].t === 'lit' ? first[0].v : null;
-		const alias = name !== null && state.aliases.get(name);
-		if (!alias) {
-			return words;
-		}
-
-		try {
-			const node = parse(alias).items[0]?.node;
-			return node?.type === 'simple' ? [...node.words, ...words.slice(1)] : words;
-		} catch {
-			return words;
-		}
-	}
-
 	async runSimple(node, ctx) {
 		await this.tick(ctx);
 		const env = this.env(ctx);
-		const words = this.aliasWords(node.words, ctx.state);
+		const words = node.words;
 
 		let argv;
 		try {
@@ -852,7 +850,7 @@ class Shell {
 			return program.status;
 		}
 
-		return this.spawn(program.name, args, ctx, this.environment(ctx.state, temporary));
+		return this.spawn(program.name, args, ctx, ctx.environment ?? this.environment(ctx.state, temporary));
 	}
 
 	async callFunction(name, args, ctx, temporary) {
@@ -948,6 +946,7 @@ class Shell {
 			err: text => ctx.io[2].write(text),
 			abort,
 			sleep: ms => abort.sleep(ms),
+			read: () => ctx.io[0].read(abort),
 			readLine: () => ctx.io[0].readLine(abort),
 			// From the terminal itself, not stdin, and without echo: as sudo and su do.
 			readPassword: async prompt => {
@@ -968,7 +967,17 @@ class Shell {
 			run: (argv, io = ctx.io, extra = {}) => this.invoke(argv, {...ctx, io, execPid: undefined, ...extra}),
 			script: (source, positional = []) => this.subshell(ctx, sub => {
 				sub.state.positional = positional;
-				return this.run(parse(source), {...sub, execPid: undefined});
+				// What it has exported is the environment it was given.
+				for (const [name, entry] of this.variables(sub.state)) {
+					if (entry.exported && !environment.has(name)) {
+						this.unsetVar(sub.state, name);
+					}
+				}
+				for (const [name, value] of environment) {
+					this.setVar(sub.state, name, value);
+					this.markExported(sub.state, name, true);
+				}
+				return this.run(parse(source), {...sub, execPid: undefined, environment: undefined});
 			}),
 		};
 
@@ -1189,7 +1198,7 @@ class Shell {
 	// Whether `source` is a whole command yet, or the prompt should continue.
 	isComplete(source) {
 		try {
-			parse(source);
+			parse(source, this.state.aliases);
 		} catch (e) {
 			return !(e instanceof ParseError && e.incomplete);
 		}
@@ -1215,7 +1224,7 @@ class Shell {
 
 		let program;
 		try {
-			program = parse(line);
+			program = parse(line, this.state.aliases);
 		} catch (e) {
 			if (!(e instanceof ParseError)) {
 				throw e;

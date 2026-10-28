@@ -104,6 +104,18 @@ describe('pkill', () => {
 		expect(await run('pkill -x systemd')).toBe('pkill: killing pid 1 failed: Operation not permitted');
 	});
 
+	it('takes the signal from --signal, and checks it', async () => {
+		const system = desktop();
+		const {shell, run} = setup({system});
+
+		expect(await run('pkill --signal KILL web')).toBe('');
+		expect(system.kill).toHaveBeenLastCalledWith(1402, 'KILL');
+		expect(await run('pkill --signal=BOGUS web')).toBe('pkill: Unknown signal "BOGUS".');
+		expect(shell.state.status).toBe(2);
+		expect(system.kill).toHaveBeenCalledTimes(1);
+		expect(await run('pkill -s 1 web')).toBe("pkill: invalid option -- 's'\nTry 'pkill --help' for more information.");
+	});
+
 	it('never matches itself', async () => {
 		const {shell, run} = setup();
 
@@ -250,7 +262,7 @@ describe('top', () => {
 		expect(shell.state.status).toBe(0);
 	});
 
-	it('clips the summary and the process rows to the terminal, running processes in bold', async () => {
+	it('draws the frame to fit the terminal, running processes in bold', async () => {
 		const {shell, tty} = setup({system: desktop(), columns: 60, rows: 10});
 
 		const running = shell.execute('top');
@@ -261,7 +273,7 @@ describe('top', () => {
 		await running;
 
 		expect(screen).toHaveLength(10);
-		expect([...screen.slice(0, 6), ...screen.slice(7)].every(line => line.length <= 60)).toBe(true);
+		expect(screen.every(line => line.length <= 60)).toBe(true);
 		expect(output).toMatch(/\x1b\[1m {3}2001 robin [^\x1b]{46}\x1b\[0m/);
 	});
 
@@ -442,6 +454,18 @@ describe('htop', () => {
 		await running;
 	});
 
+	it('fits its column headings to a narrow terminal', async () => {
+		const {shell, tty} = setup({columns: 40});
+
+		const running = shell.execute('htop');
+		await tty.press();
+		expect(tty.screen()[7]).toBe('    PID USER       PRI  NI  VIRT   RES  ');
+		await tty.press('k');
+		expect(tty.screen()[7]).toBe('Send signal:        PID USER       PRI  ');
+		await tty.press('\x1b', 'q');
+		await running;
+	});
+
 	it('refreshes every second and a half', async () => {
 		vi.useFakeTimers();
 		const {shell, tty} = setup();
@@ -522,6 +546,27 @@ describe('less', () => {
 		expect(shell.state.status).toBe(0);
 	});
 
+	it('moves with the arrow, page, home and end keys', async () => {
+		const {shell, tty} = setup({rows: 6});
+
+		const running = shell.execute('less /etc/os-release');
+		await tty.press('\x1b[B', '\x1bOB');
+		expect(tty.screen()[0]).toBe(os[2]);
+		await tty.press('\x1b[A');
+		expect(tty.screen()[0]).toBe(os[1]);
+		await tty.press('\x1b[6~');
+		expect(tty.screen()[0]).toBe(os[6]);
+		await tty.press('\x1b[5~');
+		expect(tty.screen()[0]).toBe(os[1]);
+		await tty.press('\x1b[4~');
+		expect(tty.screen()).toEqual(page(6, '(END)'));
+		await tty.press('\x1bOH');
+		expect(tty.screen()[0]).toBe(os[0]);
+
+		await tty.press('q');
+		await running;
+	});
+
 	it('scrolls down with the down arrow, and ignores keys it does not know', async () => {
 		const {shell, tty} = setup({rows: 6});
 
@@ -549,6 +594,17 @@ describe('less', () => {
 		expect(tty.screen()[0]).toBe('VERSION_ID=1.0.0');
 		await tty.press('?', '\r');
 		expect(tty.screen()[0]).toBe('VERSION="1.0.0 (Web Edition)"');
+
+		await tty.press('q');
+		await running;
+	});
+
+	it('highlights what it found, whatever its case', async () => {
+		const {shell, tty} = setup({rows: 6});
+
+		const running = shell.execute('less /etc/os-release');
+		await tty.press('/', 'id', '\r');
+		expect(tty.take({codes: true})).toMatch(/\x1b\[7mID\x1b\[27m=robinj\x1b\[K\r\n\x1b\[7mID\x1b\[27m_LIKE=fedora/);
 
 		await tty.press('q');
 		await running;
@@ -633,6 +689,13 @@ describe('more', () => {
 		expect(shell.state.status).toBe(1);
 		expect(await run('more nope')).toBe('more: cannot open nope: No such file or directory');
 		expect(await run('more /etc')).toBe('more: /etc: is a directory');
+	});
+
+	it('names the file it could not open, whatever options come first', async () => {
+		const {run} = setup();
+
+		expect(await run('more -d nope')).toBe('more: cannot open nope: No such file or directory');
+		expect(await run('more -s /etc')).toBe('more: /etc: is a directory');
 	});
 
 	it('just prints what is short, or not going to a terminal', async () => {

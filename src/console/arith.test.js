@@ -1,4 +1,7 @@
 import {describe, it, expect} from 'vitest';
+import {once} from 'node:events';
+import {pathToFileURL} from 'node:url';
+import {Worker} from 'node:worker_threads';
 import {evaluate, ArithError} from './arith';
 
 const variables = (initial = {}) => {
@@ -68,6 +71,16 @@ describe('arithmetic', () => {
 		expect(calc('3037000500 * 3037000500')).toBe(-9223372036709301616n);
 	});
 
+	it('raises to huge powers at once, wrapping at 64 bits', () => {
+		const started = Date.now();
+
+		expect(calc('3 ** 1000000000')).toBe(9215150800219179009n);
+		expect(Date.now() - started).toBeLessThan(100);
+		expect(calc('(-2) ** 63')).toBe(-9223372036854775808n);
+		expect(calc('-3 ** 3')).toBe(-27n);
+		expect(calc('0 ** 0')).toBe(1n);
+	});
+
 	it('reads hexadecimal, octal and any base from 2 to 64', () => {
 		expect(calc('0x1F + 0XfF')).toBe(286n);
 		expect(calc('017')).toBe(15n);
@@ -100,6 +113,45 @@ describe('arithmetic', () => {
 		expect(calc('n + empty + unset', vars)).toBe(42n);
 		expect(calc('neg * 2', vars)).toBe(-6n);
 		expect(calc('chain', vars)).toBe(86n);
+	});
+
+	it('reports variables that refer to themselves, rather than running out of stack', () => {
+		try {
+			calc('x', variables({x: 'x + 1'}));
+			expect.unreachable();
+		} catch (e) {
+			expect(e).toBeInstanceOf(ArithError);
+			expect([e.message, e.token, e.expression]).toEqual(['expression recursion level exceeded', 'x + 1', 'x + 1']);
+		}
+	});
+
+	it('takes Firefox\'s "too much recursion" for running out of stack too, and passes other errors on', () => {
+		const reading = error => () => calc('x', {get: () => {
+			throw error;
+		}});
+		const tooDeep = Object.assign(new Error('too much recursion'), {name: 'InternalError'});
+
+		expect(reading(tooDeep)).toThrow(ArithError);
+		expect(reading(tooDeep)).toThrow('expression recursion level exceeded');
+		expect(reading(new TypeError('broken'))).toThrow(TypeError);
+	});
+
+	it('stops at bash\'s 1024 levels where the stack goes deeper', async () => {
+		const worker = new Worker(`
+			const {parentPort, workerData} = require('node:worker_threads');
+			import(workerData).then(({evaluate}) => {
+				let reads = 0;
+				try {
+					evaluate('x', {get: () => (reads++, 'x + 1')});
+				} catch (e) {
+					parentPort.postMessage([e.constructor.name, e.message, e.token, reads]);
+				}
+			});
+		`, {eval: true, workerData: pathToFileURL(`${import.meta.dirname}/arith.js`).href, resourceLimits: {stackSizeMb: 256}});
+
+		const [result] = await once(worker, 'message');
+		await worker.terminate();
+		expect(result).toEqual(['ArithError', 'expression recursion level exceeded', 'x + 1', 1025]);
 	});
 
 	it('assigns, with every compound operator', () => {

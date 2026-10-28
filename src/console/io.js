@@ -199,6 +199,17 @@ export class Input {
 		}
 	}
 
+	// Whatever there is, as soon as there is any; null at the end.
+	async read(abort) {
+		if (!this.buffer && !(await this.fill(abort))) {
+			return null;
+		}
+		const text = this.buffer;
+		this.buffer = '';
+
+		return text;
+	}
+
 	async readAll(abort) {
 		while (await this.fill(abort)) {
 			// Until the end.

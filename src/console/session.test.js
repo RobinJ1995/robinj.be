@@ -377,6 +377,17 @@ describe('while a command runs', () => {
 		expect(screen(term).lines.slice(-2)).toEqual(['abc[abc] 1', PROMPT]);
 	});
 
+	it('passes a partial line on to cat at ^D, and ends it at the next', async () => {
+		const {term} = start();
+
+		term.type('cat | wc -c\r');
+		term.type('abc');
+		term.type('\x04');
+		term.type('\x04');
+		await prompted(term);
+		expect(screen(term).lines.slice(-2)).toEqual(['abc3', PROMPT]);
+	});
+
 	it('keeps what was typed ahead for when the prompt is back', async () => {
 		vi.useFakeTimers();
 		const {term} = start();

@@ -20,10 +20,15 @@ const usage = (api, message) => {
 	return 1;
 };
 
-// Numbered lines for `cat -n`, the count carrying on across files.
+// Numbered lines for `cat -n`, the count carrying on across reads and files.
 const numberer = () => {
 	let n = 0;
-	return text => text.replace(/^(.*)(\n|$)/gm, (match, line, newline) => (match === '' ? '' : `${String(++n).padStart(6)}\t${line}${newline}`));
+	let start = true;
+	return text => text.replace(/[^\n]+\n?|\n/g, line => {
+		const numbered = start ? `${String(++n).padStart(6)}\t${line}` : line;
+		start = line.endsWith('\n');
+		return numbered;
+	});
 };
 
 const ls = async api => {
@@ -242,8 +247,8 @@ const cat = async api => {
 	let status = 0;
 	for (const operand of opts.operands.length ? opts.operands : ['-']) {
 		if (operand === '-') {
-			for (let line = await api.readLine(); line; line = await api.readLine()) {
-				api.out(number(line.line + (line.complete ? '\n' : '')));
+			for (let text = await api.read(); text !== null; text = await api.read()) {
+				api.out(number(text));
 			}
 			continue;
 		}
@@ -261,7 +266,7 @@ const cat = async api => {
 };
 
 const headOrTail = head => async api => {
-	const args = api.args.flatMap(arg => (/^-\d+$/.test(arg) ? ['-n', arg.slice(1)] : [arg]));
+	const args = api.args.flatMap((arg, i) => (/^-\d+$/.test(arg) && !/^(-\w*[nc]|--lines|--bytes)$/.test(api.args[i - 1] ?? '') ? ['-n', arg.slice(1)] : [arg]));
 	const opts = options(api, args, {flags: head ? 'qv' : 'qvf', values: 'nc', long: {lines: 'n', bytes: 'c', quiet: 'q', verbose: 'v', follow: 'f'}});
 	if (!opts) {
 		return 1;
@@ -325,16 +330,14 @@ const headOrTail = head => async api => {
 const BRE_SPECIAL = {'\\(': '(', '\\)': ')', '\\{': '{', '\\}': '}', '\\|': '|', '\\+': '+', '\\?': '?', '(': '\\(', ')': '\\)', '{': '\\{', '}': '\\}', '|': '\\|', '+': '\\+', '?': '\\?'};
 const BRACKET_CLASSES = {alpha: 'a-zA-Z', digit: '0-9', alnum: 'a-zA-Z0-9', upper: 'A-Z', lower: 'a-z', space: '\\s', punct: '!-\\/:-@\\[-`{-~', xdigit: '0-9a-fA-F', blank: ' \\t'};
 
-const grepRegex = (pattern, opts) => {
-	let source;
-	if (opts.has('F')) {
-		source = pattern.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-	} else {
-		source = pattern.replace(/\[:(\w+):\]/g, (match, name) => BRACKET_CLASSES[name] ?? match);
-		if (!opts.has('E')) {
-			source = source.replace(/\\[(){}|+?]|[(){}|+?]/g, match => BRE_SPECIAL[match]);
+const grepRegex = (patterns, opts) => {
+	let source = patterns.map(pattern => {
+		if (opts.has('F')) {
+			return pattern.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 		}
-	}
+		const classed = pattern.replace(/\[:(\w+):\]/g, (match, name) => BRACKET_CLASSES[name] ?? match);
+		return opts.has('E') ? classed : classed.replace(/\\[(){}|+?]|[(){}|+?]/g, match => BRE_SPECIAL[match]);
+	}).join('|');
 	if (opts.has('w')) {
 		source = `(?<![\\w])(?:${source})(?![\\w])`;
 	}
@@ -360,15 +363,15 @@ const grep = async api => {
 	}
 
 	const operands = [...opts.operands];
-	const pattern = opts.has('e') ? opts.get('e') : operands.shift();
-	if (pattern === undefined) {
+	const patterns = opts.has('e') ? opts.all('e') : operands.splice(0, 1);
+	if (patterns.length === 0) {
 		api.err("Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.\n");
 		return 2;
 	}
 
 	let regex;
 	try {
-		regex = grepRegex(pattern, opts);
+		regex = grepRegex(patterns, opts);
 	} catch {
 		api.err('grep: Invalid regular expression\n');
 		return 2;
@@ -436,8 +439,8 @@ const grep = async api => {
 		const {lines} = splitLines(result.text);
 		let matches = 0;
 		for (const [i, line] of lines.entries()) {
-			regex.lastIndex = 0;
 			const found = regex.test(line);
+			regex.lastIndex = 0;
 			if (found === opts.has('v')) {
 				continue;
 			}
@@ -831,16 +834,14 @@ const env = api => {
 		}
 	}
 
+	const variables = new Map([...(clear ? [] : api.env), ...extra]);
 	if (i < api.args.length) {
 		if (!api.shell.available(api.args[i]) && !['echo', 'true', 'false', 'pwd'].includes(api.args[i])) {
 			api.err(`env: '${api.args[i]}': No such file or directory\n`);
 			return 127;
 		}
-		return api.run(api.args.slice(i));
-	}
-
-	const variables = new Map([...(clear ? [] : api.env), ...extra]);
-	if (!clear) {
+		return api.run(api.args.slice(i), undefined, {environment: variables});
+	} else if (!clear) {
 		variables.set('_', '/usr/bin/env');
 	}
 	api.out([...variables].map(([name, value]) => `${name}=${value}\n`).join(''));

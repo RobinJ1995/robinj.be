@@ -503,14 +503,14 @@ const DESCRIBE = {
 		'No LimitRange resource.',
 	],
 	replicasets: rs => [
-		field('Name', rs.metadata.name, 14),
-		field('Namespace', 'default', 14),
-		field('Selector', `app=${APP},pod-template-hash=${rs.metadata.labels['pod-template-hash']}`, 14),
-		...labelLines(rs.metadata.labels, 14),
-		field('Controlled By', `Deployment/${APP}`, 14),
-		field('Replicas', `${rs.spec.replicas} current / ${rs.spec.replicas} desired`, 14),
-		field('Pods Status', `${rs.spec.replicas} Running / 0 Waiting / 0 Succeeded / 0 Failed`, 14),
-		'Events:        <none>',
+		field('Name', rs.metadata.name, 16),
+		field('Namespace', 'default', 16),
+		field('Selector', `app=${APP},pod-template-hash=${rs.metadata.labels['pod-template-hash']}`, 16),
+		...labelLines(rs.metadata.labels, 16),
+		field('Controlled By', `Deployment/${APP}`, 16),
+		field('Replicas', `${rs.spec.replicas} current / ${rs.spec.replicas} desired`, 16),
+		field('Pods Status', `${rs.spec.replicas} Running / 0 Waiting / 0 Succeeded / 0 Failed`, 16),
+		field('Events', '<none>', 16),
 	],
 };
 
@@ -584,7 +584,7 @@ const parse = args => {
 		const short = arg.match(/^-([A-Za-z])(.*)$/);
 		if (long) {
 			flags[long[1]] = long[2] ?? (takesValue.has(long[1]) ? args[++i] : true);
-		} else if (short && takesValue.has(short[1])) {
+		} else if (short && takesValue.has(short[1]) && !(short[1] === 'f' && ['logs', 'log'].includes(positional[0]))) {
 			flags[short[1]] = short[2].replace(/^=/, '') || args[++i];
 		} else if (short) {
 			for (const c of arg.slice(1)) {
@@ -759,7 +759,7 @@ const get = async (api, flags, positional) => {
 	} else if (output && output !== 'wide') {
 		api.err(`error: unable to match a printer suitable for the output format "${output}", allowed formats are: custom-columns,custom-columns-file,go-template,go-template-file,json,jsonpath,jsonpath-as-json,jsonpath-file,name,template,templatefile,wide,yaml\n`);
 		return 1;
-	} else {
+	} else if (blocks.length) {
 		api.out(`${blocks.join('\n\n')}\n`);
 	}
 
@@ -984,8 +984,8 @@ const rollout = (api, flags, positional) => {
 // Every way of changing something, and the permission it lacks.
 const write = (api, command, flags, positional) => {
 	const namespace = flags.n ?? flags.namespace ?? 'default';
-	const named = () => {
-		const parsed = targets(positional.length ? positional : ['pods']);
+	const named = (args = positional) => {
+		const parsed = targets(args.length ? args : ['pods']);
 		return parsed.error ? null : parsed.groups[0];
 	};
 	const fail = message => {
@@ -1000,12 +1000,13 @@ const write = (api, command, flags, positional) => {
 		case 'edit':
 		case 'patch':
 		case 'replace': {
-			if (positional.length === 0) {
+			const resources = ['label', 'annotate'].includes(command) ? positional.filter(arg => !/=|-$/.test(arg)) : positional;
+			if (resources.length === 0) {
 				return fail('error: You must provide one or more resources by argument or filename.');
 			}
-			const group = named();
+			const group = named(resources);
 			if (!group) {
-				return fail(targets(positional).error);
+				return fail(targets(resources).error);
 			}
 			const items = list(group.type, namespace);
 			const names = group.names.length ? group.names : flags.all ? items.map(item => item.metadata.name) : [];
