@@ -34,3 +34,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           snapshot: true
+      - name: Trigger deployment
+        run: |
+          curl -sS --fail -X PUT -H "Authorization: Bearer ${{ secrets.KUBECONTROL_TOKEN }}" https://kuber0.robinj.be/deployment/default/robinj-be
