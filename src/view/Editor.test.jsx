@@ -65,25 +65,32 @@ describe('editor', () => {
 		expect(container.querySelector('.editor-sidebar')).toHaveTextContent('last commit: …');
 	});
 
-	it('scrolls the open file into view when the file list is a strip too wide for the screen', () => {
+	it('scrolls the open file into view when the file list is a strip too wide for the screen, and again once the fonts load', () => {
 		vi.stubGlobal('fetch', github());
+		Object.defineProperty(document, 'fonts', {configurable: true, value: new EventTarget()});
 		const widths = {scrollWidth: 800, clientWidth: 300};
 		for (const [name, value] of Object.entries(widths)) {
 			Object.defineProperty(HTMLElement.prototype, name, {configurable: true, get: () => value});
 		}
+		// How far into the strip the open file starts.
+		let into = 500;
 		const rect = Element.prototype.getBoundingClientRect;
 		Element.prototype.getBoundingClientRect = function () {
-			return {left: this.matches('.editor-files [aria-current]') ? 500 : 0};
+			return {left: this.matches('.editor-files [aria-current]') ? into - this.closest('.editor-files').scrollLeft : 0};
 		};
 
 		const {container} = editor('contact');
 
 		// Centred: 500px in, less half of what's left beside it (the link is 0px wide in jsdom).
 		expect(container.querySelector('.editor-files').scrollLeft).toBe(350);
+		into = 600;
+		act(() => document.fonts.dispatchEvent(new Event('loadingdone')));
+		expect(container.querySelector('.editor-files').scrollLeft).toBe(450);
 		Element.prototype.getBoundingClientRect = rect;
 		for (const name of Object.keys(widths)) {
 			delete HTMLElement.prototype[name];
 		}
+		delete document.fonts;
 	});
 
 	it('shows the last push but no count when the commits can\'t be listed', async () => {

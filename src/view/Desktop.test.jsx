@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, afterEach} from 'vitest';
-import {render, screen, fireEvent, cleanup, act, waitFor} from '@testing-library/react';
+import {render, screen, fireEvent, cleanup, act, waitFor, within} from '@testing-library/react';
 import App from '../App';
 
 // xterm.js needs a real browser; the shell itself is tested in src/console.
@@ -95,8 +95,12 @@ describe('desktop', () => {
 		act(() => vi.advanceTimersByTime(250));
 		expect(windows(container)).toEqual(['Editor']);
 
+		// Once it has finished closing, so as not to cut that short.
 		fireEvent.click(screen.getByTitle('Close'));
-		act(() => vi.advanceTimersByTime(250));
+		act(() => vi.advanceTimersByTime(100));
+		expect(container.querySelector('.dt-window.is-closing')).not.toBeNull();
+		expect(screen.getByRole('button', {name: 'Activities'})).toHaveAttribute('aria-pressed', 'false');
+		act(() => vi.advanceTimersByTime(150));
 		expect(windows(container)).toEqual([]);
 		expect(screen.getByRole('button', {name: 'Activities'})).toHaveAttribute('aria-pressed', 'true');
 		expect(screen.queryByText('You look like you might be lost.')).toBeNull();
@@ -142,6 +146,7 @@ describe('desktop', () => {
 		fireEvent.click(screen.getByTitle('Close'));
 
 		expect(desktop).not.toHaveClass('has-windows');
+		act(() => vi.advanceTimersByTime(250));
 		expect(desktop).toHaveClass('is-overview');
 	});
 
@@ -711,23 +716,21 @@ describe('desktop', () => {
 		expect(site.querySelector('[data-resize]')).toBeNull();
 	});
 
-	it('prints the website\'s page, laying out a copy for the occasion when its window is closed', () => {
+	it('prints the website\'s page from a copy laid out for the occasion, whatever windows are open', () => {
 		vi.useFakeTimers();
 		const {container} = render(<App initialPath="/contact" />);
 		const copy = () => container.querySelector('.dt-print');
+		expect(copy()).toBeNull();
 
 		act(() => window.dispatchEvent(new Event('beforeprint')));
-		expect(copy()).toBeNull();
+		expect(copy()).toHaveTextContent(/on LinkedIn/);
 		act(() => window.dispatchEvent(new Event('afterprint')));
+		expect(copy()).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
 		act(() => vi.advanceTimersByTime(500));
-		expect(copy()).toBeNull();
 		act(() => window.dispatchEvent(new Event('beforeprint')));
 		expect(copy()).toHaveTextContent(/on LinkedIn/);
-
-		act(() => window.dispatchEvent(new Event('afterprint')));
-		expect(copy()).toBeNull();
 	});
 
 	it('powers off through the console, then boots to an empty desktop', async () => {
@@ -788,6 +791,50 @@ describe('desktop', () => {
 		expect(screen.getByRole('log', {name: 'System console'})).toHaveTextContent('Welcome to RobinOS!');
 	});
 
+	it('unloads the caffeine and adhd modules the moment it panics, leaving the windows be', async () => {
+		const {container} = render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		vi.useFakeTimers();
+		act(() => {
+			system.caffeinate(true);
+			system.distract(true);
+		});
+		expect(container.querySelector('.desktop')).toHaveClass('is-caffeinated');
+		act(() => vi.advanceTimersByTime(1000));
+		const before = windows(container);
+
+		act(() => system.halt({mode: 'panic', lines: ['Kernel panic - not syncing: Fatal exception'], boot: []}));
+
+		expect(system.caffeinated).toBe(false);
+		expect(system.distracted).toBe(false);
+		expect(container.querySelector('.desktop')).not.toHaveClass('is-caffeinated');
+		act(() => vi.advanceTimersByTime(3900));
+		expect(windows(container)).toEqual(before);
+		expect(container.querySelector('.dt-window.is-closing')).toBeNull();
+	});
+
+	it('panics once there are ten browser windows open', async () => {
+		const controls = {current: null};
+		const {container} = render(<App initialPath="/cv" controls={controls} />);
+		const desktop = controls.current;
+
+		act(() => {
+			for (let i = 0; i < 8; i++) {
+				desktop.open('site', {url: `https://example.com/${i}`});
+			}
+		});
+		expect(windows(container).filter(name => name === 'Website')).toHaveLength(9);
+		await act(() => vi.dynamicImportSettled());
+		expect(screen.queryByRole('log', {name: 'System console'})).toBeNull();
+
+		act(() => desktop.open('site', {url: 'https://example.com/9'}));
+		await waitFor(() => expect(screen.getByRole('log', {name: 'System console'})).toHaveTextContent('Kernel panic - not syncing: System resources exhausted'));
+		expect(screen.getByRole('log', {name: 'System console'})).toHaveTextContent('Comm: web');
+		expect(screen.getByRole('log', {name: 'System console'})).toHaveTextContent('just_one_more_tab+0x9/0xa [adhd]');
+	});
+
 	it('switches the font, and remembers it', () => {
 		const storage = memoryStorage();
 		vi.stubGlobal('localStorage', storage);
@@ -822,5 +869,343 @@ describe('desktop', () => {
 		render(<App initialPath="/cv" />);
 
 		expect(screen.queryByRole('button', {name: 'Share this website'})).toBeNull();
+	});
+});
+
+describe('more than one window of an app', () => {
+	// The app, with the desktop's controls in hand.
+	const withControls = (path = '/cv') => {
+		window.history.replaceState(null, '', path);
+		const controls = {current: null};
+		const rendered = render(<App initialPath={path} controls={controls} />);
+		return {...rendered, desktop: controls.current};
+	};
+	const windowsOf = (container, name) => [...container.querySelectorAll(`.dt-window[aria-label="${name}"]`)];
+
+	it('opens the website on another site, with its address but nothing to share', () => {
+		vi.stubGlobal('navigator', {...navigator, share: vi.fn(async () => {})});
+		const {container, desktop} = withControls();
+
+		let win;
+		act(() => {
+			win = desktop.open('site', {url: 'https://en.wikipedia.org/wiki/Main_Page'});
+		});
+		act(() => desktop.show(win));
+
+		expect(win).toBe('site-2');
+		const [own, other] = windowsOf(container, 'Website');
+		expect(other.querySelector('.dt-address')).toHaveTextContent('en.wikipedia.org/wiki/Main_Page');
+		expect(other.querySelector('iframe').src).toBe('https://en.wikipedia.org/wiki/Main_Page');
+		expect(within(other).queryByRole('button', {name: 'Share this website'})).toBeNull();
+		expect(within(own).getByRole('button', {name: 'Share this website'})).toBeInTheDocument();
+		expect(own.querySelector('.dt-address')).toHaveTextContent('robinj.be/cv');
+
+		act(() => {
+			expect(desktop.update(win, {url: 'https://en.wikipedia.org/wiki/Linux'})).toBe(true);
+		});
+		expect(other.querySelector('.dt-address')).toHaveTextContent('en.wikipedia.org/wiki/Linux');
+	});
+
+	it('shows the page in every window of the website, and follows it in all of them', () => {
+		const {container, desktop} = withControls();
+
+		act(() => {
+			desktop.open('site', {portfolio: true});
+		});
+		act(() => desktop.navigate('contact'));
+
+		expect(windowsOf(container, 'Website').map(win => win.querySelector('.dt-address').textContent)).toEqual(['robinj.be/contact', 'robinj.be/contact']);
+		expect(window.location.pathname).toBe('/contact');
+	});
+
+	it('opens the editor empty, or on a new file only the desktop writes in', () => {
+		const {container, desktop} = withControls();
+
+		let blank;
+		let file;
+		act(() => {
+			blank = desktop.open('source', {});
+			file = desktop.open('source', {file: {name: 'Untitled-1', text: 'one\ntwo'}});
+		});
+
+		const [, empty, untitled] = windowsOf(container, 'Editor');
+		expect([blank, file]).toEqual(['source-2', 'source-3']);
+		expect(empty.querySelector('.editor-title')).toHaveTextContent('Editor');
+		expect(empty).toHaveTextContent('No open files');
+		expect(empty.querySelector('.editor-files').children).toHaveLength(0);
+		expect(within(empty).queryByRole('link', {name: 'Run'})).toBeNull();
+		const lines = () => [...untitled.querySelectorAll('.editor-line')].map(line => line.textContent);
+		expect(lines()).toEqual(['one', 'two']);
+		expect(within(untitled).getByRole('textbox', {name: 'Untitled-1'})).toHaveAttribute('aria-readonly', 'true');
+
+		act(() => desktop.update(file, {file: {name: 'Untitled-1', text: 'three'}}));
+		expect(lines()).toEqual(['three']);
+	});
+
+	it('plays a different video in each video player', () => {
+		const {container, desktop} = withControls();
+
+		act(() => {
+			desktop.open('video', {});
+			desktop.open('video', {video: {youtube: 'x6MsDjLnXzE', start: 42}});
+		});
+
+		const [library, playing] = windowsOf(container, 'Video Player');
+		expect(within(library).getByRole('button', {name: 'video.mp4'})).toBeInTheDocument();
+		expect(playing.querySelector('iframe').src).toBe('https://www.youtube-nocookie.com/embed/x6MsDjLnXzE?autoplay=1&rel=0&fs=0&start=42');
+	});
+
+	it('gives each terminal a session and a process of its own', async () => {
+		const {container, desktop} = withControls();
+		const before = session.startSession.mock.calls.length;
+
+		// One after the other: Vitest can hand imports racing for a mocked module the real one.
+		act(() => desktop.show(desktop.open('console', {})));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalledTimes(before + 1));
+		act(() => desktop.show(desktop.open('console', {})));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalledTimes(before + 2));
+
+		const [first, second] = session.startSession.mock.calls.slice(-2).map(([options]) => options.system);
+		expect(first.terminalPid).not.toBe(second.terminalPid);
+		expect(first.processes().filter(proc => proc.name === 'terminal').map(proc => proc.pid)).toEqual([first.terminalPid, second.terminalPid]);
+
+		act(() => {
+			first.kill(second.terminalPid);
+		});
+		await waitFor(() => expect(windowsOf(container, 'Terminal')).toHaveLength(1));
+	});
+
+	it('shows an app\'s windows in Activities when its dock icon has several, and only those', () => {
+		const {container, desktop} = withControls();
+		act(() => {
+			desktop.open('site', {url: 'https://en.wikipedia.org/wiki/Main_Page'});
+		});
+
+		fireEvent.click(screen.getByRole('link', {name: 'Website'}));
+
+		expect(container.querySelector('.desktop')).toHaveClass('is-overview');
+		expect(windowsOf(container, 'Website').every(win => !win.classList.contains('is-left-out'))).toBe(true);
+		expect(windowsOf(container, 'Editor')[0]).toHaveClass('is-left-out');
+
+		fireEvent.click(screen.getAllByRole('button', {name: 'Switch to Website'})[1]);
+		expect(container.querySelector('.desktop')).not.toHaveClass('is-overview');
+		expect(focused(container)).toBe('Website');
+	});
+
+	it('names later windows of an app by number, and puts them a little below and to the right of the last', () => {
+		const {container, desktop} = withControls();
+		const site = container.querySelector('[data-win="site"]');
+		vi.spyOn(site, 'offsetLeft', 'get').mockReturnValue(100);
+		vi.spyOn(site, 'offsetTop', 'get').mockReturnValue(50);
+		vi.spyOn(site, 'offsetWidth', 'get').mockReturnValue(600);
+		vi.spyOn(site, 'offsetHeight', 'get').mockReturnValue(400);
+		const stage = container.querySelector('.dt-stage');
+		Object.defineProperty(stage, 'clientWidth', {value: 1600, configurable: true});
+		Object.defineProperty(stage, 'clientHeight', {value: 1000, configurable: true});
+		act(() => window.dispatchEvent(new Event('resize')));
+
+		act(() => {
+			desktop.open('site', {url: 'https://example.com/'});
+		});
+
+		expect(windowsOf(container, 'Website')[1].style).toMatchObject({left: '132px', top: '82px', width: '600px', height: '400px'});
+	});
+
+	it('stacks a window raised and covered again before the next render just behind the one covering it', () => {
+		const {container, desktop} = withControls();
+
+		act(() => {
+			desktop.show(desktop.open('video', {}));
+			desktop.showPage('site');
+		});
+
+		const layer = name => Number(windowsOf(container, name)[0].style.getPropertyValue('--z'));
+		expect(layer('Video Player')).toBeGreaterThan(layer('Editor'));
+		expect(layer('Website')).toBeGreaterThan(layer('Video Player'));
+	});
+
+	it('opens the one window for the page, however often it\'s asked for before the next render', () => {
+		smallScreen();
+		const {container, desktop} = withControls();
+		expect(windowsOf(container, 'Editor')).toHaveLength(0);
+
+		act(() => {
+			desktop.showPage('source');
+			desktop.showPage('source');
+		});
+
+		expect(windowsOf(container, 'Editor')).toHaveLength(1);
+	});
+
+	it('minimises a video player closed on a phone to its dock icon, which goes once it has', () => {
+		smallScreen();
+		vi.useFakeTimers();
+		const animations = recordAnimations();
+		const {container, desktop} = withControls();
+		let win;
+		act(() => {
+			win = desktop.open('video', {});
+		});
+		act(() => desktop.show(win));
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the video player'}));
+
+		const player = windowsOf(container, 'Video Player')[0];
+		expect(animations(player)).toHaveLength(2);
+		expect(screen.getByRole('button', {name: 'Video Player'})).not.toHaveClass('is-running');
+		act(() => vi.advanceTimersByTime(500));
+		expect(screen.queryByRole('button', {name: 'Video Player'})).toBeNull();
+	});
+
+	it('tells where windows are and puts them elsewhere, where they can move', () => {
+		const {container, desktop} = withControls();
+		const site = container.querySelector('[data-win="site"]');
+		vi.spyOn(site, 'offsetWidth', 'get').mockReturnValue(600);
+		vi.spyOn(site, 'offsetHeight', 'get').mockReturnValue(400);
+		const stage = container.querySelector('.dt-stage');
+		Object.defineProperty(stage, 'clientWidth', {value: 1600, configurable: true});
+		Object.defineProperty(stage, 'clientHeight', {value: 1000, configurable: true});
+		act(() => window.dispatchEvent(new Event('resize')));
+
+		expect(desktop.movable()).toBe(true);
+		expect(desktop.isOpen('site')).toBe(true);
+		expect(desktop.isOpen('console')).toBe(false);
+		expect(desktop.stage()).toEqual({width: 1600, height: 1000});
+		expect(desktop.minSize('site')).toEqual({width: 360, height: 360});
+		expect(desktop.geometry('site')).toEqual({x: 0, y: 0, width: 600, height: 400});
+
+		act(() => desktop.place('site', {x: 200, y: 100, width: 700, height: 500}));
+		expect(site.style).toMatchObject({left: '200px', top: '100px', width: '700px', height: '500px'});
+		// Where it would be, put nowhere: there, as it measures, and left as it was meanwhile.
+		expect(desktop.defaultGeometry('site')).toEqual({x: 0, y: 0, width: 600, height: 400});
+		expect(site.style.left).toBe('200px');
+		act(() => desktop.place('site', null));
+		expect(site.style.left).toBe('');
+
+		let video;
+		act(() => {
+			video = desktop.open('video', {}, {x: 900, y: 500, width: 480, height: 316});
+		});
+		expect(windowsOf(container, 'Video Player')[0].style).toMatchObject({left: '900px', top: '500px', width: '480px', height: '316px'});
+		expect(video).toBe('video');
+
+		act(() => desktop.close('source'));
+		expect(windowsOf(container, 'Editor')[0]).toHaveClass('is-closing');
+	});
+
+	it('forgets a window\'s content once it closes, and answers for it no more', () => {
+		vi.useFakeTimers();
+		const {container, desktop} = withControls();
+		let win;
+		act(() => {
+			win = desktop.open('site', {url: 'https://example.com/'});
+		});
+		act(() => desktop.show(win));
+
+		fireEvent.click(within(windowsOf(container, 'Website')[1]).getByRole('button', {name: 'Close the website window'}));
+		act(() => vi.advanceTimersByTime(500));
+
+		expect(windowsOf(container, 'Website')).toHaveLength(1);
+		expect(desktop.update(win, {url: 'https://example.org/'})).toBe(false);
+		act(() => desktop.show(win));
+		expect(desktop.geometry(win)).toBeFalsy();
+	});
+});
+
+describe('the adhd kernel module', () => {
+	it('adds nothing to the browser\'s history while it\'s loaded', async () => {
+		window.history.replaceState(null, '', '/cv');
+		const {container} = render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		const history = window.history.length;
+		vi.useFakeTimers();
+
+		act(() => system.distract(true));
+		await act(() => vi.advanceTimersByTimeAsync(8000));
+		expect(window.location.pathname).not.toBe('/cv');
+		expect(window.history.length).toBe(history);
+
+		// Once it's unloaded, the website's own links add to it again.
+		act(() => system.distract(false));
+		for (let i = 0; i < 20; i++) {
+			act(() => vi.advanceTimersByTime(100));
+		}
+		const after = window.history.length;
+		fireEvent.click(within(container.querySelector('.dt-window[aria-label="Website"]')).getByRole('link', {name: 'Side Quests', exact: true}));
+		expect(window.location.pathname).toBe('/side-quests');
+		expect(window.history.length).toBe(after + 1);
+	});
+
+	it('leaves the desktop alone while it isn\'t loaded', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => {
+			throw new TypeError('Failed to fetch');
+		}));
+		window.history.replaceState(null, '', '/cv');
+		vi.useFakeTimers();
+		const {container} = render(<App initialPath="/cv" />);
+		const history = window.history.length;
+
+		await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+		expect(windows(container)).toEqual(['Website', 'Editor']);
+		expect(focused(container)).toBe('Website');
+		expect(window.location.pathname).toBe('/cv');
+		expect(window.history.length).toBe(history);
+		expect(fetch.mock.calls.filter(([url]) => String(url).includes('wikipedia'))).toEqual([]);
+		expect(container.querySelector('.desktop')).not.toHaveClass('is-caffeinated');
+	});
+
+	it('sets the desktop driving itself while it\'s loaded, and tidies up after it once it\'s unloaded', async () => {
+		window.history.replaceState(null, '', '/cv');
+		const {container} = render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		vi.useFakeTimers();
+
+		act(() => system.distract(true));
+		expect(system.distracted).toBe(true);
+		await act(() => vi.advanceTimersByTimeAsync(8000));
+		expect(window.location.pathname).not.toBe('/cv');
+		expect(windows(container)).toEqual(['Website', 'Editor', 'Terminal', 'Video Player']);
+
+		// The windows close one after another, front first...
+		const front = focused(container);
+		const left = () => container.querySelectorAll('.dt-window:not(.is-closing)').length;
+		act(() => system.distract(false));
+		act(() => vi.advanceTimersByTime(10));
+		expect(container.querySelector('.dt-window.is-closing').getAttribute('aria-label')).toBe(front);
+		expect(left()).toBe(3);
+		act(() => vi.advanceTimersByTime(100));
+		expect(left()).toBe(2);
+		act(() => vi.advanceTimersByTime(100));
+		expect(left()).toBe(1);
+
+		// ...and the desktop starts over: the website in front of the editor, on the CV.
+		for (let i = 0; i < 10; i++) {
+			act(() => vi.advanceTimersByTime(100));
+		}
+		expect(windows(container)).toEqual(['Website', 'Editor']);
+		expect(focused(container)).toBe('Website');
+		expect(container.querySelector('.desktop')).not.toHaveClass('is-overview');
+		expect(container.querySelector('[data-win="site"] .dt-address')).toHaveTextContent('robinj.be/cv');
+		expect(window.location.pathname).toBe('/cv');
+	});
+
+	it('stops the desktop driving itself when the machine goes down, with nothing to tidy', async () => {
+		render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		vi.useFakeTimers();
+
+		act(() => system.distract(true));
+		act(() => system.halt({mode: 'poweroff', shutdown: [{text: 'Powering off.', delay: 0}], boot: [{text: 'Booting.', delay: 0}]}));
+		act(() => vi.advanceTimersByTime(2000));
+
+		expect(system.distracted).toBe(false);
+		expect(document.querySelectorAll('.dt-window')).toHaveLength(0);
 	});
 });

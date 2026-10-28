@@ -65,6 +65,7 @@ export const setup = (options = {}) => {
 export const fakeSystem = (overrides = {}) => {
 	let next = 2000;
 	let awake = false;
+	let distracted = false;
 	return {
 		pid: () => next++,
 		terminalPid: 1999,
@@ -79,6 +80,12 @@ export const fakeSystem = (overrides = {}) => {
 		},
 		caffeinate: vi.fn(on => {
 			awake = on;
+		}),
+		get distracted() {
+			return distracted;
+		},
+		distract: vi.fn(on => {
+			distracted = on;
 		}),
 		...overrides,
 	};

@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {fakeSystem, setup, stubStorage} from './test-helpers';
-import {bootSequence, cancelShutdown, panicText, shutdownSequence} from './power';
+import {bootSequence, cancelShutdown, exhaustedText, panicText, shutdownSequence} from './power';
 
 const desktop = () => fakeSystem({processes: () => [{pid: 1337, name: 'desktop', started: new Date()}]});
 
@@ -103,6 +103,18 @@ describe('killing the desktop', () => {
 		expect(lines[0]).toMatch(/^\[ +12\.\d{6}\] Kernel panic - not syncing: Fatal exception$/);
 		expect(lines[1]).toMatch(/CPU: 3 PID: 4242 Comm: rmmod /);
 		expect(lines.at(-1)).toMatch(/---\[ end Kernel panic - not syncing: Fatal exception \]---$/);
+	});
+
+	it('blames the browsers and the adhd module when they\'ve taken everything', () => {
+		const lines = exhaustedText({uptime: 300, pid: 2042});
+
+		expect(lines[0]).toMatch(/^\[ +300\.\d{6}\] Kernel panic - not syncing: System resources exhausted$/);
+		expect(lines[1]).toMatch(/CPU: 3 PID: 2042 Comm: web /);
+		expect(lines[3]).toMatch(/Modules linked in: adhd\(OE\) caffeine\(OE\) /);
+		expect(lines.filter(line => line.includes('[adhd]')).length).toBe(4);
+		expect(lines.some(line => line.includes('out_of_memory+'))).toBe(true);
+		expect(lines.some(line => line.includes('[caffeine]'))).toBe(false);
+		expect(lines.at(-1)).toMatch(/---\[ end Kernel panic - not syncing: System resources exhausted \]---$/);
 	});
 
 	it('is fine with harmless signals', async () => {

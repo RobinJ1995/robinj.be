@@ -42,6 +42,7 @@ class ForkError extends Error {}
 const standalone = () => {
 	let next = 4000;
 	let awake = false;
+	let distracted = false;
 	return {
 		pid: () => next++, terminalPid: 3999, bootedAt: new Date(), processes: () => [], kill: () => 'missing', launch: () => null, halt: () => {},
 		get caffeinated() {
@@ -49,6 +50,12 @@ const standalone = () => {
 		},
 		caffeinate: on => {
 			awake = on;
+		},
+		get distracted() {
+			return distracted;
+		},
+		distract: on => {
+			distracted = on;
 		},
 		// True if the browser let the tab open.
 		openUrl: url => {

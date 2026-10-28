@@ -116,8 +116,8 @@ test('fades in with its background blur growing, never switched off', async ({pa
 	}));
 
 	expect(frames.filter(frame => frame.seeThrough)).toEqual([]);
-	expect(frames.some(frame => frame.blur > 0 && frame.blur < 20)).toBe(true);
-	await expect.poll(() => page.locator('.console').evaluate(el => getComputedStyle(el).backdropFilter)).toContain('blur(20px)');
+	expect(frames.some(frame => frame.blur > 0 && frame.blur < 16)).toBe(true);
+	await expect.poll(() => page.locator('.console').evaluate(el => getComputedStyle(el).backdropFilter)).toContain('blur(16px)');
 });
 
 test('fits its screen to the window', async ({page}) => {

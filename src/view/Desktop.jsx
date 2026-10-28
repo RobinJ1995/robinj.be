@@ -1,12 +1,15 @@
 import React, {useState, useEffect, useLayoutEffect, useRef, useMemo} from 'react';
 import {flushSync} from 'react-dom';
 import Window, {CloseIcon, fitGeometry, refitGeometry, dockOverlap} from './Window';
+import {runAdhd} from './adhd';
 
 const ORDER = ['site', 'source', 'console', 'video'];
 // Always in the dock; other apps only while they run.
 const FAVOURITES = ['site', 'source', 'console'];
-// The windows that show the page; the others have no URL of their own.
+// The apps that show the page; the others have no URL of their own.
 const URL_WINDOWS = ['site', 'source'];
+// What the website and the editor show unless told otherwise: the portfolio.
+const PORTFOLIO = {portfolio: true};
 // As small as each app can be and still work comfortably.
 const MIN_SIZES = {
 	site: {width: 360, height: 360},
@@ -30,6 +33,8 @@ const RESTART_MS = 1200;
 // How long an empty desktop waits before suggesting a way back; less on a phone.
 const LOST_MS = 4000;
 const LOST_SMALL_MS = 3000;
+// Unloading adhd closes the windows this far apart.
+const UNLOAD_CLOSE_MS = 100;
 // A pause this long ends a change of the screen's size.
 const RESIZE_SETTLE_MS = 500;
 // Minimising a window to its dock icon, or restoring it, on a small screen.
@@ -37,6 +42,8 @@ const MINIMISE = {duration: 300, easing: 'cubic-bezier(.25, .46, .45, .94)'};
 // A panic stays on screen this long, then the machine is off as after a shutdown.
 const PANIC_MS = 4000;
 const PANIC_OFF_MS = 2000;
+// With this many browser windows open, there's nothing left for anything else.
+const BROWSER_LIMIT = 10;
 
 const LockIcon = () => (
 	<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -423,7 +430,9 @@ const useScrollAway = (ref, enabled) => {
 	return hidden;
 };
 
-const BrowserBar = ({address, scrollAway, onClose}) => {
+// The address bar shows `url`; only the website itself can be shared from it.
+const BrowserBar = ({url, shareable, scrollAway, onClose}) => {
+	const {host, pathname, search, hash} = new URL(url);
 	const ref = useRef(null);
 	const hidden = useScrollAway(ref, scrollAway);
 	// Decided after mount, so the prerendered HTML doesn't depend on the browser.
@@ -442,9 +451,9 @@ const BrowserBar = ({address, scrollAway, onClose}) => {
 			<div className="dt-address-group">
 				<div className="dt-address">
 					<LockIcon />
-					<span><b>robinj.be</b>{address}</span>
+					<span><b>{host}</b>{pathname + search + hash}</span>
 				</div>
-				{canShare && (
+				{shareable && canShare && (
 					<button type="button" className="dt-headerbar-button" title="Share" aria-label="Share this website" onClick={share}>
 						<ShareIcon />
 					</button>
@@ -457,17 +466,18 @@ const BrowserBar = ({address, scrollAway, onClose}) => {
 	);
 };
 
-const Dock = ({open, hrefs, onShow}) => (
+// An icon per app: the favourites, and any other while it has windows.
+const Dock = ({docked, running, hrefs, onPick}) => (
 	<div className="dt-dock" aria-label="Dock">
-		{ORDER.filter(win => FAVOURITES.includes(win) || open[win]).map(win => {
+		{ORDER.filter(win => FAVOURITES.includes(win) || docked.has(win)).map(win => {
 			const {name, icon} = APPS[win];
 
 			const props = {
-				className: `dt-dock-item${open[win] ? ' is-running' : ''}`,
+				className: `dt-dock-item${running.has(win) ? ' is-running' : ''}`,
 				'aria-label': name,
 				'data-label': name,
 				'data-win': win,
-				onClick: e => onShow(win, e),
+				onClick: e => onPick(win, e),
 				// A click shouldn't pull keyboard focus away from the window being raised.
 				onMouseDown: e => e.preventDefault(),
 			};
@@ -593,16 +603,20 @@ const PowerScreen = ({power, onDone, onPowerOn}) => {
 	);
 };
 
-// A GNOME-style desktop around the website, the editor and other apps. App says
-// which of the website and editor is in front (`focused`), and hears whether either
-// is open (`onPageOpen`); the rest is the desktop's own.
-const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen, renderWindow}) => {
-	const [open, setOpen] = useState({site: true, source: true, console: false, video: false});
-	// A window other than those two, when it's in front of them.
-	const [front, setFront] = useState(null);
+// A GNOME-style desktop around the website, the editor and other apps. Each window
+// is an instance of an app, {app, content}: the first of each is named after the
+// app, later ones numbered. Those showing the website or its source share the one
+// page App keeps; App says which of the two apps is in front (`focused`), and hears
+// whether any window shows the page (`onPageOpen`) and whether the desktop drives
+// itself (`onDistracted`). `controls` gets the desktop's own controls, for opening
+// windows on other content.
+const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onNavigate, onPageOpen, onDistracted, renderWindow, controls}) => {
+	const [open, setOpen] = useState({site: {app: 'site', content: PORTFOLIO}, source: {app: 'source', content: PORTFOLIO}});
+	const [active, setActive] = useState(focused);
 	// Back to front.
 	const [stack, setStack] = useState(() => [...URL_WINDOWS.filter(win => win !== focused), focused]);
 	const [closing, setClosing] = useState({});
+	// Activities: true, or an app's name to show only its windows.
 	const [overview, setOverview] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
 	// The "might be lost" notification: shown once nothing has been open for a while,
@@ -617,12 +631,20 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 	// Just booted: the desktop zooms in, as GNOME's does after logging in.
 	const [starting, setStarting] = useState(false);
 	const [caffeinated, setCaffeinated] = useState(false);
+	const [distracted, setDistracted] = useState(false);
 	// Where windows were moved or resized to; the others keep their default place.
 	const [placed, setPlaced] = useState({});
 	const [stage, setStage] = useState(null);
 	const [printing, setPrinting] = useState(false);
 	const placedNow = useRef(placed);
 	placedNow.current = placed;
+	// As they are now, ahead of the next render: one call may follow another before it.
+	const openNow = useRef(open);
+	openNow.current = open;
+	const closingNow = useRef(closing);
+	closingNow.current = closing;
+	const activeNow = useRef(active);
+	activeNow.current = active;
 	// While the screen changes size: where the windows were before it began, so
 	// that they're back there if it grows again.
 	const resizing = useRef(null);
@@ -635,10 +657,11 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 	const pids = useRef({site: 1402, source: 1417});
 	const started = useRef({});
 	const nextPid = useRef(FIRST_PID);
+	// How many windows of each app have been numbered.
+	const numbered = useRef({});
 	const bootedAt = useRef(null);
 	const powerTimer = useRef(null);
 	const animate = !reduceMotion;
-	const active = front ?? focused;
 
 	useEffect(() => {
 		setHydrated(true);
@@ -647,7 +670,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 		// A phone starts with just the website, unless the URL asks for the editor.
 		if (window.matchMedia?.(SMALL).matches && focused !== 'source') {
 			delete pids.current.source;
-			setOpen(o => ({...o, source: false}));
+			setOpen(({source, ...rest}) => rest);
 		}
 	}, []);
 
@@ -668,16 +691,79 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 		}
 	};
 
-	// However `focused` changed (a link to the source, the back button), its window comes to the front.
+	const isUp = win => !!open[win] && !closing[win];
+	// By app, then in the order they were numbered.
+	const ids = Object.keys(open).sort((a, b) => ORDER.indexOf(open[a].app) - ORDER.indexOf(open[b].app) || a.length - b.length || a.localeCompare(b));
+	const upIds = ids.filter(isUp);
+	const showsPage = win => URL_WINDOWS.includes(openNow.current[win]?.app) && !!openNow.current[win].content.portfolio;
+	// The front-most open window of `app`, of those `which` accepts, counting any
+	// opened since the last render.
+	const topmost = (app, which = () => true) => {
+		const windows = Object.keys(openNow.current).filter(win => openNow.current[win].app === app && !closingNow.current[win] && which(win));
+		return [...stack].reverse().find(win => windows.includes(win)) ?? windows.at(-1);
+	};
+
+	// A new window of `app`, at `geometry` if given, otherwise a little below and to
+	// the right of the last one of it.
+	const openWindow = (app, content, geometry = null) => {
+		const taken = openNow.current;
+		numbered.current[app] ??= 1;
+		const win = taken[app] ? `${app}-${++numbered.current[app]}` : app;
+		const previous = windowEls.current[topmost(app)];
+		if (geometry) {
+			setPlaced(p => ({...p, [win]: geometry}));
+		} else if (previous && !small && stage) {
+			const geometry = {x: previous.offsetLeft + 32, y: previous.offsetTop + 32, width: previous.offsetWidth, height: previous.offsetHeight};
+			setPlaced(p => ({...p, [win]: fitGeometry(geometry, stage, MIN_SIZES[app])}));
+		}
+		openNow.current = {...taken, [win]: {app, content}};
+		setOpen(o => ({...o, [win]: {app, content}}));
+		// At the back until it's raised.
+		setStack(s => [win, ...s.filter(other => other !== win)]);
+		spawn(win);
+		return win;
+	};
+
+	// Brings a window to the front, without touching the URL.
+	const raise = win => {
+		spawn(win);
+		clearTimeout(closeTimers.current[win]);
+		closingNow.current = {...closingNow.current, [win]: false};
+		setClosing(c => ({...c, [win]: false}));
+		setOverview(false);
+		activeNow.current = win;
+		setActive(win);
+		setStack(s => [...s.filter(other => other !== win), win]);
+	};
+
+	const show = (win, e = null) => {
+		e?.preventDefault();
+		if (!openNow.current[win]) {
+			return;
+		}
+		raise(win);
+		const {app, content} = openNow.current[win];
+		if (URL_WINDOWS.includes(app) && content.portfolio && app !== focused) {
+			onShow(app);
+		}
+	};
+
+	// The page in the website or the editor, in front: the front-most such window, or a new one.
+	const showPage = (app, e = null) => {
+		const win = topmost(app, showsPage) ?? openWindow(app, PORTFOLIO);
+		show(win, e);
+		return win;
+	};
+
+	// However `focused` changed (a link to the source, the back button), a window
+	// showing the page in that app comes to the front, unless one already is.
 	useEffect(() => {
-		spawn(focused);
-		setOpen(o => (o[focused] ? o : {...o, [focused]: true}));
-		setFront(null);
+		if (open[active]?.app !== focused || !showsPage(active) || !isUp(active)) {
+			const win = topmost(focused, showsPage) ?? openWindow(focused, PORTFOLIO);
+			raise(win);
+		}
 	}, [focused]);
 
-	useEffect(() => {
-		setStack(s => (s[s.length - 1] === active ? s : [...s.filter(win => win !== active), active]));
-	}, [active]);
 
 	useEffect(() => {
 		if (!overview) {
@@ -694,19 +780,18 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 		return () => document.removeEventListener('keydown', onKey);
 	}, [overview]);
 
-	const openWindows = ORDER.filter(win => open[win]);
-	const isUp = win => open[win] && !closing[win];
+	const anyUp = upIds.length > 0;
 
-	const anyUp = ORDER.some(isUp);
-
-	// Closing the last window opens Activities; shutting down, which closes them all, doesn't.
-	const wasUp = useRef(anyUp);
+	// Closing the last window opens Activities once it has gone, so that its own
+	// closing isn't cut short; shutting down, which closes them all, doesn't.
+	const anyOpen = ids.length > 0;
+	const wasOpen = useRef(anyOpen);
 	useEffect(() => {
-		if (wasUp.current && !anyUp && !power) {
+		if (wasOpen.current && !anyOpen && !power) {
 			setOverview(true);
 		}
-		wasUp.current = anyUp;
-	}, [anyUp]);
+		wasOpen.current = anyOpen;
+	}, [anyOpen]);
 	useEffect(() => {
 		if (anyUp) {
 			setLost(false);
@@ -731,14 +816,28 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 		setDismissed(true);
 	};
 
-	const pageOpen = URL_WINDOWS.some(win => open[win]);
+	// Too many browser windows and the kernel panics; what it says is loaded only
+	// then, as the terminal is.
+	const browsers = upIds.filter(win => open[win].app === 'site');
+	const exhausted = browsers.length >= BROWSER_LIMIT;
+	useEffect(() => {
+		if (exhausted) {
+			const uptime = (Date.now() - bootedAt.current) / 1000;
+			const pid = pids.current[browsers.at(-1)];
+			import('../console/power').then(({exhaustedText, bootSequence}) => {
+				latest.current.halt({mode: 'panic', lines: exhaustedText({uptime, pid}), boot: bootSequence()});
+			});
+		}
+	}, [exhausted]);
+
+	const pageOpen = ids.some(showsPage);
 	useEffect(() => {
 		onPageOpen?.(pageOpen);
 	}, [pageOpen]);
 
-	// Printing gives just the website's page (see @media print in _Desktop.scss);
-	// with its window closed, a copy is laid out for the occasion. It has to be in
-	// place before the browser lays out the printout, hence flushSync.
+	// Printing gives just the website's page (see @media print in _Desktop.scss), from
+	// a copy laid out for the occasion. It has to be in place before the browser lays
+	// out the printout, hence flushSync.
 	useEffect(() => {
 		const start = () => flushSync(() => setPrinting(true));
 		const end = () => setPrinting(false);
@@ -780,7 +879,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 			const {from, overlaps} = resizing.current;
 			setPlaced(now => Object.fromEntries(Object.entries(now).map(([win, geometry]) => [
 				win,
-				from[win] ? refitGeometry(from[win], size, MIN_SIZES[win], dock, overlaps[win]) : geometry,
+				from[win] ? refitGeometry(from[win], size, MIN_SIZES[openNow.current[win].app], dock, overlaps[win]) : geometry,
 			])));
 		};
 		window.addEventListener('resize', onResize);
@@ -805,7 +904,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 		const stage = stageRef.current.getBoundingClientRect();
 		const minimised = win => {
 			const el = windowEls.current[win];
-			const icon = stageRef.current.querySelector(`.dt-dock-item[data-win='${win}']`).getBoundingClientRect();
+			const icon = stageRef.current.querySelector(`.dt-dock-item[data-win='${open[win].app}']`).getBoundingClientRect();
 			const x = icon.x + icon.width / 2 - (stage.x + el.offsetLeft + el.offsetWidth / 2);
 			const y = icon.y + icon.height / 2 - (stage.y + el.offsetTop + el.offsetHeight / 2);
 
@@ -814,60 +913,61 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 		const restored = {'visibility': 'visible', '--dt-fade': 1, 'transform': 'none'};
 
 		// The one minimising shrinks away over the one being restored.
-		if (before.visible && windowEls.current[before.visible]) {
+		if (before.visible && windowEls.current[before.visible] && open[before.visible]) {
 			windowEls.current[before.visible].animate?.([{...restored, zIndex: 10}, {...minimised(before.visible), zIndex: 10}], MINIMISE);
 		}
 		windowEls.current[visible].animate?.([minimised(visible), restored], MINIMISE);
 	}, [visible, overview]);
 
+	// In Activities for one app, the others' windows stand aside.
+	const leftOut = win => typeof overview === 'string' && open[win].app !== overview;
 	useLayoutEffect(() => {
 		if (overview) {
-			setFits(fitWindows(ORDER.filter(isUp).map(win => [win, windowEls.current[win]]), card));
+			setFits(fitWindows(upIds.filter(win => !leftOut(win)).map(win => [win, windowEls.current[win]]), card));
 		}
-	}, [overview, card, ...ORDER.map(win => open[win]), ...ORDER.map(win => closing[win])]);
+	}, [overview, card, upIds.join()]);
 
-	// Opens a window and brings it to the front, without touching the URL.
-	const raise = win => {
-		spawn(win);
-		clearTimeout(closeTimers.current[win]);
-		setClosing(c => ({...c, [win]: false}));
-		setOverview(false);
-		setOpen(o => ({...o, [win]: true}));
-		setFront(URL_WINDOWS.includes(win) ? null : win);
-	};
-
-	const show = (win, e = null) => {
-		e?.preventDefault();
-		raise(win);
-		if (URL_WINDOWS.includes(win) && win !== focused) {
-			onShow(win);
+	// A dock icon: the app's one window, Activities with its windows if it has
+	// several, or a new one if it has none.
+	const pick = (app, e) => {
+		e.preventDefault();
+		const windows = upIds.filter(win => open[win].app === app);
+		if (windows.length > 1) {
+			setOverview(app);
+		} else if (windows.length === 1) {
+			show(windows[0]);
+		} else {
+			show(openWindow(app, URL_WINDOWS.includes(app) ? PORTFOLIO : {}));
 		}
 	};
 
 	// Closed, it's forgotten where it was put: it opens in its default place.
 	const finishClosing = win => {
 		delete pids.current[win];
-		setOpen(o => ({...o, [win]: false}));
-		setClosing(c => ({...c, [win]: false}));
-		setFront(f => (f === win ? null : f));
+		const {[win]: _, ...stillOpen} = openNow.current;
+		openNow.current = stillOpen;
+		setOpen(({[win]: _, ...rest}) => rest);
+		setClosing(({[win]: _, ...rest}) => rest);
 		setPlaced(({[win]: _, ...rest}) => rest);
 	};
 
 	// The window behind the one being closed comes to the front.
 	const close = win => {
-		if (closing[win]) {
+		if (closingNow.current[win] || !openNow.current[win]) {
 			return;
 		}
 
-		const next = [...stack].reverse().find(w => w !== win && isUp(w));
-		if (win === active && next) {
+		const inFront = win === activeNow.current;
+		closingNow.current = {...closingNow.current, [win]: true};
+		const next = [...stack].reverse().find(w => w !== win && openNow.current[w] && !closingNow.current[w]);
+		if (inFront && next) {
 			show(next);
 		}
 
 		if (animate) {
 			setClosing(c => ({...c, [win]: true}));
 			// Minimising (above) takes longer than closing in place.
-			const ms = small && win === active && next ? MINIMISE.duration : CLOSE_MS;
+			const ms = small && inFront && next ? MINIMISE.duration : CLOSE_MS;
 			closeTimers.current[win] = setTimeout(() => finishClosing(win), ms);
 		} else {
 			finishClosing(win);
@@ -875,11 +975,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 	};
 
 	const goHome = e => {
-		spawn('site');
-		clearTimeout(closeTimers.current.site);
-		setClosing(c => ({...c, site: false}));
-		setOverview(false);
-		setOpen(o => ({...o, site: true}));
+		showPage('site');
 		onHome(e);
 	};
 
@@ -891,19 +987,20 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 	};
 
 	// The prerendered page holds the focused window's content; the rest follows on the client.
-	const hasContent = win => win === active || overview || hydrated;
+	const hasContent = win => win === active || !!overview || hydrated;
 
 	// Everything closes when the machine goes down, out of sight behind the console.
 	const closeAll = () => {
 		setCaffeinated(false);
+		setDistracted(false);
 		setLost(false);
 		setDismissed(false);
 		Object.values(closeTimers.current).forEach(clearTimeout);
 		pids.current = {};
-		setOpen({site: false, source: false, console: false, video: false});
+		openNow.current = {};
+		setOpen({});
 		setPlaced({});
 		setClosing({});
-		setFront(null);
 		setOverview(false);
 	};
 
@@ -923,6 +1020,8 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 	const halt = ({mode, lines, shutdown, boot}) => {
 		clearTimeout(powerTimer.current);
 		if (mode === 'panic') {
+			setCaffeinated(false);
+			setDistracted(false);
 			setPower({mode, lines});
 			powerTimer.current = setTimeout(() => {
 				closeAll();
@@ -948,31 +1047,48 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 		}
 	};
 
-	// What the terminal sees of the system: the windows are its processes.
+	// The windows the desktop starts with: the website in front of the editor, or on
+	// a phone the website alone, on the home page.
+	const startOver = () => {
+		if (!small) {
+			raise(openWindow('source', PORTFOLIO));
+		}
+		show(openWindow('site', PORTFOLIO));
+		onHome();
+	};
+
 	const latest = useRef(null);
-	latest.current = {open, closing, show, close, halt, caffeinated};
+	latest.current = {open, closing, stack, stage, small, show, showPage, openWindow, close, halt, startOver, caffeinated, distracted, topmost, onNavigate};
+
+	// What the terminal sees of the system: the windows are its processes.
 	const system = useMemo(() => ({
 		pid: () => nextPid.current++,
-		get terminalPid() {
-			return pids.current.console;
-		},
 		get bootedAt() {
 			return bootedAt.current ?? new Date();
 		},
 		processes: () => [
 			{pid: DESKTOP_PID, name: 'desktop', started: bootedAt.current ?? new Date()},
-			...ORDER.filter(win => latest.current.open[win] && !latest.current.closing[win] && pids.current[win])
-				.map(win => ({pid: pids.current[win], name: PROCESSES[win], started: started.current[win] ?? bootedAt.current ?? new Date()})),
+			...Object.entries(latest.current.open).filter(([win]) => !latest.current.closing[win] && pids.current[win])
+				.map(([win, {app}]) => ({pid: pids.current[win], name: PROCESSES[app], started: started.current[win] ?? bootedAt.current ?? new Date()})),
 		],
 		kill: pid => {
-			const win = ORDER.find(w => pids.current[w] === pid && latest.current.open[w]);
+			const win = Object.keys(latest.current.open).find(w => pids.current[w] === pid);
 			if (!win) {
 				return 'missing';
 			}
 			latest.current.close(win);
 			return 'ok';
 		},
-		launch: app => latest.current.show(WINDOWS[app]),
+		// An app's window in front, opening one if it has none.
+		launch: name => {
+			const app = WINDOWS[name];
+			const {topmost, show, showPage, openWindow} = latest.current;
+			if (URL_WINDOWS.includes(app)) {
+				showPage(app);
+			} else {
+				show(topmost(app) ?? openWindow(app, {}));
+			}
+		},
 		// A tab in the visitor's own browser; false if the browser wouldn't open one.
 		openUrl: url => {
 			const tab = window.open(url, '_blank');
@@ -987,7 +1103,100 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 			return latest.current.caffeinated;
 		},
 		caffeinate: setCaffeinated,
+		// The adhd kernel module: the desktop drives itself while it's loaded.
+		get distracted() {
+			return latest.current.distracted;
+		},
+		distract: setDistracted,
 	}), []);
+
+	// Each terminal is told its own window's pid.
+	const systems = useRef({});
+	const systemFor = win => {
+		systems.current[win] ??= Object.create(system, {terminalPid: {get: () => pids.current[win]}});
+		return systems.current[win];
+	};
+
+	// The desktop as a program drives it: windows on any content, and where they are.
+	const desktop = useMemo(() => ({
+		open: (app, content, geometry) => latest.current.openWindow(app, content, geometry),
+		// What a window shows; false if it has closed.
+		update: (win, content) => {
+			if (!latest.current.open[win]) {
+				return false;
+			}
+			setOpen(o => (o[win] ? {...o, [win]: {...o[win], content}} : o));
+			return true;
+		},
+		show: win => latest.current.show(win),
+		isOpen: win => !!openNow.current[win] && !closingNow.current[win],
+		frontmost: app => latest.current.topmost(app),
+		showPage: app => latest.current.showPage(app),
+		navigate: name => latest.current.onNavigate(name),
+		close: win => latest.current.close(win),
+		// Where a window is, and putting it elsewhere: only where windows can move.
+		movable: () => !latest.current.small,
+		geometry: win => {
+			const el = windowEls.current[win];
+			return el && {x: el.offsetLeft, y: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight};
+		},
+		stage: () => latest.current.stage,
+		minSize: app => MIN_SIZES[app],
+		// No geometry puts it back in its default place.
+		place: (win, geometry) => setPlaced(({[win]: _, ...rest}) => (geometry ? {...rest, [win]: geometry} : rest)),
+		// Where a window would be if it hadn't been put anywhere.
+		defaultGeometry: win => {
+			const el = windowEls.current[win];
+			const placement = ['left', 'top', 'right', 'bottom', 'width', 'height'];
+			const kept = placement.map(name => el.style[name]);
+			placement.forEach(name => {
+				el.style[name] = '';
+			});
+			const geometry = {x: el.offsetLeft, y: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight};
+			placement.forEach((name, i) => {
+				el.style[name] = kept[i];
+			});
+			return geometry;
+		},
+	}), []);
+
+	useEffect(() => {
+		if (controls) {
+			controls.current = desktop;
+		}
+	}, []);
+
+	// While the adhd module is loaded.
+	useEffect(() => {
+		if (!distracted || power) {
+			return undefined;
+		}
+
+		const stop = new AbortController();
+		runAdhd(desktop, stop.signal);
+		return () => stop.abort();
+	}, [distracted, power]);
+
+	// Unloading it tidies up: the windows close one after another, front first, and
+	// the desktop starts over as it was. Going down, it all closes anyway.
+	const wasDistracted = useRef(distracted);
+	useEffect(() => {
+		onDistracted?.(distracted);
+		const unloaded = wasDistracted.current && !distracted && !power;
+		wasDistracted.current = distracted;
+		if (!unloaded) {
+			return undefined;
+		}
+
+		const windows = [...stack].reverse().filter(isUp);
+		const timers = windows.map((win, i) => setTimeout(() => latest.current.close(win), i * UNLOAD_CLOSE_MS));
+		timers.push(setTimeout(() => latest.current.startOver(), windows.length * UNLOAD_CLOSE_MS + MINIMISE.duration));
+		return () => timers.forEach(clearTimeout);
+	}, [distracted]);
+
+	const running = new Set(upIds.map(win => open[win].app));
+	// An icon stays while its app's windows close, for them to minimise to.
+	const docked = new Set(ids.map(win => open[win].app));
 
 	return (
 		<div className={`desktop${overview ? ' is-overview' : ''}${anyUp ? ' has-windows' : ''}${caffeinated ? ' is-caffeinated' : ''}`} style={card || keyboard ? {
@@ -1000,28 +1209,36 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen,
 			<div className={`dt-screen${starting ? ' is-starting' : ''}`} onAnimationEnd={e => e.target === e.currentTarget && setStarting(false)}>
 				<div className="dt-wallpaper" aria-hidden="true" />
 				<div className="dt-workspace-peek" aria-hidden="true" />
-				<TopBar overview={overview} onActivities={() => setOverview(o => !o)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} caffeinated={caffeinated} inert={!!power} />
+				<TopBar overview={!!overview} onActivities={() => setOverview(o => !o)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} caffeinated={caffeinated} inert={!!power} />
 
 				<div ref={stageRef} className="dt-stage" onClick={onDesktopClick} inert={!!power}>
-					{openWindows.map(win => (
-						<Window key={win} ref={el => {
-							windowEls.current[win] = el;
-						}} win={win} name={APPS[win].name} focused={win === active} closing={!!closing[win]} overview={overview}
-							layer={stack.indexOf(win) + 1} fit={fits[win]} animate={hydrated && animate}
-							geometry={!small && placed[win] && stage ? fitGeometry(placed[win], stage, MIN_SIZES[win]) : null}
-							movable={!small && !overview && !closing[win]} minSize={MIN_SIZES[win]}
-							onPlace={geometry => {
-								resizing.current = null;
-								setPlaced(p => ({...p, [win]: geometry}));
-							}}
-							header={win === 'site' && <BrowserBar address={address} scrollAway={small} onClose={() => close('site')} />}
-							onActivate={() => show(win)}>
-							{hasContent(win) && renderWindow(win, {close: () => close(win), raise, focused: win === active && !overview && !power, system})}
-						</Window>
-					))}
-					<Dock open={open} hrefs={hrefs} onShow={show} />
+					{ids.map(win => {
+						const {app, content} = open[win];
+						return (
+							<Window key={win} ref={el => {
+								windowEls.current[win] = el;
+							}} win={app} name={APPS[app].name} focused={win === active} closing={!!closing[win]} overview={!!overview}
+								leftOut={leftOut(win)} layer={stack.indexOf(win) + 1} fit={fits[win]} animate={hydrated && animate}
+								geometry={!small && placed[win] && stage ? fitGeometry(placed[win], stage, MIN_SIZES[app]) : null}
+								movable={!small && !overview && !closing[win]} minSize={MIN_SIZES[app]}
+								onPlace={geometry => {
+									resizing.current = null;
+									setPlaced(p => ({...p, [win]: geometry}));
+								}}
+								header={app === 'site' && (
+									<BrowserBar url={content.portfolio ? `${SITE.url.slice(0, -1)}${address}` : content.url} shareable={!!content.portfolio}
+										scrollAway={small} onClose={() => close(win)} />
+								)}
+								onActivate={() => show(win)}>
+								{hasContent(win) && renderWindow({app, content}, {
+									close: () => close(win), showPage, focused: win === active && !overview && !power, system: systemFor(win),
+								})}
+							</Window>
+						);
+					})}
+					<Dock docked={docked} running={running} hrefs={hrefs} onPick={pick} />
 				</div>
-				{printing && !isUp('site') && <div className="dt-print">{renderWindow('site', {focused: false, system})}</div>}
+				{printing && <div className="dt-print">{renderWindow({app: 'site', content: PORTFOLIO}, {focused: false, system})}</div>}
 				{lost && (
 					<div className="dt-notification" role="status">
 						<div className="dt-notification-header">

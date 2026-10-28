@@ -1,11 +1,14 @@
 import {test, expect} from '@playwright/test';
-import {visit, box, focusedWindow, isSmall} from './helpers';
+import {visit, box, focusedWindow, isSmall, fontsLoaded} from './helpers';
 
 const ROUTES = ['/cv', '/side-quests', '/contact', '/whoami', '/nope', '/cv/source', '/side-quests/source', '/contact/source', '/whoami/source'];
 
 for (const route of ROUTES) {
 	test(`fits ${route} in its window without sideways scrolling`, async ({page}) => {
 		await visit(page, route);
+		await fontsLoaded(page);
+		// Side Quests' project URLs don't wrap, on purpose, so may run past the column.
+		await page.addStyleTag({content: '.ed-project-url { display: none !important; }'});
 
 		const overflowing = await page.evaluate(() => {
 			const found = [];
@@ -83,10 +86,15 @@ test('turns the editor\'s sidebar into a strip of files in a narrow window', asy
 		const sidebar = await box(page.locator('.editor-sidebar'));
 		expect(strip.width).toBeCloseTo(window.width, 0);
 		expect(sidebar.height).toBeLessThan(60);
-		// The open file is scrolled into view, even when the strip doesn't fit.
-		const active = await box(files.locator('[aria-current="page"]'));
-		expect(active.x).toBeGreaterThanOrEqual(strip.x - 1);
-		expect(active.x + active.width).toBeLessThanOrEqual(strip.x + strip.width + 1);
+		// The open file is scrolled into view, even when the strip doesn't fit, also
+		// once the fonts have widened the names.
+		await fontsLoaded(page);
+		const active = files.locator('[aria-current="page"]');
+		await expect.poll(async () => (await box(active)).x).toBeGreaterThanOrEqual(strip.x - 1);
+		await expect.poll(async () => {
+			const {x, width} = await box(active);
+			return x + width;
+		}).toBeLessThanOrEqual(strip.x + strip.width + 1);
 	} else {
 		await expect(page.locator('.editor-tabs')).toBeVisible();
 		expect((await box(page.locator('.editor-sidebar'))).width).toBe(260);

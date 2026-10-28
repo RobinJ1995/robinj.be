@@ -23,9 +23,28 @@ describe('lsmod', () => {
 		expect(await run('lsmod | head -3')).toBe('Module                  Size  Used by\ncaffeine               16384  0\nrubber_duck            12288  0');
 		expect(await run('lsmod | grep ^oxidize')).toBe('oxidize                45056  1 caffeine');
 	});
+
+	it('includes adhd while it is loaded', async () => {
+		const {run} = setup({system: fakeSystem({distracted: true, caffeinated: true})});
+
+		expect(await run('lsmod | head -3')).toBe('Module                  Size  Used by\nadhd                   20480  0\ncaffeine               16384  0');
+	});
 });
 
 describe('modprobe and rmmod', () => {
+	it('load and unload adhd as they do caffeine, which sets the desktop driving itself and stops it', async () => {
+		const system = fakeSystem();
+		const {run} = setup({system});
+
+		expect(await run('modprobe adhd')).toBe("modprobe: ERROR: could not insert 'adhd': Operation not permitted");
+		expect(await run('sudo modprobe adhd; lsmod | grep -c ^adhd')).toBe('1');
+		expect(system.distract).toHaveBeenLastCalledWith(true);
+		expect(await run('sudo rmmod adhd; lsmod | grep -c ^adhd')).toBe('0');
+		expect(system.distract).toHaveBeenLastCalledWith(false);
+		expect(await run('modinfo adhd | grep -E "^(description|author):"')).toBe('description:    Attention-deficit hyperactivity driver\nauthor:         Robin Jacobs <robin@robinj.be>');
+		expect(system.caffeinate).not.toHaveBeenCalled();
+	});
+
 	it('need root to load or unload anything, but sudo lets them', async () => {
 		const system = fakeSystem();
 		const {shell, run} = setup({system});

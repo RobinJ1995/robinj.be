@@ -104,14 +104,15 @@ const isOver = (el, {clientX, clientY}) => {
 
 // A window on the desktop: its frame, opening and closing, raising, and moving and
 // resizing while `movable`. `geometry` is where it was put, if it was; otherwise
-// its default place in _Desktop.scss.
-const Window = ({ref, win, name, focused, closing, overview, layer, fit, animate, geometry, movable, minSize, onPlace, header, onActivate, children}) => {
+// its default place in _Desktop.scss. `leftOut` stands it aside in Activities for
+// another app.
+const Window = ({ref, win, name, focused, closing, overview, leftOut, layer, fit, animate, geometry, movable, minSize, onPlace, header, onActivate, children}) => {
 	// Only windows opened after hydration animate in; the prerendered ones are just there.
 	const [opening] = useState(animate);
 	const element = useRef(null);
 	const gesture = useRef(null);
 	const interactive = focused && !overview && !closing;
-	const classes = ['dt-window', focused && 'is-focused', opening && 'is-opening', closing && 'is-closing'];
+	const classes = ['dt-window', focused && 'is-focused', opening && 'is-opening', closing && 'is-closing', leftOut && 'is-left-out'];
 	const style = {
 		'--z': layer,
 		...geometry && {left: geometry.x, top: geometry.y, width: geometry.width, height: geometry.height, right: 'auto', bottom: 'auto'},
@@ -174,7 +175,7 @@ const Window = ({ref, win, name, focused, closing, overview, layer, fit, animate
 	};
 
 	return (
-		<section ref={setRef} className={classes.filter(Boolean).join(' ')} data-win={win} style={style} aria-label={name} inert={closing}
+		<section ref={setRef} className={classes.filter(Boolean).join(' ')} data-win={win} style={style} aria-label={name} inert={closing || leftOut}
 			onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endGesture} onPointerCancel={endGesture}>
 			<div className="dt-window-frame">
 				{header}

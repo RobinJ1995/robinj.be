@@ -138,7 +138,40 @@ export const bootSequence = () => {
 
 const EXIT_CODES = {KILL: 0x9, TERM: 0xf, INT: 0x2, HUP: 0x1, QUIT: 0x3, ABRT: 0x6, SEGV: 0xb};
 
-export const panicText = ({uptime, pid, signal, comm = 'desktop', cause}) => {
+const MODULES = 'caffeine(OE) oxidize(OE) rubber_duck nf_tables nvme btrfs';
+
+// How it came to this: something killed, or a module pulled out from under it...
+const DIED = [
+	'[<ffffffff80014b46>] do_exit+0x7c2/0x7c6',
+	'[<ffffffff80014d2e>] do_group_exit+0x2c/0x7c',
+	'[<ffffffff8002203a>] get_signal+0x7a6/0x7aa',
+	'[<ffffffc0013371f2>] blame_it_on_dns+0x1f/0x40 [caffeine]',
+	'[<ffffffc001337a3e>] it_works_on_my_machine+0x13/0x37 [caffeine]',
+	'[<ffffffff800054d6>] arch_do_signal_or_restart+0x26/0x1f8',
+	'[<ffffffc0042a0b72>] rewrite_it_in_rust+0x42/0x2a0 [oxidize]',
+	'[<ffffffc001338374>] stackoverflow_copy_paste+0x1337/0x2000 [caffeine]',
+	'[<ffffffff80b0f00d>] quick_fix_before_friday_deploy+0xf00/0xfff',
+	'[<ffffffff800a3d86>] do_notify_resume+0x5a/0x1a8',
+	'[<ffffffff80b3b8b4>] do_trap_ecall_u+0x8a/0x1d2',
+];
+
+// ...or one browser window too many.
+const EXHAUSTED = [
+	'[<ffffffff801a4e12>] out_of_memory+0x3be/0x4a6',
+	'[<ffffffff801a3f0e>] oom_killer_on_coffee_break+0xc0/0xff',
+	'[<ffffffff801f0b3a>] __alloc_pages_slowpath.constprop.0+0x8f2/0xa1c',
+	'[<ffffffff80b0dead>] download_more_ram+0x0/0x0',
+	'[<ffffffff801f2c6e>] kmalloc_and_pray+0x36/0x80',
+	'[<ffffffff801f1d2a>] __alloc_pages+0x2b6/0x2ec',
+	'[<ffffffc00add0a0a>] just_one_more_tab+0x9/0xa [adhd]',
+	'[<ffffffc00add1337>] wikipedia_rabbit_hole+0x42/0x1337 [adhd]',
+	'[<ffffffc00add5a1e>] ooh_shiny+0x1/0x2 [adhd]',
+	'[<ffffffc00add1a7e>] read_later+0x1f/0x40 [adhd]',
+	'[<ffffffff8021f7a2>] handle_mm_fault+0xd6/0x2a0',
+	'[<ffffffff8000c9f4>] do_page_fault+0x1a4/0x4b8',
+];
+
+export const panicText = ({uptime, pid, signal, comm = 'desktop', cause, modules = MODULES, trace = DIED}) => {
 	const reason = cause ?? `Critical system component died! exitcode=0x${(EXIT_CODES[signal] ?? 0xf).toString(16).padStart(8, '0')}`;
 	let at = uptime;
 	const next = text => {
@@ -150,23 +183,13 @@ export const panicText = ({uptime, pid, signal, comm = 'desktop', cause}) => {
 		next(`Kernel panic - not syncing: ${reason}`),
 		next(`CPU: 3 PID: ${pid} Comm: ${comm} Tainted: G           OE      ${OS_RELEASE.kernel} #1`),
 		next(`Hardware name: ${HARDWARE}`),
-		next('Modules linked in: caffeine(OE) oxidize(OE) rubber_duck nf_tables nvme btrfs'),
+		next(`Modules linked in: ${modules}`),
 		next('Call Trace:'),
 		next('[<ffffffff80006a4c>] dump_backtrace+0x1c/0x24'),
 		next('[<ffffffff80b2d2f2>] show_stack+0x2c/0x38'),
 		next('[<ffffffff80b3a12c>] dump_stack_lvl+0x3c/0x54'),
 		next('[<ffffffff80b2d5d6>] panic+0x10e/0x30e'),
-		next('[<ffffffff80014b46>] do_exit+0x7c2/0x7c6'),
-		next('[<ffffffff80014d2e>] do_group_exit+0x2c/0x7c'),
-		next('[<ffffffff8002203a>] get_signal+0x7a6/0x7aa'),
-		next('[<ffffffc0013371f2>] blame_it_on_dns+0x1f/0x40 [caffeine]'),
-		next('[<ffffffc001337a3e>] it_works_on_my_machine+0x13/0x37 [caffeine]'),
-		next('[<ffffffff800054d6>] arch_do_signal_or_restart+0x26/0x1f8'),
-		next('[<ffffffc0042a0b72>] rewrite_it_in_rust+0x42/0x2a0 [oxidize]'),
-		next('[<ffffffc001338374>] stackoverflow_copy_paste+0x1337/0x2000 [caffeine]'),
-		next('[<ffffffff80b0f00d>] quick_fix_before_friday_deploy+0xf00/0xfff'),
-		next('[<ffffffff800a3d86>] do_notify_resume+0x5a/0x1a8'),
-		next('[<ffffffff80b3b8b4>] do_trap_ecall_u+0x8a/0x1d2'),
+		...trace.map(next),
 		next('[<ffffffff80b45c62>] handle_exception+0x16a/0x176'),
 		next('epc : 0000003ff1ce0b0e ra : 0000002aaab0c3d4 sp : 0000003fffc4e5a0'),
 		next(' gp : 0000002aaab2c800 tp : 0000003fb3b7d780 t0 : 00000000c0ffee00'),
@@ -179,6 +202,11 @@ export const panicText = ({uptime, pid, signal, comm = 'desktop', cause}) => {
 		next(`---[ end Kernel panic - not syncing: ${reason} ]---`),
 	];
 };
+
+// The browsers have taken all there was.
+export const exhaustedText = ({uptime, pid}) => panicText({
+	uptime, pid, comm: 'web', cause: 'System resources exhausted', modules: `adhd(OE) ${MODULES}`, trace: EXHAUSTED,
+});
 
 // shutdown [-h|-P|-r|-c] [TIME] [WALL...]; poweroff and reboot are now. A
 // scheduled shutdown outlives the terminal, but not the machine going down.

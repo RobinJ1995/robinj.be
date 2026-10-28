@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import {visit, openTerminal, run} from './helpers';
+import {visit, openTerminal, run, worksAsUsual} from './helpers';
 
 const screen = page => page.locator('.console .xterm-rows');
 const cup = page => page.getByRole('img', {name: 'Caffeine loaded'});
@@ -171,6 +171,7 @@ test.describe('the caffeine module', () => {
 		await expect(page.locator('.desktop')).not.toHaveClass(/is-caffeinated/);
 		await expect(cup(page)).toHaveCount(0);
 		expect(await jittering()).toBe(false);
+		await worksAsUsual(page);
 	});
 
 	test('wears off when the kernel panics, from taking out any other module', async ({page}) => {
@@ -188,5 +189,6 @@ test.describe('the caffeine module', () => {
 		await expect(page.locator('.dt-topbar')).toBeVisible();
 		await expect(page.locator('.desktop')).not.toHaveClass(/is-caffeinated/);
 		await expect(cup(page)).toHaveCount(0);
+		await worksAsUsual(page);
 	});
 });

@@ -26,6 +26,38 @@ export const box = async locator => {
 	return rect;
 };
 
+// The website as it always is, whatever went on before: in front from the dock, it
+// goes from page to page and back without reloading, shows a page's source, and
+// the e-mail address on Contact.
+export const worksAsUsual = async page => {
+	const site = page.locator('.dt-window[aria-label="Website"]');
+	await dockItem(page, 'site').click();
+	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Website');
+	await page.evaluate(() => {
+		window.sentinel = 'alive';
+	});
+
+	await site.getByRole('link', {name: 'Side Quests', exact: true}).click();
+	await expect(page).toHaveURL('/side-quests');
+	await expect(site).toContainText('Sprint Retrospective');
+	await site.getByTitle('View source').click();
+	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Editor');
+	await expect(page.locator('.editor')).toContainText('side-quests.yml');
+	await expect(page).toHaveURL('/side-quests');
+
+	await dockItem(page, 'site').click();
+	await site.getByRole('link', {name: 'Contact', exact: true}).click();
+	await expect(page).toHaveURL('/contact');
+	await expect(site.locator('.ed-contact-row').filter({hasText: 'E-mail'}).locator('a')).not.toHaveText('───');
+	await page.goBack();
+	await expect(page).toHaveURL('/side-quests');
+	await expect(site).toContainText('Sprint Retrospective');
+	expect(await page.evaluate(() => window.sentinel)).toBe('alive');
+};
+
+// Once the fonts the page is waiting for have loaded.
+export const fontsLoaded = page => page.evaluate(() => document.fonts.ready.then(() => {}));
+
 // Settled once no animation or transition is running on it.
 export const settled = locator => expect.poll(() => locator.evaluate(el => el.getAnimations().length)).toBe(0);
 

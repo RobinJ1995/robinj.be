@@ -56,6 +56,29 @@ const kindGlyph = k => ({md: 'M', json: '{}', yml: 'Y', txt: 'T'}[k] || '·');
 const kindColor = k => ({md: 'var(--editor-accent2)', json: 'var(--editor-num)', yml: 'var(--editor-str)', txt: 'var(--editor-dim)'}[k] || 'var(--editor-dim)');
 const kindLang = k => ({md: 'Markdown', json: 'JSON', yml: 'YAML', txt: 'Plain Text'}[k] || '');
 
+const EDITOR_STYLE = {
+	width: '100%', height: '100%', background: 'var(--editor-bg)',
+	fontFamily: 'var(--editor-font)',
+	color: 'var(--editor-text)', fontSize: 13.5, display: 'flex', flexDirection: 'column',
+};
+const SIDEBAR_STYLE = {
+	width: 260, flexShrink: 0, background: 'var(--editor-sidebar)',
+	borderRight: '1px solid var(--editor-rule)', padding: '18px 0',
+	display: 'flex', flexDirection: 'column',
+};
+const STATUSBAR_STYLE = {
+	height: 24, flexShrink: 0, background: 'var(--editor-statusbar-bg)',
+	borderTop: '1px solid var(--editor-rule)', display: 'flex', alignItems: 'center',
+	padding: '0 14px', fontSize: 11, color: 'var(--editor-dim)', gap: 16,
+};
+
+const NoOpenFiles = () => (
+	<div style={{
+		height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+		background: 'var(--editor-surface)', color: 'var(--editor-dim)', fontSize: 13,
+	}}>No open files</div>
+);
+
 const EditorApp = ({page, onNavigate, onToggleView, onClose = null}) => {
 	const git = useGitStats();
 	// A tab for each file viewed in this editor; closing one doesn't change the page.
@@ -85,11 +108,7 @@ const EditorApp = ({page, onNavigate, onToggleView, onClose = null}) => {
 	};
 
 	return (
-		<div className="editor" style={{
-			width: '100%', height: '100%', background: 'var(--editor-bg)',
-			fontFamily: 'var(--editor-font)',
-			color: 'var(--editor-text)', fontSize: 13.5, display: 'flex', flexDirection: 'column',
-		}}>
+		<div className="editor" style={EDITOR_STYLE}>
 			<EditorChrome page={page} onToggleView={onToggleView} onClose={onClose} />
 			<div className="editor-body" style={{flex: 1, display: 'flex', minHeight: 0}}>
 				<EditorSidebar page={file} git={git} onOpen={openFile} />
@@ -100,12 +119,7 @@ const EditorApp = ({page, onNavigate, onToggleView, onClose = null}) => {
 						{file === 'cv' && <EditorCV />}
 						{file === 'side-quests' && <EditorProjects />}
 						{file === 'contact' && <EditorContact />}
-						{file === null && (
-							<div style={{
-								height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-								background: 'var(--editor-surface)', color: 'var(--editor-dim)', fontSize: 13,
-							}}>No open files</div>
-						)}
+						{file === null && <NoOpenFiles />}
 					</div>
 					<EditorStatusbar page={file} git={git} />
 				</div>
@@ -114,8 +128,9 @@ const EditorApp = ({page, onNavigate, onToggleView, onClose = null}) => {
 	);
 };
 
-const EditorChrome = ({page, onToggleView, onClose}) => {
-	const renderedHref = `/${page}`;
+// With no `page`, no portfolio is open: there's nothing to run.
+const EditorChrome = ({page, title = '~/portfolio', onToggleView, onClose}) => {
+	const renderedHref = page ? `/${page}` : '/';
 	const close = onClose
 		? e => {
 			e.preventDefault();
@@ -129,12 +144,14 @@ const EditorChrome = ({page, onToggleView, onClose}) => {
 			display: 'flex', alignItems: 'center', padding: '0 10px 0 14px', gap: 14, flexShrink: 0,
 		}}>
 			<div className="editor-chrome-side" style={{width: 150, display: 'flex'}}>
-				<a href={renderedHref} onClick={onToggleView} title="Run" aria-label="Run" className="editor-run">
-					<RunIcon />
-				</a>
+				{page && (
+					<a href={renderedHref} onClick={onToggleView} title="Run" aria-label="Run" className="editor-run">
+						<RunIcon />
+					</a>
+				)}
 			</div>
 			<div className="editor-title" style={{flex: 1, textAlign: 'center', color: 'var(--editor-dim)', fontSize: 12, letterSpacing: '0.04em'}}>
-				~/portfolio
+				{title}
 			</div>
 			<div className="editor-chrome-side" style={{display: 'flex', width: 150, justifyContent: 'flex-end'}}>
 				<a href={renderedHref} onClick={close}
@@ -230,22 +247,25 @@ const useGitStats = () => {
 const EditorSidebar = ({page, git, onOpen}) => {
 	const filesRef = useRef(null);
 
-	// On a phone the file list is a strip that scrolls sideways: keep the open file in view.
+	// On a phone the file list is a strip that scrolls sideways: keep the open file in
+	// view, again once the fonts have loaded and widened the names.
 	useEffect(() => {
-		const files = filesRef.current;
-		const active = files?.querySelector('[aria-current]');
-		if (active && files.scrollWidth > files.clientWidth) {
-			const offset = active.getBoundingClientRect().left - files.getBoundingClientRect().left;
-			files.scrollLeft += offset - (files.clientWidth - active.offsetWidth) / 2;
-		}
+		const centre = () => {
+			const files = filesRef.current;
+			const active = files?.querySelector('[aria-current]');
+			if (active && files.scrollWidth > files.clientWidth) {
+				const offset = active.getBoundingClientRect().left - files.getBoundingClientRect().left;
+				files.scrollLeft += offset - (files.clientWidth - active.offsetWidth) / 2;
+			}
+		};
+		centre();
+		document.fonts?.addEventListener('loadingdone', centre);
+
+		return () => document.fonts?.removeEventListener('loadingdone', centre);
 	}, [page]);
 
 	return (
-		<aside className="editor-sidebar" style={{
-			width: 260, flexShrink: 0, background: 'var(--editor-sidebar)',
-			borderRight: '1px solid var(--editor-rule)', padding: '18px 0',
-			display: 'flex', flexDirection: 'column',
-		}}>
+		<aside className="editor-sidebar" style={SIDEBAR_STYLE}>
 			<div className="editor-sidebar-extra" style={{padding: '0 18px 14px', display: 'flex', alignItems: 'center', gap: 12}}>
 				<div style={{width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '1px solid var(--editor-rule)'}}>
 					<img src="/img/me.webp" alt={CONTENT.name} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
@@ -341,11 +361,7 @@ const EditorTabs = ({tabs, page, onNavigate, onCloseTab}) => (
 const EditorStatusbar = ({page, git}) => {
 	const f = FILES.find(x => x.id === page);
 	return (
-		<div className="editor-statusbar" style={{
-			height: 24, flexShrink: 0, background: 'var(--editor-statusbar-bg)',
-			borderTop: '1px solid var(--editor-rule)', display: 'flex', alignItems: 'center',
-			padding: '0 14px', fontSize: 11, color: 'var(--editor-dim)', gap: 16,
-		}}>
+		<div className="editor-statusbar" style={STATUSBAR_STYLE}>
 			<span><span style={{color: 'var(--editor-accent)'}}>●</span> ready</span>
 			<span className="editor-status-extra">{git.branch}</span>
 			<span className="editor-status-extra">UTF-8</span>
@@ -526,5 +542,39 @@ const EditorContact = () => {
 	];
 	return <CodePane name="contact.yml" lines={lines} />;
 };
+
+// The editor with nothing of the portfolio open: an empty window, or with `file`
+// a new file, {name, text}, whose text only the desktop writes.
+export const BlankEditor = ({file, onClose}) => (
+	<div className="editor" style={EDITOR_STYLE}>
+		<EditorChrome title={file?.name ?? 'Editor'} onClose={onClose} />
+		<div className="editor-body" style={{flex: 1, display: 'flex', minHeight: 0}}>
+			<aside className="editor-sidebar" style={SIDEBAR_STYLE}>
+				<nav className="editor-files" aria-label="Files" />
+			</aside>
+			<div style={{flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0}}>
+				{file && (
+					<div className="editor-tabs" style={{
+						display: 'flex', borderBottom: '1px solid var(--editor-rule)', background: 'var(--editor-chrome)',
+						flexShrink: 0, paddingTop: 4, paddingLeft: 4, minHeight: 38,
+					}}>
+						<div className="editor-tab" style={{
+							fontSize: 12, color: 'var(--editor-text)', background: 'var(--editor-surface)',
+							border: '1px solid var(--editor-rule)', borderBottom: 0, borderRadius: '6px 6px 0 0',
+							position: 'relative', top: 1, padding: '8px 16px 9px',
+						}}>{file.name}</div>
+					</div>
+				)}
+				<div style={{flex: 1, overflow: 'hidden', position: 'relative'}}>
+					{file ? <CodePane name={file.name} lines={file.text.split('\n')} /> : <NoOpenFiles />}
+				</div>
+				<div className="editor-statusbar" style={STATUSBAR_STYLE}>
+					<span><span style={{color: 'var(--editor-accent)'}}>●</span> ready</span>
+					{file && <span>Plain Text</span>}
+				</div>
+			</div>
+		</div>
+	</div>
+);
 
 export default EditorApp;

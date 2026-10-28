@@ -46,16 +46,19 @@ test.describe('the URL', () => {
 test.describe('printing', () => {
 	test('gives the website\'s page alone, all of it', async ({page}) => {
 		await visit(page, '/cv/source');
+		// As the browser does before it prints.
+		await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
 		await page.emulateMedia({media: 'print'});
 
-		for (const selector of ['.dt-topbar', '.dt-dock', '.dt-window[data-win="source"]', '.dt-window[data-win="site"] .dt-headerbar']) {
+		for (const selector of ['.dt-topbar', '.dt-dock', '.dt-window[data-win="source"]', '.dt-window[data-win="site"]']) {
 			expect(await shows(page.locator(selector)), selector).toBe(false);
 		}
-		const site = windowOf(page, 'Website');
-		expect(await shows(site.locator('.editorial'))).toBe(true);
-		// Not cut off at the window's height: the page runs on for as long as it is.
+		const copy = page.locator('.dt-print .editorial');
+		expect(await shows(copy)).toBe(true);
+		await expect(copy).toContainText('Work Experience');
+		// Not cut off at a window's height: the page runs on for as long as it is.
 		const {content, document} = await page.evaluate(() => ({
-			content: window.document.querySelector('.editorial').scrollHeight,
+			content: window.document.querySelector('.dt-print .editorial').scrollHeight,
 			document: window.document.documentElement.scrollHeight,
 		}));
 		expect(document).toBeGreaterThanOrEqual(content);

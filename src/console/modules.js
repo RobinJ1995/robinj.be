@@ -1,7 +1,7 @@
 import {OS_RELEASE} from './fs';
 
-// Kernel modules. caffeine keeps the desktop awake and comes and goes; the
-// rest hold the system up, and taking one out brings it down.
+// Kernel modules. caffeine and adhd come and go, each doing something to the
+// desktop; the rest hold the system up, and taking one out brings it down.
 
 const DIRECTORY = `/lib/modules/${OS_RELEASE.kernel}`;
 const PERMISSION = 'Operation not permitted';
@@ -10,6 +10,14 @@ const ko = (name, size, used, path, description, extra = {}) => ({name, size, us
 const ROBINS = {author: 'Robin Jacobs <robin@robinj.be>', outOfTree: true};
 
 const CAFFEINE = ko('caffeine', 16384, [0], 'drivers/misc', 'Keeps the desktop awake, one cup at a time', {...ROBINS, depends: 'oxidize'});
+const ADHD = ko('adhd', 20480, [0], 'drivers/misc', 'Attention-deficit hyperactivity driver', ROBINS);
+
+// The modules that come and go, and how the desktop takes them.
+const TOGGLED = [
+	{mod: ADHD, loaded: system => system.distracted, load: (system, on) => system.distract(on)},
+	{mod: CAFFEINE, loaded: system => system.caffeinated, load: (system, on) => system.caffeinate(on)},
+];
+const toggled = mod => TOGGLED.find(toggle => toggle.mod === mod);
 
 // As /proc/modules has them: the most recently loaded first.
 const MODULES = [
@@ -36,11 +44,12 @@ const MODULES = [
 ];
 
 // caffeine needs oxidize, which then counts it as a user.
-const loaded = api => (api.system.caffeinated
-	? [CAFFEINE, ...MODULES.map(mod => (mod.name === 'oxidize' ? {...mod, used: [1, 'caffeine']} : mod))]
-	: MODULES);
+const loaded = api => [
+	...TOGGLED.filter(toggle => toggle.loaded(api.system)).map(toggle => toggle.mod),
+	...MODULES.map(mod => (mod.name === 'oxidize' && api.system.caffeinated ? {...mod, used: [1, 'caffeine']} : mod)),
+];
 const find = (api, name) => loaded(api).find(other => other.name === name.replace(/-/g, '_'));
-const known = name => [CAFFEINE, ...MODULES].find(other => other.name === name.replace(/-/g, '_'));
+const known = name => [...TOGGLED.map(toggle => toggle.mod), ...MODULES].find(other => other.name === name.replace(/-/g, '_'));
 const fileOf = mod => `${DIRECTORY}/kernel/${mod.path}/${mod.name}.ko.xz`;
 // -x, a bundle with x in it, or --long.
 const flag = (api, letter, long) => api.args.some(arg => arg === `--${long}` || (/^-[^-]/.test(arg) && arg.includes(letter)));
@@ -53,10 +62,10 @@ const lsmod = api => {
 	return 0;
 };
 
-// Takes a module out: caffeine quietly, anything else with the kernel.
+// Takes a module out: caffeine or adhd quietly, anything else with the kernel.
 const unload = (api, mod) => {
-	if (mod === CAFFEINE) {
-		api.system.caffeinate(false);
+	if (toggled(mod)) {
+		toggled(mod).load(api.system, false);
 	} else {
 		api.shell.panic({pid: api.pid, comm: api.name, cause: 'Fatal exception'});
 	}
@@ -120,7 +129,7 @@ const modprobe = api => {
 		if (remove) {
 			unload(api, mod);
 		} else {
-			api.system.caffeinate(true);
+			toggled(mod).load(api.system, true);
 		}
 	}
 

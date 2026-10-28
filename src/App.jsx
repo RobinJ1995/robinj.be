@@ -2,10 +2,11 @@ import React, {useState, useEffect, useRef} from 'react';
 import './style/App.scss';
 import {PAGES} from './constants';
 import EditorialApp from './view/Editorial';
-import EditorApp from './view/Editor';
+import EditorApp, {BlankEditor} from './view/Editor';
 import Desktop from './view/Desktop';
 import Console from './view/Console';
 import VideoPlayer from './view/VideoPlayer';
+import WebPage from './view/WebPage';
 
 // Pure path parsers (no `window`), so they run identically on the server and client.
 const parseViewSource = path => String(path)
@@ -30,12 +31,16 @@ export const pageTitle = path => {
 	return `${page.title} • Robin Jacobs`;
 };
 
-const App = ({initialPath}) => {
+// `controls` gets the desktop's controls, to open windows on content of our choosing.
+const App = ({initialPath, controls}) => {
 	const path = initialPath ?? homePath();
 	const [viewSource, setViewSource] = useState(() => parseViewSource(path));
 	const [pageName, setPageName] = useState(() => parsePage(path));
 	// Whether the website or editor is open. With neither, the URL names no page.
 	const [pageOpen, setPageOpen] = useState(true);
+	// While the desktop drives itself (the adhd module), a change of page takes the
+	// history's current entry instead of adding one.
+	const distracted = useRef(false);
 	const pageless = useRef(false);
 
 	// Back and forward go from page to page, in whichever window is in front.
@@ -71,7 +76,7 @@ const App = ({initialPath}) => {
 		setViewSource(inSource => (source || (keepView && inSource)) && !!page.source);
 
 		if (pushHistory && page.name !== pageName && typeof window !== 'undefined') {
-			window.history.pushState({name: page.name}, '', page.url);
+			window.history[distracted.current ? 'replaceState' : 'pushState']({name: page.name}, '', page.url);
 		}
 	};
 
@@ -123,21 +128,26 @@ const App = ({initialPath}) => {
 
 	const showWindow = win => navigate(win === 'source' ? `${sourcePage}/source` : page.name);
 
-	const renderWindow = (win, {close, raise, focused, system}) => {
-		if (win === 'video') {
-			return <VideoPlayer onClose={close} />;
-		} else if (win === 'console') {
+	// A window's content: the page, in the website or the editor, or whatever else it was opened on.
+	const renderWindow = ({app, content}, {close, showPage, focused, system}) => {
+		if (app === 'video') {
+			return <VideoPlayer video={content.video} onClose={close} />;
+		} else if (app === 'console') {
 			const openInEditor = name => {
-				raise('source');
+				showPage('source');
 				navigate(`${name}/source`);
 			};
 
 			return <Console focused={focused} system={system} onClose={close} onOpenFile={openInEditor} />;
+		} else if (app === 'source') {
+			return content.portfolio
+				? <EditorApp page={sourcePage} onNavigate={navigate} onToggleView={toggleViewSource} onClose={close} />
+				: <BlankEditor file={content.file} onClose={close} />;
 		}
 
-		return win === 'source'
-			? <EditorApp page={sourcePage} onNavigate={navigate} onToggleView={toggleViewSource} onClose={close} />
-			: <EditorialApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />;
+		return content.portfolio
+			? <EditorialApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />
+			: <WebPage url={content.url} />;
 	};
 
 	return (
@@ -148,8 +158,13 @@ const App = ({initialPath}) => {
 			homeHref={findPage('cv').url}
 			onShow={showWindow}
 			onHome={e => navigate('cv', e)}
+			onNavigate={navigate}
 			onPageOpen={onPageOpen}
-			renderWindow={renderWindow} />
+			onDistracted={on => {
+				distracted.current = on;
+			}}
+			renderWindow={renderWindow}
+			controls={controls} />
 	);
 };
 
