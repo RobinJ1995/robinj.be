@@ -13,6 +13,7 @@ afterEach(() => {
 	delete document.documentElement.dataset.theme;
 	delete document.documentElement.dataset.accent;
 	delete document.documentElement.dataset.font;
+	delete Element.prototype.animate;
 });
 
 // jsdom has no matchMedia, so by default the screen is a large one.
@@ -21,6 +22,19 @@ const smallScreen = () => vi.stubGlobal('matchMedia', query => ({
 	addEventListener() {},
 	removeEventListener() {},
 }));
+
+const reducedMotion = (small = false) => vi.stubGlobal('matchMedia', query => ({
+	matches: query.includes('reduce') || (small && query.includes('width < 900px')),
+	addEventListener() {},
+	removeEventListener() {},
+}));
+
+// jsdom can't animate: records which element each animation was asked of, and its keyframes.
+const recordAnimations = () => {
+	const animate = vi.fn();
+	Element.prototype.animate = animate;
+	return el => animate.mock.calls.filter((_, i) => animate.mock.contexts[i] === el).map(([keyframes]) => keyframes);
+};
 
 const memoryStorage = () => {
 	const items = new Map();
@@ -133,11 +147,14 @@ describe('desktop', () => {
 
 	it('minimises a window closed on a phone into its dock icon, taking a moment longer', () => {
 		smallScreen();
+		const animations = recordAnimations();
 		vi.useFakeTimers();
 		const {container} = render(<App initialPath="/cv/source" />);
 
 		fireEvent.click(screen.getByTitle('Close'));
 		expect(focused(container)).toBe('Website');
+		expect(animations(container.querySelector('[data-win="source"]'))[0].at(-1)).toMatchObject({opacity: 0, zIndex: 10});
+		expect(animations(container.querySelector('[data-win="site"]'))[0].at(-1)).toMatchObject({opacity: 1, transform: 'none'});
 		act(() => vi.advanceTimersByTime(250));
 		expect(windows(container)).toEqual(['Website', 'Editor']);
 		act(() => vi.advanceTimersByTime(50));
@@ -149,7 +166,8 @@ describe('desktop', () => {
 		const {container} = render(<App initialPath="/cv" />);
 		const bar = container.querySelector('[data-win="site"] .dt-headerbar');
 		const page = container.querySelector('[data-win="site"] .editorial');
-		Object.defineProperties(page, {scrollHeight: {value: 3000}, clientHeight: {value: 600}});
+		let height = 3000;
+		Object.defineProperties(page, {scrollHeight: {get: () => height}, clientHeight: {value: 600}});
 		const scrollTo = top => {
 			page.scrollTop = top;
 			fireEvent.scroll(page);
@@ -161,8 +179,205 @@ describe('desktop', () => {
 		expect(bar).toHaveClass('is-hidden');
 		scrollTo(196);
 		expect(bar).toHaveClass('is-hidden');
-		scrollTo(150);
+
+		// The browser keeping the reader's place as the page shrinks isn't scrolling up.
+		height = 2900;
+		scrollTo(100);
+		expect(bar).toHaveClass('is-hidden');
+
+		scrollTo(50);
 		expect(bar).not.toHaveClass('is-hidden');
+	});
+
+	it('minimises the window in front to its dock icon on a phone, and restores the next from its own', () => {
+		smallScreen();
+		const animations = recordAnimations();
+		const {container} = render(<App initialPath="/cv/source" />);
+
+		fireEvent.click(container.querySelector('.dt-dock-item[data-win="site"]'));
+
+		const [minimise] = animations(container.querySelector('[data-win="source"]'));
+		expect(minimise[0]).toMatchObject({opacity: 1, transform: 'none'});
+		expect(minimise[1]).toMatchObject({opacity: 0, zIndex: 10, transform: expect.stringMatching(/^translate\(.+\) scale\(.+\)$/)});
+		const [restore] = animations(container.querySelector('[data-win="site"]'));
+		expect(restore[0]).toMatchObject({opacity: 0, visibility: 'visible'});
+		expect(restore[1]).toMatchObject({opacity: 1, transform: 'none'});
+	});
+
+	it('moves windows into and out of Activities without minimising them', () => {
+		smallScreen();
+		const animations = recordAnimations();
+		const {container} = render(<App initialPath="/cv/source" />);
+
+		fireEvent.click(screen.getByRole('button', {name: 'Activities'}));
+		fireEvent.click(screen.getByRole('button', {name: 'Switch to Website'}));
+
+		expect(focused(container)).toBe('Website');
+		expect(animations(container.querySelector('[data-win="site"]'))).toEqual([]);
+		expect(animations(container.querySelector('[data-win="source"]'))).toEqual([]);
+	});
+
+	it('doesn\'t minimise windows on a large screen, or where motion is reduced', () => {
+		const animations = recordAnimations();
+		const {container, unmount} = render(<App initialPath="/cv/source" />);
+		fireEvent.click(container.querySelector('.dt-dock-item[data-win="site"]'));
+		expect(animations(container.querySelector('[data-win="source"]'))).toEqual([]);
+		unmount();
+
+		reducedMotion(true);
+		const {container: reduced} = render(<App initialPath="/cv/source" />);
+		fireEvent.click(reduced.querySelector('.dt-dock-item[data-win="site"]'));
+		expect(focused(reduced)).toBe('Website');
+		expect(animations(reduced.querySelector('[data-win="source"]'))).toEqual([]);
+	});
+
+	it('closes windows at once where motion is reduced', () => {
+		reducedMotion();
+		const {container} = render(<App initialPath="/cv" />);
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+
+		expect(windows(container)).toEqual(['Editor']);
+	});
+
+	it('closes a window only once, however often its close button is clicked', () => {
+		vi.useFakeTimers();
+		const {container} = render(<App initialPath="/cv" />);
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		act(() => vi.advanceTimersByTime(250));
+
+		expect(windows(container)).toEqual(['Editor']);
+		expect(focused(container)).toBe('Editor');
+	});
+
+	it('leaves Activities on Escape, or on a click on the bare desktop', () => {
+		const {container} = render(<App initialPath="/cv" />);
+		const desktop = container.querySelector('.desktop');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Activities'}));
+		fireEvent.keyDown(document, {key: 'Enter'});
+		expect(desktop).toHaveClass('is-overview');
+		fireEvent.keyDown(document, {key: 'Escape'});
+		expect(desktop).not.toHaveClass('is-overview');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Activities'}));
+		fireEvent.click(container.querySelector('.dt-window'));
+		expect(desktop).toHaveClass('is-overview');
+		fireEvent.click(container.querySelector('.dt-stage'));
+		expect(desktop).not.toHaveClass('is-overview');
+	});
+
+	it('closes the system menu on Escape, or on a press outside it', () => {
+		render(<App initialPath="/cv" />);
+		const button = screen.getByRole('button', {name: 'System menu'});
+		const menu = () => screen.queryByRole('dialog', {name: 'System menu'});
+
+		fireEvent.click(button);
+		fireEvent.pointerDown(screen.getByRole('radio', {name: 'Dark'}));
+		fireEvent.keyDown(document, {key: 'Enter'});
+		expect(menu()).toBeInTheDocument();
+		fireEvent.keyDown(document, {key: 'Escape'});
+		expect(menu()).toBeNull();
+
+		fireEvent.click(button);
+		fireEvent.pointerDown(document.body);
+		expect(menu()).toBeNull();
+		expect(button).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('keeps keyboard focus where it is when the dock is pressed', () => {
+		const {container} = render(<App initialPath="/cv" />);
+
+		expect(fireEvent.mouseDown(container.querySelector('.dt-dock-item[data-win="source"]'))).toBe(false);
+	});
+
+	it('fits the desktop above an on-screen keyboard laid over the page, but not a pinch-zoom', () => {
+		const viewport = Object.assign(new EventTarget(), {height: 800, offsetTop: 0, scale: 1});
+		vi.stubGlobal('visualViewport', viewport);
+		Object.defineProperty(document.documentElement, 'clientHeight', {configurable: true, value: 800});
+		const {container} = render(<App initialPath="/cv" />);
+		const desktop = container.querySelector('.desktop');
+
+		Object.assign(viewport, {height: 450, offsetTop: 120});
+		act(() => viewport.dispatchEvent(new Event('resize')));
+		expect(desktop.style.height).toBe('450px');
+		expect(desktop.style.transform).toBe('translateY(120px)');
+
+		Object.assign(viewport, {scale: 2});
+		act(() => viewport.dispatchEvent(new Event('scroll')));
+		expect(desktop.style.height).toBe('');
+		expect(desktop.style.transform).toBe('');
+		delete document.documentElement.clientHeight;
+	});
+
+	it('follows the battery as it charges and drains', async () => {
+		const handlers = {};
+		const battery = {
+			level: 0.5,
+			charging: false,
+			addEventListener: (type, handler) => {
+				handlers[type] = handler;
+			},
+			removeEventListener: vi.fn(),
+		};
+		vi.stubGlobal('navigator', {...navigator, getBattery: () => Promise.resolve(battery)});
+		const {unmount} = render(<App initialPath="/cv" />);
+		expect(await screen.findByRole('img', {name: 'Battery 50%'})).toBeInTheDocument();
+
+		battery.level = 0.2;
+		act(() => handlers.levelchange());
+		expect(screen.getByRole('img', {name: 'Battery 20%'})).toBeInTheDocument();
+		battery.charging = true;
+		act(() => handlers.chargingchange());
+		expect(screen.getByRole('img', {name: 'Battery 20%, charging'})).toBeInTheDocument();
+
+		unmount();
+		expect(battery.removeEventListener).toHaveBeenCalledTimes(2);
+	});
+
+	it('ignores a battery that answers after the desktop has gone', async () => {
+		let answer;
+		const battery = {level: 0.5, charging: false, addEventListener: vi.fn(), removeEventListener: vi.fn()};
+		vi.stubGlobal('navigator', {...navigator, getBattery: () => new Promise(resolve => {
+			answer = resolve;
+		})});
+		const {unmount} = render(<App initialPath="/cv" />);
+		unmount();
+
+		await act(async () => answer(battery));
+
+		expect(battery.addEventListener).not.toHaveBeenCalled();
+	});
+
+	it('reboots through the console, straight back into Activities', async () => {
+		const {container} = render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		const console = () => screen.queryByRole('log', {name: 'System console'});
+
+		vi.useFakeTimers();
+		act(() => system.halt({
+			mode: 'reboot',
+			shutdown: [{text: '[  OK  ] Reached target reboot.target - System Reboot.', delay: 0}],
+			boot: [{text: 'Welcome to RobinOS!', delay: 0}],
+		}));
+		act(() => vi.advanceTimersByTime(10));
+		expect(console()).toHaveTextContent('Reached target reboot.target');
+
+		// No power button: it comes straight back up.
+		act(() => vi.advanceTimersByTime(800));
+		expect(screen.queryByRole('button', {name: 'Power on'})).toBeNull();
+		act(() => vi.advanceTimersByTime(1200));
+		act(() => vi.advanceTimersByTime(10));
+		expect(console()).toHaveTextContent('Welcome to RobinOS!');
+
+		act(() => vi.advanceTimersByTime(800));
+		expect(console()).toBeNull();
+		expect(container.querySelector('.desktop')).toHaveClass('is-overview');
+		expect(container.querySelector('.dt-screen')).toHaveClass('is-starting');
 	});
 
 	it('starts a phone with just the website, unless the URL asks for the editor', () => {
@@ -315,6 +530,9 @@ describe('desktop', () => {
 		const processes = system.processes();
 		expect(processes.map(proc => proc.name)).toEqual(['desktop', 'web', 'editor', 'terminal']);
 		expect(system.terminalPid).toBe(processes[3].pid);
+		expect(system.bootedAt).toBeInstanceOf(Date);
+		const pid = system.pid();
+		expect(system.pid()).toBe(pid + 1);
 
 		act(() => {
 			system.kill(processes[1].pid);

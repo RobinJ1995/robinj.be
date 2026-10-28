@@ -22,8 +22,15 @@ export default defineConfig({
 	use: {
 		baseURL: `http://localhost:${PORT}`,
 	},
+	// Every spec runs at each size; the ones about floating or maximised windows skip
+	// the sizes they're not about (isSmall in e2e/helpers.js).
 	projects: [
-		{name: 'chromium', use: {...devices['Desktop Chrome'], launchOptions}},
+		{name: 'desktop', use: {...devices['Desktop Chrome'], launchOptions}},
+		// Maximised for being short, with the website in two columns.
+		{name: 'desktop-short', use: {...devices['Desktop Chrome'], viewport: {width: 1280, height: 560}, launchOptions}},
+		{name: 'tablet', use: {...devices['Galaxy Tab S4'], launchOptions}},
+		{name: 'phone', use: {...devices['Pixel 7'], launchOptions}},
+		{name: 'phone-landscape', use: {...devices['Pixel 7 landscape'], launchOptions}},
 	],
 	webServer: {
 		command: `docker rm -f ${CONTAINER} >/dev/null 2>&1; docker build -t ${IMAGE} . && docker run --rm --name ${CONTAINER} -p ${PORT}:80 ${IMAGE}`,

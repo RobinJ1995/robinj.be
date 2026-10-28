@@ -373,8 +373,15 @@ const useScrollAway = (ref, enabled) => {
 		const onScroll = ({target}) => {
 			// Rubber-banding past either end isn't scrolling.
 			const top = Math.min(Math.max(target.scrollTop, 0), target.scrollHeight - target.clientHeight);
-			const delta = top - (positions.get(target) ?? 0);
-			positions.set(target, top);
+			const before = positions.get(target) ?? {top: 0, height: target.scrollHeight};
+			positions.set(target, {top, height: target.scrollHeight});
+			// When the page changes height (as fonts load, say), the browser moves it to
+			// keep what's in view in place. That isn't the reader scrolling.
+			if (target.scrollHeight !== before.height) {
+				return;
+			}
+
+			const delta = top - before.top;
 			travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
 
 			if (top < ref.current.offsetHeight || travel < -SCROLL_AWAY_PX) {

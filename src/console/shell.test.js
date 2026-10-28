@@ -1,50 +1,12 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
-import {createShell} from './shell';
-
-// Output without colour codes.
-const plain = text => text.replace(/\x1b\[[\d;]*[A-Za-z]/g, '');
-
-// A terminal that records what's written and answers reads from `input`.
-const terminal = (input = []) => {
-	let output = '';
-	return {
-		write: text => {
-			output += text;
-		},
-		read: async () => (input.length ? input.shift() : null),
-		columns: () => 80,
-		rows: () => 24,
-		raw: () => () => {},
-		take: () => {
-			const text = output;
-			output = '';
-			return plain(text);
-		},
-	};
-};
-
-const setup = (options = {}) => {
-	const tty = terminal(options.input);
-	const shell = createShell({tty, ...options});
-	const run = async line => {
-		await shell.execute(line);
-		return tty.take().replace(/\n$/, '');
-	};
-
-	return {shell, tty, run};
-};
+import {fakeSystem, plain, setup, stubStorage} from './test-helpers';
 
 afterEach(() => {
 	vi.useRealTimers();
 });
 
 beforeEach(() => {
-	const items = new Map();
-	vi.stubGlobal('localStorage', {
-		getItem: key => items.get(key) ?? null,
-		setItem: (key, value) => items.set(key, String(value)),
-		removeItem: key => items.delete(key),
-	});
+	stubStorage();
 });
 
 describe('shell', () => {
@@ -354,5 +316,296 @@ describe('shell', () => {
 
 		// Still there next time.
 		expect(await setup().run('which cowsay')).toBe('/usr/bin/cowsay');
+	});
+});
+
+describe('redirections', () => {
+	it('duplicate, close and swap file descriptors in order', async () => {
+		const {run} = setup();
+
+		expect(await run('{ echo out; echo err >&2; } 2>&1 >/dev/null | wc -l')).toBe('1');
+		expect(await run('{ echo out; echo err >&2; } &> /dev/null; echo "[$?]"')).toBe('[0]');
+		expect(await run('echo hi >&-; cat <&-; echo "[$?]"')).toBe('[0]');
+		expect(await run('cat 0<&0 <<< hi; echo x 1>&1; echo y >| /dev/null')).toBe('hi\nx');
+		expect(await run('cat <> /etc/hostname; echo z >> /dev/stdout; echo e 2>/dev/stderr')).toBe('robinj.be\nz\ne');
+	});
+
+	it('read from stdin and the terminal as files', async () => {
+		const {run} = setup({input: ['typed\n']});
+
+		expect(await run('echo piped | cat < /dev/stdin')).toBe('piped');
+		expect(await run('echo ignored | cat < /dev/tty')).toBe('typed');
+		expect(await run('echo shown > /dev/tty | wc -c')).toBe('shown\n0');
+	});
+
+	it('fail the command when a target is bad', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('x="a b"; echo hi > $x')).toBe('bash: $x: ambiguous redirect');
+		expect(shell.state.status).toBe(1);
+		expect(await run('cat < nope')).toBe('bash: nope: No such file or directory');
+		expect(await run('echo hi >&5')).toBe('bash: 5: Bad file descriptor');
+		expect(await run('echo hi > ${u?}')).toBe('bash: u: parameter null or not set');
+		expect(await run('{ echo hi; } > nope/x')).toBe('bash: nope/x: No such file or directory');
+		expect(await run('> /root/x')).toBe('bash: /root/x: Permission denied');
+		expect(shell.state.status).toBe(1);
+		expect(await run('( echo hi ) > /dev/null; echo "[$?]"')).toBe('[0]');
+	});
+});
+
+describe('errors while running', () => {
+	it('stop the command that hit them', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('x=${u?}; echo $?')).toBe('bash: u: parameter null or not set\n1');
+		expect(await run('x=${u?} echo hi; echo $?')).toBe('bash: u: parameter null or not set\n1');
+		expect(await run('for x in ${u?}; do :; done; echo $?')).toBe('bash: u: parameter null or not set\n1');
+		expect(await run('case ${u?} in *) ;; esac; echo $?')).toBe('bash: u: parameter null or not set\n1');
+		expect(await run('for ((i = 0; i < 1/0; i++)); do :; done; echo $?')).toBe('bash: i < 1/0: division by 0 (error token is "/0")\n1');
+		expect(await run('(( 1/0 )); echo $?')).toBe('bash: 1/0: division by 0 (error token is "/0")\n1');
+		expect(await run('[[ 1 -eq 1/0 ]]; echo $?')).toBe('bash: 1/0: division by 0 (error token is "/0")\n1');
+		expect(await run('[[ -n x || 1 -eq 1/0 ]] && echo short-circuited')).toBe('short-circuited');
+		expect(shell.state.status).toBe(0);
+	});
+
+	it('say what is wrong with a path that is not a program', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('/usr/bin/nope')).toBe('bash: /usr/bin/nope: No such file or directory');
+		expect(shell.state.status).toBe(127);
+		expect(await run('/usr/bin/cowsay')).toBe('bash: /usr/bin/cowsay: No such file or directory');
+		expect(await run('/etc')).toBe('bash: /etc: Is a directory');
+		expect(shell.state.status).toBe(126);
+		expect(await run('./cv.md')).toBe('bash: ./cv.md: Permission denied');
+		expect(shell.state.status).toBe(126);
+		expect(await run('/bin/whoami; ../../../usr/bin/hostname')).toBe('robin\nrobinj.be');
+	});
+
+	it('stop runaway recursion', async () => {
+		vi.useFakeTimers();
+		const {shell, tty} = setup();
+
+		const running = shell.execute('f() { f; }; f; echo $?');
+		await vi.runAllTimersAsync();
+		await running;
+		expect(tty.take()).toBe('bash: f: maximum function nesting level exceeded (1000)\n1\n');
+	});
+
+	it('exit from a function leaves only the subshell it runs in', async () => {
+		const {run} = setup();
+
+		expect(await run('f() { exit 3; }; (f); echo $?')).toBe('3');
+	});
+
+	it('let only so many processes run at once', async () => {
+		vi.useFakeTimers();
+		const {shell, run} = setup();
+
+		await run('for i in {1..128}; do sleep 100 & done');
+		expect(shell.jobs).toHaveLength(128);
+		expect(await run('sleep 1 &')).toBe('bash: fork: Resource temporarily unavailable');
+		expect(await run('ls')).toBe('bash: fork: Resource temporarily unavailable');
+		expect(shell.state.status).toBe(254);
+		expect(await run('echo builtins still work')).toBe('builtins still work');
+	});
+
+	it('a writer whose reader went away stops quietly', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('seq 100000 | head -1')).toBe('1');
+		expect(shell.state.status).toBe(0);
+	});
+
+	it('^C stops a whole pipeline', async () => {
+		const {shell, tty} = setup();
+
+		const running = shell.execute('sleep 100 | cat; echo never');
+		await vi.waitFor(() => expect(shell.procs.size).toBe(2));
+		shell.interrupt();
+		await running;
+		expect(tty.take()).toBe('\n');
+		expect(shell.state.status).toBe(130);
+		expect(shell.procs.size).toBe(0);
+	});
+
+	it('a program killed from outside says how it ended', async () => {
+		const {shell, tty} = setup();
+
+		const running = shell.execute('sleep 100; echo $?');
+		await vi.waitFor(() => expect(shell.procs.size).toBe(1));
+		const [pid] = shell.procs.keys();
+		expect(shell.kill(pid, 'WINCH')).toBe('ok');
+		expect(shell.kill(pid, 'TERM')).toBe('ok');
+		await running;
+		expect(tty.take()).toBe('Terminated\n143\n');
+	});
+
+	it('a background job that exits reports its status', async () => {
+		const {shell, run} = setup();
+
+		await run('exit 4 &');
+		await vi.waitFor(() => expect(shell.notifications()).toBe('[1]+  Exit 4                  exit 4\n'));
+		expect(shell.exited).toBe(false);
+	});
+});
+
+describe('variables in the shell', () => {
+	it('knows its own and its parent\'s pid', async () => {
+		const {run} = setup({system: fakeSystem()});
+
+		expect(await run('echo $$ $BASHPID $PPID')).toBe('2000 2000 1999');
+	});
+
+	it('appends to arrays and their elements', async () => {
+		const {run} = setup();
+
+		expect(await run('a=(x y); a[1]+=z; a+=w; a[i=2]=v; echo ${a[@]}')).toBe('xw yz v');
+		expect(await run('s=abc; s[2]=q; echo ${s[@]}')).toBe('abc q');
+		expect(await run('e=; e[0]=first; echo ${e[@]}')).toBe('first');
+		expect(await run('n[1]+=one; echo ${n[@]}')).toBe('one');
+	});
+
+	it('passes temporary assignments to programs, not to the shell', async () => {
+		const {run} = setup();
+
+		expect(await run('FOO=bar env | grep ^FOO=; echo "[$FOO]"')).toBe('FOO=bar\n[]');
+		expect(await run('FOO=bar export -p | grep -c FOO=')).toBe('1');
+	});
+
+	it('runs if without else to success', async () => {
+		const {run} = setup();
+
+		expect(await run('false; if false; then :; fi; echo $?')).toBe('0');
+	});
+});
+
+describe('history expansion', () => {
+	it('repeats earlier commands and words, showing what it ran', async () => {
+		const {run} = setup();
+
+		await run('echo one two');
+		expect(await run('echo !$')).toBe('echo two\ntwo');
+		expect(await run('echo !!')).toBe('echo echo two\necho two');
+		expect(await run('!-2')).toBe('echo two\ntwo');
+		expect(await run('!1')).toBe('echo one two\none two');
+		expect(await run('!ech')).toBe('echo one two\none two');
+	});
+
+	it('leaves escaped and single-quoted marks alone', async () => {
+		const {run} = setup();
+
+		expect(await run('echo \\!x \'!x\' a!=b "!(x)"')).toBe('!x !x a!=b !(x)');
+	});
+
+	it('reports events it cannot find, running nothing', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('echo !nope')).toBe('bash: !nope: event not found');
+		expect(shell.history).toEqual([]);
+	});
+
+	it('keeps multi-line commands on one history line', async () => {
+		const {shell, run} = setup();
+
+		await run('for i in 1 2\ndo\n  echo $i\ndone');
+		await run('if true\nthen\n  echo yes\nfi');
+		await run('cat <<EOF\nkept\nEOF');
+		expect(shell.history).toEqual(['for i in 1 2; do echo $i; done', 'if true; then echo yes; fi', 'cat <<EOF\nkept\nEOF']);
+	});
+
+	it('skips blank lines and repeats, and keeps at most a thousand', async () => {
+		const {shell} = setup();
+
+		shell.addHistory('   ');
+		shell.addHistory('same');
+		shell.addHistory('same');
+		expect(shell.history).toEqual(['same']);
+		for (let i = 0; i < 1005; i++) {
+			shell.addHistory(`command ${i}`);
+		}
+		expect(shell.history).toHaveLength(1000);
+		expect(shell.history[0]).toBe('command 5');
+	});
+});
+
+describe('the prompt', () => {
+	it('expands bash\'s prompt escapes', async () => {
+		vi.useFakeTimers({now: new Date(2026, 9, 28, 9, 5, 7), toFake: ['Date']});
+		const {shell, run} = setup();
+
+		await run("PS1='\\h \\W \\s \\v \\V \\\\ \\101 \\0101 \\q \\[\\e[1m\\]\\$\\n\\a\\r'");
+		expect(shell.prompt()).toBe('robinj portfolio bash 5.2 5.2.32 \\ A A \\q \x1b[1m$\n\x07\r');
+		await run("PS1='\\t \\A \\d'");
+		expect(shell.prompt()).toBe('09:05:07 09:05 Wed Oct 28');
+	});
+
+	it('shortens the home directory, and shows the root as /', async () => {
+		const {shell, run} = setup();
+
+		await run("PS1='\\w|\\W'; cd");
+		expect(shell.prompt()).toBe('~|~');
+		await run('cd /');
+		expect(shell.prompt()).toBe('/|/');
+		await run('unset PS1');
+		expect(shell.prompt()).toBe('');
+		expect(shell.prompt('PS2')).toBe('> ');
+	});
+});
+
+describe('completion', () => {
+	it('completes commands after operators and keywords', () => {
+		const {shell} = setup();
+
+		expect(shell.complete('').options).toEqual(expect.arrayContaining(['whoami', 'cd', 'if', 'll']));
+		expect(shell.complete('').options).not.toContain('cowsay');
+		expect(shell.complete('true && who').completion).toBe('ami ');
+		expect(shell.complete('echo $(who').completion).toBe('ami ');
+		expect(shell.complete('if true; then who').completion).toBe('ami ');
+		expect(shell.complete('sudo dn').completion).toBe('f ');
+		expect(shell.complete('ll').options).toEqual(['ll']);
+	});
+
+	it('completes paths, showing hidden files only when asked', () => {
+		const {shell} = setup();
+
+		expect(shell.complete('cat ~/')).toEqual({completion: 'portfolio/', options: ['portfolio']});
+		expect(shell.complete('cat ~/.')).toEqual({completion: '', options: ['.bash_history', '.kube', '.profile']});
+		expect(shell.complete('cat ~/.k')).toEqual({completion: 'ube/', options: ['.kube']});
+		expect(shell.complete('ls /etc/h')).toEqual({completion: 'ostname ', options: ['hostname']});
+		expect(shell.complete('ls /root/')).toEqual({completion: '', options: []});
+		expect(shell.complete('./c')).toEqual({completion: '', options: ['contact.yml', 'cv.md']});
+		expect(shell.complete('echo nothing')).toEqual({completion: '', options: []});
+	});
+
+	it('includes functions and aliases', async () => {
+		const {shell, run} = setup();
+
+		await run('greet() { :; }; alias greetings=true');
+		expect(shell.complete('gree')).toEqual({completion: 't', options: ['greet', 'greetings']});
+	});
+});
+
+describe('the system around the shell', () => {
+	it('works on its own, without a desktop', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('web; editor; echo $?')).toBe('0');
+		expect(shell.pid).toBe(4000);
+	});
+
+	it('shows apps it does not know by name', async () => {
+		const system = fakeSystem({processes: () => [{pid: 1500, name: 'mystery', started: new Date()}]});
+		const {run} = setup({system});
+
+		expect(await run('ps -p 1500 -f | tail -1')).toMatch(/^robin +1500 +1290 .* mystery$/);
+	});
+
+	it('exits only once', () => {
+		const onExit = vi.fn();
+		const {shell} = setup({onExit});
+
+		shell.exit();
+		shell.exit();
+		expect(onExit).toHaveBeenCalledTimes(1);
 	});
 });

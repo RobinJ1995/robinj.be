@@ -1,11 +1,5 @@
 import {test, expect} from '@playwright/test';
-
-// React attaches __reactProps$… to DOM nodes carrying event handlers once it has
-// hydrated. Waiting for that on an interactive node proves hydration finished.
-const waitForHydration = page => page.waitForFunction(() => {
-	const el = document.querySelector('#root nav a');
-	return !!el && Object.keys(el).some(k => k.startsWith('__reactProps$'));
-});
+import {waitForHydration} from './helpers';
 
 test('hydrates and does client-side navigation without a full reload', async ({page}) => {
 	await page.goto('/cv', {waitUntil: 'domcontentloaded'});
@@ -77,7 +71,7 @@ test('produces no hydration-mismatch errors', async ({page}) => {
 		}
 	});
 
-	for (const path of ['/', '/cv/source', '/contact', '/side-quests']) {
+	for (const path of ['/', '/cv', '/side-quests', '/contact', '/whoami', '/cv/source', '/side-quests/source', '/contact/source', '/whoami/source', '/nope']) {
 		await page.goto(path, {waitUntil: 'domcontentloaded'});
 		await waitForHydration(page);
 	}

@@ -36,6 +36,28 @@ describe('routing', () => {
 		expect(screen.getByText('The page you requested does not exist.')).toBeInTheDocument();
 	});
 
+	it('leads from the 404 page back home', () => {
+		render(<App initialPath="/does-not-exist" />);
+
+		fireEvent.click(screen.getByRole('link', {name: '↗ back to the home page'}));
+
+		expect(front().getByText('Work Experience')).toBeInTheDocument();
+	});
+
+	it('starts each page at its top, whichever part of the website scrolls', () => {
+		const scrollTo = vi.fn();
+		Element.prototype.scrollTo = scrollTo;
+		render(<App initialPath="/cv" />);
+		scrollTo.mockClear();
+
+		fireEvent.click(screen.getByRole('link', {name: 'Contact'}));
+
+		const scrolled = scrollTo.mock.contexts.map(el => el.className);
+		expect(scrolled).toEqual(expect.arrayContaining(['editorial', 'ed-main']));
+		expect(scrollTo).toHaveBeenCalledWith(0, 0);
+		delete Element.prototype.scrollTo;
+	});
+
 	it('navigates on nav-link click and pushes history', () => {
 		const pushSpy = vi.spyOn(window.history, 'pushState');
 		render(<App initialPath="/cv" />);
