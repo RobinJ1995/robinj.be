@@ -1,5 +1,6 @@
 import {FILES, HOME, PORTFOLIO} from './files';
 import {repositoryFiles} from './git';
+import {PROJECTS, repositories} from './projects';
 
 export {HOME, PORTFOLIO};
 
@@ -92,6 +93,7 @@ const SYSTEM = {
 	[`${HOME}/.kube`]: dir('robin', 0o700),
 	[`${HOME}/.kube/config`]: file(kubeconfig, 'robin', 0o600),
 	[PORTFOLIO]: dir('robin'),
+	[PROJECTS]: dir('robin'),
 	'/root': dir('root', 0o550),
 	'/tmp': dir('root', 0o1777),
 	'/usr': dir(),
@@ -136,6 +138,9 @@ export const createFs = ({history, binaries}) => {
 		for (const [path, {text, mode}] of Object.entries(repositoryFiles())) {
 			all[path] = text ? file(text, 'robin', mode) : dir('robin');
 		}
+		for (const {name, url} of repositories() ?? []) {
+			all[`${PROJECTS}/${name}`] = {type: 'link', owner: 'robin', mode: 0o777, target: url};
+		}
 		all[`${HOME}/.bash_history`] = file(() => history().map(line => `${line}\n`).join(''), 'robin', 0o600);
 		for (const name of binaries()) {
 			all[`/usr/bin/${name}`] = file(binary(name), 'root', 0o755);
@@ -162,7 +167,11 @@ export const createFs = ({history, binaries}) => {
 			if (!entry) {
 				return {error: 'No such file or directory'};
 			} else if (entry.type === 'link' && (follow || i < parts.length - 1)) {
-				current = normalize(parentOf(current), entry.target);
+				const target = lookup(normalize(parentOf(current), entry.target), {user});
+				if (target.error) {
+					return target;
+				}
+				current = target.path.replace(/\/$/, '');
 			}
 		}
 
@@ -200,8 +209,14 @@ export const createFs = ({history, binaries}) => {
 		return {text: found.entry.type === 'char' ? '' : found.entry.text()};
 	};
 
-	// Writing: only /dev/null takes it; anything else says why not.
+	// Writing: only devices take it; anything else says why not. Through a link,
+	// it's where the link leads that gets written.
 	const writeError = (path, user = 'robin') => {
+		const link = lookup(path, {user, follow: false});
+		if (link.entry?.type === 'link') {
+			return writeError(normalize(parentOf(link.path), link.entry.target), user);
+		}
+
 		const found = lookup(path, {user});
 		if (found.entry?.type === 'char') {
 			return null;

@@ -6,6 +6,10 @@ import {createShell} from './shell';
 // How long a style or accent change takes to ease over (see .is-restyling).
 const RESTYLE_MS = 450;
 const FONT_SIZE = 13.5;
+// Smaller while a window fills a narrow portrait screen: the desktop maximises
+// its windows below 900×600.
+const NARROW_FONT_SIZE = 11.5;
+const NARROW = '((width < 900px) or (height < 600px)) and (aspect-ratio < 1)';
 // The editor's font (--editor-font in App.scss) until the font setting says otherwise.
 const DEFAULT_FONT = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 
@@ -37,9 +41,10 @@ const visibleLength = text => text.replace(/\x1b\[[\d;]*m/g, '').length;
 const printable = text => text.replace(/[\x00-\x1f\x7f]/g, '');
 
 export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
+	const narrow = window.matchMedia(NARROW);
 	const term = new Terminal({
 		fontFamily: DEFAULT_FONT,
-		fontSize: FONT_SIZE,
+		fontSize: narrow.matches ? NARROW_FONT_SIZE : FONT_SIZE,
 		lineHeight: 1.2,
 		cursorBlink: true,
 		allowTransparency: true,
@@ -236,15 +241,22 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 		}
 	};
 
-	const complete = () => {
-		const {completion, options} = shell.complete(buffer.slice(0, cursor));
-		if (!completion && options.length > 1) {
+	// Keys typed while completion waits (for ~/Projects to be listed) come after it.
+	const complete = async () => {
+		held = [];
+		const {completion, options} = await shell.complete(buffer.slice(0, cursor));
+		if (stopped) {
+			return;
+		} else if (!completion && options.length > 1) {
 			finishLine();
 			write(`${options.join('  ')}\n`);
 			column = 0;
 			write(prompt);
 		}
 		edit(buffer.slice(0, cursor) + completion + buffer.slice(cursor), cursor + completion.length);
+		const keys = held;
+		held = null;
+		keys.forEach(receive);
 	};
 
 	const browseHistory = step => {
@@ -399,6 +411,12 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 	const scheme = window.matchMedia('(prefers-color-scheme: dark)');
 	scheme.addEventListener('change', restyle);
 
+	const resizeFont = () => {
+		term.options.fontSize = narrow.matches ? NARROW_FONT_SIZE : FONT_SIZE;
+		fitScreen();
+	};
+	narrow.addEventListener('change', resizeFont);
+
 	return {
 		focus: () => term.focus(),
 		stop: () => {
@@ -408,6 +426,7 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 			element.removeEventListener('click', tap);
 			attributes.disconnect();
 			scheme.removeEventListener('change', restyle);
+			narrow.removeEventListener('change', resizeFont);
 			term.dispose();
 		},
 	};

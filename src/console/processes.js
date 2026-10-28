@@ -33,6 +33,7 @@ export const APPS = {
 	web: {command: '/usr/bin/web https://robinj.be/', stat: 'Sl', rss: 1_572_864, vsz: 12_582_916, cpu: 2.7},
 	editor: {command: '/usr/bin/editor', stat: 'Sl', rss: 293_888, vsz: 3_145_732, cpu: 0.8},
 	terminal: {command: '/usr/bin/terminal', stat: 'Sl', rss: 75_776, vsz: 1_048_580, cpu: 0.5},
+	'video-player': {command: '/usr/bin/python3 /usr/bin/video-player', stat: 'Sl', rss: 187_392, vsz: 2_621_444, cpu: 1.9},
 	bash: {stat: 'Ss', rss: 7_168, vsz: 9_216, cpu: 0},
 	top: {stat: 'R+', rss: 5_632, vsz: 15_104, cpu: 0.7},
 	htop: {stat: 'S+', rss: 6_144, vsz: 16_896, cpu: 0.7},

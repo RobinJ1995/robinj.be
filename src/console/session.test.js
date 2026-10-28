@@ -1,5 +1,6 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {fakeSystem, plain, stubStorage} from './test-helpers';
+import {resetRepositories} from './projects';
 import {startSession} from './session';
 
 const {terminals, fits} = vi.hoisted(() => ({terminals: [], fits: []}));
@@ -60,6 +61,7 @@ vi.mock('@xterm/addon-fit', () => ({
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}));
 
 const PROMPT = 'robin@robinj.be:~/portfolio$ ';
+const NARROW = '((width < 900px) or (height < 600px)) and (aspect-ratio < 1)';
 
 // Just enough of a terminal to see what the line editor leaves on screen, and
 // where the cursor is: xterm's deferred wrap, and the moves and erases it uses.
@@ -323,21 +325,38 @@ describe('the line editor', () => {
 		expect(onExit).toHaveBeenCalledTimes(1);
 	});
 
-	it('completes with tab, listing the options when there are several', () => {
+	it('completes with tab, listing the options when there are several', async () => {
 		const {term} = start();
 
 		term.type('whoa');
 		term.type('\t');
-		expect(screen(term).line).toBe(`${PROMPT}whoami `);
+		await vi.waitFor(() => expect(screen(term).line).toBe(`${PROMPT}whoami `));
 		for (let i = 0; i < 'whoami '.length; i++) {
 			term.type('\x7f');
 		}
 		term.type('cat c');
 		term.type('\t');
-		expect(screen(term).lines).toEqual([`${PROMPT}cat c`, 'contact.yml  cv.md', `${PROMPT}cat c`]);
+		await vi.waitFor(() => expect(screen(term).lines).toEqual([`${PROMPT}cat c`, 'contact.yml  cv.md', `${PROMPT}cat c`]));
 		term.type('v');
 		term.type('\t');
-		expect(screen(term).line).toBe(`${PROMPT}cat cv.md `);
+		await vi.waitFor(() => expect(screen(term).line).toBe(`${PROMPT}cat cv.md `));
+	});
+
+	it('completes in ~/Projects once GitHub has listed it, then takes what was typed meanwhile', async () => {
+		let answer;
+		resetRepositories();
+		vi.stubGlobal('fetch', vi.fn(() => new Promise(resolve => {
+			answer = resolve;
+		})));
+		const {term} = start();
+
+		term.type('cat ~/Projects/dot');
+		term.type('\t');
+		term.type('x');
+		await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+		expect(screen(term).line).toBe(`${PROMPT}cat ~/Projects/dot`);
+		answer({ok: true, headers: new Headers(), json: async () => [{name: 'dotfiles', html_url: 'https://github.com/RobinJ1995/dotfiles'}]});
+		await vi.waitFor(() => expect(screen(term).line).toBe(`${PROMPT}cat ~/Projects/dotfiles x`));
 	});
 
 	it('continues incomplete commands on a PS2 prompt, and ^C drops them', async () => {
@@ -644,6 +663,25 @@ describe('following the page', () => {
 		expect(element.style.getPropertyValue('--scrollbar-stretch')).toBe('');
 	});
 
+	it('uses a smaller font on a narrow portrait screen, and follows it as it changes', () => {
+		matchMedia(NARROW).matches = true;
+		const {term, fit} = start();
+		fit.fit.mockClear();
+
+		expect(term.options.fontSize).toBe(11.5);
+		media[NARROW].matches = false;
+		for (const listener of media[NARROW].listeners) {
+			listener();
+		}
+		expect(term.options.fontSize).toBe(13.5);
+		expect(fit.fit).toHaveBeenCalledTimes(1);
+		media[NARROW].matches = true;
+		for (const listener of media[NARROW].listeners) {
+			listener();
+		}
+		expect(term.options.fontSize).toBe(11.5);
+	});
+
 	it('refocuses on a tap, so that phones show their keyboard', () => {
 		const {element, term} = start();
 		term.focus.mockClear();
@@ -668,6 +706,7 @@ describe('stopping', () => {
 		expect(term.dispose).toHaveBeenCalled();
 		expect(observers[0].disconnect).toHaveBeenCalled();
 		expect(media['(prefers-color-scheme: dark)'].listeners.size).toBe(0);
+		expect(media[NARROW].listeners.size).toBe(0);
 
 		media['(pointer: coarse)'].matches = true;
 		element.click();
@@ -692,6 +731,24 @@ describe('stopping', () => {
 
 		session.stop();
 		term.catchUp();
+		expect(term.written).toBe(written);
+	});
+
+	it('completes nothing once stopped', async () => {
+		let answer;
+		resetRepositories();
+		vi.stubGlobal('fetch', vi.fn(() => new Promise(resolve => {
+			answer = resolve;
+		})));
+		const {session, term} = start();
+
+		term.type('cat ~/Projects/');
+		term.type('\t');
+		await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+		session.stop();
+		const written = term.written;
+		answer({ok: false});
+		await new Promise(resolve => setTimeout(resolve, 0));
 		expect(term.written).toBe(written);
 	});
 

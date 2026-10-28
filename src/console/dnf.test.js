@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
-import {setup, stubStorage} from './test-helpers';
+import {fakeSystem, setup, stubStorage} from './test-helpers';
 
 const NEEDS_ROOT = 'This command has to be run with superuser privileges (under the root user on most systems).';
 
@@ -66,7 +66,7 @@ describe('dnf', () => {
 	it('lists and describes packages', async () => {
 		const session = setup();
 
-		expect(await timed(session, 'dnf list')).toBe('Available packages\ncowsay.noarch           3.8.4-2.rj1         robinj\nwget.riscv64            1.25.0-1.rj1        robinj');
+		expect(await timed(session, 'dnf list')).toBe('Available packages\ncowsay.noarch           3.8.4-2.rj1         robinj\nvideo-player.noarch     49.0-1.rj1          robinj\nwget.riscv64            1.25.0-1.rj1        robinj');
 		expect(await timed(session, 'dnf list available cowsay')).toBe('Available packages\ncowsay.noarch           3.8.4-2.rj1         robinj');
 		expect(await timed(session, 'dnf list --installed')).toBe('No matching packages to list');
 		expect(await timed(session, 'dnf list nope')).toBe('No matching packages to list');
@@ -137,6 +137,21 @@ describe('dnf', () => {
 		expect(lines).toContain('[3/3] Installing wget-0:1.25.0-1.rj1.ris 100% |   32.9 MiB/s |    3.3 MiB |  00m00s');
 		expect(settled(await timed(session, 'sudo dnf remove -y wget'))).toContain('After this operation, 3 MiB will be freed (install 0 B, remove 3 MiB).');
 		expect(await timed(session, 'wget')).toBe('bash: wget: command not found');
+	});
+
+	it('has GNOME\'s video player, which opens its window and leaves the shell be', async () => {
+		const system = fakeSystem();
+		const session = setup({system});
+
+		expect(await timed(session, 'dnf info video-player | grep -E "^(Name|Version|Architecture|Download size|Installed size|Summary|URL|License)"')).toBe([
+			'Name            : video-player', 'Version         : 49.0', 'Architecture    : noarch', 'Download size   : 322.4 KiB', 'Installed size  : 1.2 MiB',
+			'Summary         : Watch without distraction', 'URL             : https://apps.gnome.org/Showtime/', 'License         : GPL-3.0-or-later',
+		].join('\n'));
+		expect(await timed(session, 'video-player')).toBe('bash: video-player: command not found');
+		expect(session.shell.state.status).toBe(127);
+		expect(settled(await timed(session, 'sudo dnf install -y video-player'))).toContain(' video-player            noarch  49.0-1.rj1               robinj         1.2 MiB');
+		expect(await timed(session, 'video-player; echo $?')).toBe('0');
+		expect(system.launch).toHaveBeenCalledWith('video-player');
 	});
 
 	it('reads the answer from a pipe, echoing it', async () => {

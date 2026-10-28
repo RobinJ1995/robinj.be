@@ -43,6 +43,13 @@ describe('ps', () => {
 		expect(await run('ps axww | wc -l')).toBe('25');
 	});
 
+	it('shows the video player as the Python program it is', async () => {
+		const {run} = setup({system: fakeSystem({processes: () => [{pid: 1500, name: 'video-player', started: new Date()}]})});
+
+		expect(await run('ps -p 1500 -f | tail -1')).toMatch(/^robin +1500 +1290 +\d+ \d\d:\d\d \? +00:00:00 \/usr\/bin\/python3 \/usr\/bin\/video-player$/);
+		expect(await run('ps -p 1500')).toBe('    PID TTY          TIME CMD\n   1500 ?        00:00:00 video-player');
+	});
+
 	it('picks processes by pid, failing when none are left', async () => {
 		const {shell, run} = setup({system: desktop()});
 

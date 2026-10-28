@@ -56,7 +56,7 @@ test('opens a file in the editor', async ({page}) => {
 	await openTerminal(page);
 
 	await run(page, 'open contact.yml');
-	await expect(page).toHaveURL('/contact/source');
+	await expect(page).toHaveURL('/contact');
 	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Editor');
 });
 
@@ -130,6 +130,18 @@ test('fits its screen to the window', async ({page}) => {
 		return rows.width <= outer.width && rows.height <= outer.height && rows.width > outer.width - 40;
 	});
 	expect(fits).toBe(true);
+});
+
+test('sets the terminal and the system console in smaller text on a narrow upright screen', async ({page, viewport}) => {
+	const upright = viewport.width < 900 && viewport.height > viewport.width;
+	await page.clock.install();
+	await visit(page, '/cv');
+	await openTerminal(page);
+
+	expect(await screen(page).evaluate(el => getComputedStyle(el).fontSize)).toBe(upright ? '11.5px' : '13.5px');
+	await run(page, 'poweroff');
+	await expect(page.getByRole('log', {name: 'System console'})).toBeVisible();
+	expect(await page.locator('.dt-tty pre').evaluate(el => getComputedStyle(el).fontSize)).toBe(upright ? '11.5px' : '14px');
 });
 
 test('powers off, and boots back into Activities', async ({page}) => {

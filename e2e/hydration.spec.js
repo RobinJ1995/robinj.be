@@ -35,7 +35,7 @@ test('toggles the source view client-side', async ({page}) => {
 
 	await page.getByTitle('View source').click();
 
-	await expect(page).toHaveURL('/cv/source');
+	await expect(page).toHaveURL('/cv');
 	await expect(page.locator('.editor')).toBeVisible();
 	await expect(page.locator('#root')).toContainText('side-quests.yml');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');

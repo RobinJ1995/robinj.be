@@ -321,7 +321,7 @@ describe('git, trying to change things', () => {
 		expect(await run('git clone https://github.com/RobinJ1995/robinj.be.git')).toBe("fatal: could not create work tree dir 'robinj.be': Read-only file system");
 		expect(await run('cd ~; git clone https://github.com/RobinJ1995/robinj.be portfolio')).toBe("fatal: destination path 'portfolio' already exists and is not an empty directory.");
 		expect(await run('cd /; git clone git@github.com:x/y.git /root/y')).toBe("fatal: could not create work tree dir '/root/y': Permission denied");
-		expect(await run('git clone https://x/y.git /dev/null')).toBe("fatal: could not create work tree dir '/dev/null': Read-only file system");
+		expect(await run('git clone https://x/y.git /dev/null')).toBe("fatal: destination path '/dev/null' already exists and is not an empty directory.");
 		expect(await run('git clone')).toBe('fatal: You must specify a repository to clone.\n\nusage: git clone [<options>] [--] <repo> [<dir>]');
 		expect(shell.state.status).toBe(129);
 	});

@@ -1,5 +1,5 @@
 import {FILES} from './files';
-import {OS_RELEASE, MTIME, CHUNK, modeString, sizeOf, nameOf, parentOf} from './fs';
+import {OS_RELEASE, MTIME, CHUNK, HOME, modeString, sizeOf, nameOf, parentOf, normalize} from './fs';
 import {ansi, options, colour, readOperand, splitLines, strftime, shortDate, humanSize, columns, plural} from './util';
 import {PROGRAMS} from './programs';
 import {POWER} from './power';
@@ -19,6 +19,14 @@ const KERNEL_BUILD = '#1 SMP PREEMPT_DYNAMIC Fri Mar 13 13:37:00 UTC 2026';
 const join = (dir, name) => (dir.endsWith('/') ? dir + name : `${dir}/${name}`);
 const lookup = (api, path) => api.fs.lookup(api.resolve(path), {follow: false});
 const onDevice = path => path === '/dev' || path.startsWith('/dev/');
+const ENOENT = 'No such file or directory';
+// Fedora's LS_COLORS for a link that leads nowhere, and for where it would have led.
+const ORPHAN = '40;31;01';
+const MISSING = '01;37;41';
+
+const linkCount = (api, path, entry) => (entry.type === 'dir'
+	? 2 + (api.fs.list(path).names ?? []).filter(name => api.fs.lookup(join(path, name), {follow: false}).entry?.type === 'dir').length
+	: 1);
 
 const usage = (api, message) => {
 	api.err(`${api.name}: ${message}\nTry '${api.name} --help' for more information.\n`);
@@ -50,12 +58,12 @@ const ls = async api => {
 	const oneColumn = opts.has('1') || (!api.stdout.isTTY && !opts.has('C'));
 	let status = 0;
 
-	const paint = (name, entry) => {
+	const paint = (name, entry, path) => {
 		let code = null;
 		if (entry.type === 'dir') {
 			code = entry.mode & 0o1000 && entry.mode & 0o002 ? '30;42' : '01;34';
 		} else if (entry.type === 'link') {
-			code = '01;36';
+			code = api.fs.lookup(path).error ? ORPHAN : '01;36';
 		} else if (entry.type === 'char') {
 			code = '40;33;01';
 		} else if (entry.mode & 0o111) {
@@ -77,19 +85,24 @@ const ls = async api => {
 		}
 		return opts.has('r') ? result.reverse() : result;
 	};
-	const links = (path, entry) => (entry.type === 'dir'
-		? 2 + (api.fs.list(path).names ?? []).filter(name => api.fs.lookup(join(path, name), {follow: false}).entry?.type === 'dir').length
-		: 1);
+	// Where a link leads, coloured as what's there.
+	const target = item => {
+		const found = api.fs.lookup(item.path);
+		if (found.error) {
+			return painted ? ansi(MISSING, item.entry.target) : item.entry.target;
+		}
+		return paint(item.entry.target, found.entry, found.path);
+	};
 
 	const longListing = items => {
 		const rows = items.map(item => {
 			const {entry} = item;
 			return {
 				mode: `${modeString(entry)}.`,
-				links: String(links(item.path, entry)),
+				links: String(linkCount(api, item.path, entry)),
 				owner: entry.owner,
 				size: entry.type === 'char' ? entry.device.join(', ') : opts.has('h') ? humanSize(sizeOf(entry)) : String(sizeOf(entry)),
-				name: paint(item.name, entry) + (entry.type === 'link' ? ` -> ${entry.target}` : classify(entry)),
+				name: paint(item.name, entry, item.path) + (entry.type === 'link' ? ` -> ${target(item)}` : classify(entry)),
 			};
 		});
 		const width = key => Math.max(...rows.map(row => row[key].length));
@@ -101,9 +114,9 @@ const ls = async api => {
 	const shortListing = items => {
 		const names = items.map(item => item.name + classify(item.entry));
 		if (oneColumn) {
-			return names.map((name, i) => `${paint(name, items[i].entry)}\n`).join('');
+			return names.map((name, i) => `${paint(name, items[i].entry, items[i].path)}\n`).join('');
 		}
-		return columns(names, api.tty?.columns?.() ?? 80, (name, i) => paint(name, items[i].entry));
+		return columns(names, api.tty?.columns?.() ?? 80, (name, i) => paint(name, items[i].entry, items[i].path));
 	};
 	const listing = items => (long ? longListing(items) : shortListing(items));
 
@@ -143,7 +156,10 @@ const ls = async api => {
 	const dirs = [];
 	for (const operand of operands) {
 		const path = api.resolve(operand);
-		const found = api.fs.lookup(path, {follow: !long || operand.endsWith('/')});
+		const slash = operand.endsWith('/');
+		const followed = api.fs.lookup(path, {follow: !long || slash});
+		// A link that leads nowhere is listed as itself.
+		const found = followed.error === ENOENT && !slash ? api.fs.lookup(path, {follow: false}) : followed;
 		if (found.error) {
 			api.err(`ls: cannot access '${operand}': ${found.error}\n`);
 			status = 2;
@@ -159,6 +175,7 @@ const ls = async api => {
 	}
 	const headers = operands.length > 1 || opts.has('R');
 	const walk = async (path, label, first) => {
+		await api.ready(path);
 		if (!first) {
 			api.out('\n');
 		}
@@ -176,7 +193,7 @@ const ls = async api => {
 	return status;
 };
 
-const tree = api => {
+const tree = async api => {
 	const opts = options(api, api.args, {flags: 'adCn', values: 'L'});
 	if (!opts) {
 		return 2;
@@ -186,43 +203,41 @@ const tree = api => {
 	const depthLimit = opts.has('L') ? Number(opts.get('L')) : Infinity;
 	let directories = 0;
 	let files = 0;
-	const paint = (name, entry) => {
-		if (!painted) {
-			return name;
-		}
-		return entry.type === 'dir' ? ansi('01;34', name) : entry.type === 'link' ? ansi('01;36', name) : name;
-	};
+	const paint = (name, entry, code = {dir: '01;34', link: '01;36'}[entry.type]) => (painted && code ? ansi(code, name) : name);
 
-	const lines = (path, prefix, depth) => {
+	const lines = async (path, prefix, depth) => {
+		await api.ready(path);
 		const result = api.fs.list(path);
 		const names = (result.names ?? []).filter(name => opts.has('a') || !name.startsWith('.'));
-		return names.flatMap((name, i) => {
+		const drawn = [];
+		for (const [i, name] of names.entries()) {
 			const full = join(path, name);
 			const {entry} = api.fs.lookup(full, {follow: false});
 			const target = entry.type === 'link' ? api.fs.lookup(full).entry : null;
 			const isDir = entry.type === 'dir' || target?.type === 'dir';
 			if (opts.has('d') && !isDir) {
-				return [];
+				continue;
 			}
 
 			const last = i === names.length - 1;
-			let line = `${prefix}${last ? '└── ' : '├── '}${paint(name, entry)}${target ? ` -> ${entry.target}` : ''}`;
+			const orphan = entry.type === 'link' && !target;
+			const arrow = entry.type === 'link' ? ` -> ${orphan ? paint(entry.target, entry, MISSING) : paint(entry.target, target)}` : '';
+			drawn.push(`${prefix}${last ? '└── ' : '├── '}${orphan ? paint(name, entry, ORPHAN) : paint(name, entry)}${arrow}`);
 			if (isDir) {
 				directories++;
 			} else {
 				files++;
 			}
 
-			const children = [];
 			if (entry.type === 'dir' && depth < depthLimit) {
 				if (api.fs.list(full).error) {
-					line += '  [error opening dir]';
+					drawn[drawn.length - 1] += '  [error opening dir]';
 				} else {
-					children.push(...lines(full, prefix + (last ? '    ' : '│   '), depth + 1));
+					drawn.push(...await lines(full, prefix + (last ? '    ' : '│   '), depth + 1));
 				}
 			}
-			return [line, ...children];
-		});
+		}
+		return drawn;
 	};
 
 	let status = 0;
@@ -234,7 +249,7 @@ const tree = api => {
 			status = 2;
 			continue;
 		}
-		api.out([paint(root, found.entry), ...lines(path, '', 1)].map(line => `${line}\n`).join(''));
+		api.out([paint(root, found.entry), ...await lines(path, '', 1)].map(line => `${line}\n`).join(''));
 	}
 	api.out(`\n${directories} director${directories === 1 ? 'y' : 'ies'}${opts.has('d') ? '' : `, ${plural(files, 'file')}`}\n`);
 
@@ -553,24 +568,27 @@ const grep = async api => {
 	let errors = false;
 
 	const inputs = [];
-	const collect = (operand, path) => {
+	const collect = async (operand, path) => {
 		const found = api.fs.lookup(path);
 		if (found.error) {
 			inputs.push({operand, error: found.error});
 		} else if (found.entry.type === 'dir' && recursive) {
+			await api.ready(path);
 			const listing = api.fs.list(path);
 			if (listing.error) {
 				inputs.push({operand, error: listing.error});
 			}
-			for (const name of listing.names ?? []) {
-				collect(join(operand, name), join(path, name));
+			// -r follows only the links it was given; -R all of them.
+			const names = (listing.names ?? []).filter(name => opts.has('R') || api.fs.lookup(join(path, name), {follow: false}).entry.type !== 'link');
+			for (const name of names) {
+				await collect(join(operand, name), join(path, name));
 			}
 		} else {
 			inputs.push({operand, path, dir: found.entry.type === 'dir'});
 		}
 	};
 	if (operands.length === 0 && recursive) {
-		collect('.', api.cwd);
+		await collect('.', api.cwd);
 		for (const input of inputs) {
 			input.operand = input.operand.replace(/^\.\//, '');
 		}
@@ -579,7 +597,7 @@ const grep = async api => {
 			if (operand === '-') {
 				inputs.push({operand});
 			} else {
-				collect(operand, api.resolve(operand));
+				await collect(operand, api.resolve(operand));
 			}
 		}
 	}
@@ -713,13 +731,15 @@ const copyOrMove = move => api => {
 		return 1;
 	}
 
+	// cp copies what a link leads to, unless copying recursively.
+	const recursive = opts.has('r') || opts.has('R') || opts.has('a');
 	let status = 1;
 	for (const source of operands.slice(0, -1)) {
-		const found = lookup(api, source);
+		const found = move || recursive ? lookup(api, source) : api.fs.lookup(api.resolve(source));
 		const to = intoDirectory ? join(destination, nameOf(api.resolve(source))) : destination;
 		if (found.error) {
 			api.err(`${api.name}: cannot stat '${source}': ${found.error}\n`);
-		} else if (found.entry.type === 'dir' && !move && !opts.has('r') && !opts.has('R') && !opts.has('a')) {
+		} else if (found.entry.type === 'dir' && !move && !recursive) {
 			api.err(`cp: -r not specified; omitting directory '${source}'\n`);
 		} else if (api.resolve(to) === found.path) {
 			api.err(`${api.name}: '${source}' and '${to}' are the same file\n`);
@@ -727,7 +747,7 @@ const copyOrMove = move => api => {
 			api.err(`mv: cannot move '${source}' to '${to}': ${api.fs.writeError(api.resolve(to)) === 'Permission denied' ? 'Permission denied' : 'Read-only file system'}\n`);
 		} else {
 			const problem = api.fs.writeError(api.resolve(to)) ?? 'Read-only file system';
-			const kind = found.entry.type === 'dir' ? 'directory' : 'regular file';
+			const kind = {dir: 'directory', link: 'symbolic link'}[found.entry.type] ?? 'regular file';
 			api.err(`cp: cannot create ${kind} '${to}': ${problem}\n`);
 		}
 	}
@@ -735,7 +755,7 @@ const copyOrMove = move => api => {
 	return status;
 };
 
-const rm = api => {
+const rm = async api => {
 	const opts = options(api, api.args, {flags: 'rRfidv', long: {recursive: 'r', force: 'f', dir: 'd', verbose: 'v', 'no-preserve-root': 'P', 'preserve-root': 'p'}});
 	if (!opts) {
 		return 1;
@@ -752,16 +772,17 @@ const rm = api => {
 		api.err(`rm: cannot remove '${path}': ${reason}\n`);
 		status = 1;
 	};
-	const remove = (label, path) => {
+	const remove = async (label, path) => {
 		const found = api.fs.lookup(path, {follow: false});
 		if (found.entry?.type === 'dir' && recursive) {
+			await api.ready(path);
 			const listing = api.fs.list(path);
 			if (listing.error) {
 				fail(label, listing.error);
 				return;
 			}
 			for (const name of listing.names) {
-				remove(join(label, name), join(path, name));
+				await remove(join(label, name), join(path, name));
 			}
 		}
 		fail(label, onDevice(path) ? 'Permission denied' : 'Read-only file system');
@@ -783,7 +804,7 @@ const rm = api => {
 		} else if (found.entry.type === 'dir' && !recursive && !opts.has('d')) {
 			fail(operand, 'Is a directory');
 		} else {
-			remove(operand, path);
+			await remove(operand, path);
 		}
 	}
 
@@ -804,8 +825,8 @@ const create = (verb, kind) => api => {
 		const found = api.fs.lookup(path);
 		if (api.name === 'touch' && found.entry?.type === 'char') {
 			continue;
-		} else if (api.name === 'mkdir' && !found.error) {
-			if (!opts.has('p')) {
+		} else if (api.name === 'mkdir' && !api.fs.lookup(path, {follow: false}).error) {
+			if (!opts.has('p') || found.entry?.type !== 'dir') {
 				api.err(`mkdir: cannot create directory '${operand}': File exists\n`);
 				status = 1;
 			}
@@ -859,8 +880,13 @@ const change = (verb, validate) => api => {
 
 	for (const file of dashedMode ? opts.operands : files) {
 		const path = api.resolve(file);
-		const found = api.fs.lookup(path);
-		if (found.error) {
+		const found = api.fs.lookup(path, {follow: !opts.has('h')});
+		const dangling = found.error === ENOENT && lookup(api, file).entry?.type === 'link';
+		if (dangling && api.name === 'chmod') {
+			api.err(`chmod: cannot operate on dangling symlink '${file}'\n`);
+		} else if (dangling) {
+			api.err(`${api.name}: cannot dereference '${file}': ${found.error}\n`);
+		} else if (found.error) {
 			api.err(`${api.name}: cannot access '${file}': ${found.error}\n`);
 		} else {
 			api.err(`${api.name}: changing ${verb} of '${file}': ${onDevice(found.path) ? 'Operation not permitted' : 'Read-only file system'}\n`);
@@ -883,6 +909,168 @@ const chown = change('ownership', spec => {
 	}
 	return null;
 });
+
+// ln makes nothing on a read-only filesystem; it says what stood in the way.
+const ln = api => {
+	const opts = options(api, api.args, {flags: 'sfv', long: {symbolic: 's', force: 'f', verbose: 'v'}});
+	if (!opts) {
+		return 1;
+	} else if (opts.operands.length === 0) {
+		return usage(api, 'missing file operand');
+	}
+
+	const symbolic = opts.has('s');
+	const sources = opts.operands.length > 1 ? opts.operands.slice(0, -1) : opts.operands;
+	const destination = opts.operands.length > 1 ? opts.operands[opts.operands.length - 1] : null;
+	const intoDirectory = destination === null || api.fs.lookup(api.resolve(destination)).entry?.type === 'dir';
+	if (sources.length > 1 && !intoDirectory) {
+		api.err(`ln: target '${destination}' is not a directory\n`);
+		return 1;
+	}
+
+	// What stops a link being made at `path`.
+	const obstacle = path => {
+		if (!api.fs.lookup(path, {follow: false}).error) {
+			return opts.has('f') ? 'Read-only file system' : 'File exists';
+		}
+		return onDevice(path) ? 'Permission denied' : api.fs.writeError(path);
+	};
+
+	for (const source of sources) {
+		const name = nameOf(api.resolve(source));
+		const to = intoDirectory ? join(destination ?? '.', name) : destination;
+		const problem = obstacle(api.resolve(to));
+		const found = lookup(api, source);
+		if (!symbolic && found.error) {
+			api.err(`ln: failed to access '${source}': ${found.error}\n`);
+		} else if (!symbolic && found.entry.type === 'dir') {
+			api.err(`ln: ${source}: hard link not allowed for directory\n`);
+		} else if (symbolic) {
+			api.err(`ln: failed to create symbolic link '${to}': ${problem}\n`);
+		} else if (['File exists', 'Read-only file system'].includes(problem)) {
+			api.err(`ln: failed to create hard link '${to}': ${problem}\n`);
+		} else {
+			api.err(`ln: failed to create hard link '${to}' => '${source}': ${problem}\n`);
+		}
+	}
+
+	return 1;
+};
+
+// A path with every link on the way resolved, as readlink -f, -e and -m do it:
+// all of it has to exist (e), all but the last part (f), or none of it (m).
+const canonical = (api, path, mode) => {
+	const parts = path.split('/').filter(Boolean);
+	let resolved = '';
+	for (let i = 0; i < parts.length; i++) {
+		const next = `${resolved}/${parts[i]}`;
+		const found = api.fs.lookup(next, {follow: false});
+		const missingAllowed = mode === 'm' || (mode === 'f' && i === parts.length - 1 && found.error === ENOENT);
+		if (found.entry?.type === 'link') {
+			parts.splice(0, i + 1, ...normalize(parentOf(next), found.entry.target).split('/').filter(Boolean));
+			resolved = '';
+			i = -1;
+		} else if (found.error && !missingAllowed) {
+			return {error: found.error};
+		} else {
+			resolved = next;
+		}
+	}
+
+	return {path: resolved || '/'};
+};
+
+const readlink = api => {
+	const opts = options(api, api.args, {
+		flags: 'femqsv',
+		long: {canonicalize: 'f', 'canonicalize-existing': 'e', 'canonicalize-missing': 'm', quiet: 'q', silent: 's', verbose: 'v'},
+	});
+	if (!opts) {
+		return 1;
+	} else if (opts.operands.length === 0) {
+		return usage(api, 'missing operand');
+	}
+
+	const mode = ['m', 'e', 'f'].find(flag => opts.has(flag));
+	let status = 0;
+	for (const operand of opts.operands) {
+		const path = api.resolve(operand);
+		const {entry, error} = api.fs.lookup(path, {follow: false});
+		const result = mode ? canonical(api, path, mode) : {path: entry?.target, error: error ?? 'Invalid argument'};
+		if (result.path === undefined) {
+			if (opts.has('v')) {
+				api.err(`readlink: ${operand}: ${result.error}\n`);
+			}
+			status = 1;
+		} else {
+			api.out(`${result.path}\n`);
+		}
+	}
+
+	return status;
+};
+
+// SELinux types, by path; anything else has its directory's.
+const SELINUX_TYPES = {
+	'/': 'root_t', '/bin': 'bin_t', '/boot': 'boot_t', '/dev': 'device_t', '/dev/null': 'null_device_t', '/dev/random': 'random_device_t',
+	'/dev/urandom': 'urandom_device_t', '/dev/zero': 'zero_device_t', '/etc': 'etc_t', '/etc/passwd': 'passwd_file_t', '/etc/shadow': 'shadow_t',
+	'/home': 'home_root_t', '/root': 'admin_home_t', '/tmp': 'tmp_t', '/usr': 'usr_t', '/usr/bin': 'bin_t', '/usr/lib': 'lib_t',
+	'/usr/sbin': 'bin_t', '/var': 'var_t', '/var/log': 'var_log_t',
+};
+
+const selinuxContext = path => {
+	if (path === HOME || path.startsWith(`${HOME}/`)) {
+		return `unconfined_u:object_r:${path === HOME ? 'user_home_dir_t' : 'user_home_t'}:s0`;
+	}
+	let labelled = path;
+	while (!SELINUX_TYPES[labelled]) {
+		labelled = parentOf(labelled);
+	}
+	return `system_u:object_r:${SELINUX_TYPES[labelled]}:s0`;
+};
+
+// Made up, but the same for the same path.
+const inode = path => [...path].reduce((hash, c) => (hash * 31 + c.charCodeAt(0)) % 8_000_000, 17) + 1_000_000;
+
+const stat = api => {
+	const opts = options(api, api.args, {flags: 'L', long: {dereference: 'L'}});
+	if (!opts) {
+		return 1;
+	} else if (opts.operands.length === 0) {
+		return usage(api, 'missing operand');
+	}
+
+	let status = 0;
+	for (const operand of opts.operands) {
+		const found = api.fs.lookup(api.resolve(operand), {follow: opts.has('L')});
+		if (found.error) {
+			api.err(`stat: cannot statx '${operand}': ${found.error}\n`);
+			status = 1;
+			continue;
+		}
+
+		const {entry, path} = found;
+		const size = sizeOf(entry);
+		const blocks = entry.type === 'dir' || entry.type === 'file' ? Math.ceil(size / 4096) * 8 : 0;
+		const type = {dir: 'directory', link: 'symbolic link', char: 'character special file'}[entry.type] ?? (size ? 'regular file' : 'regular empty file');
+		const id = entry.owner === 'root' ? '0' : '1000';
+		const links = String(linkCount(api, path, entry));
+		const time = strftime('%Y-%m-%d %H:%M:%S.%N %z', MTIME);
+		api.out([
+			`  File: ${operand}${entry.type === 'link' ? ` -> ${entry.target}` : ''}`,
+			`  Size: ${String(size).padEnd(10)}\tBlocks: ${String(blocks).padEnd(10)} IO Block: 4096   ${type}`,
+			`Device: ${onDevice(path) ? '0,5' : '259,3'}\tInode: ${String(inode(path)).padEnd(11)} Links: ${entry.type === 'char' ? `${links.padEnd(5)} Device type: ${entry.device.join(',')}` : links}`,
+			`Access: (${(entry.mode & 0o7777).toString(8).padStart(4, '0')}/${modeString(entry)})  Uid: (${id.padStart(5)}/${entry.owner.padStart(8)})   Gid: (${id.padStart(5)}/${entry.owner.padStart(8)})`,
+			`Context: ${selinuxContext(path)}`,
+			`Access: ${time}`,
+			`Modify: ${time}`,
+			`Change: ${time}`,
+			` Birth: ${time}`,
+		].map(line => `${line}\n`).join(''));
+	}
+
+	return status;
+};
 
 const sleep = async api => {
 	if (api.args.length === 0) {
@@ -1093,7 +1281,8 @@ const which = api => {
 	return api.args.length ? status : 1;
 };
 
-// The editor's files open in the editor; nothing else can.
+// The editor's files open in the editor, and links to web pages in the
+// browser; nothing else can.
 const openFile = api => {
 	if (api.args.length === 0) {
 		if (api.name === 'editor') {
@@ -1107,6 +1296,16 @@ const openFile = api => {
 	let status = 0;
 	for (const operand of api.args) {
 		const path = api.resolve(operand);
+		const link = api.fs.lookup(path, {follow: false}).entry;
+		if (link?.type === 'link' && /^https?:\/\//.test(link.target)) {
+			// Browsers only open a tab shortly after a key press: nothing may wait before this.
+			if (!api.system.openUrl(link.target)) {
+				api.err(`xdg-open: no method available for opening '${link.target}'\n`);
+				status = 3;
+			}
+			continue;
+		}
+
 		const found = api.fs.lookup(path);
 		if (FILES[found.path]?.page) {
 			api.shell.onOpenFile(FILES[found.path].page);
@@ -1295,6 +1494,9 @@ export const COMMANDS = {
 	touch: create('cannot touch', ''),
 	chmod,
 	chown,
+	ln,
+	readlink,
+	stat,
 	sleep,
 	date,
 	uname,

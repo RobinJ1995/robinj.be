@@ -16,18 +16,16 @@ test('shows the website in front of the editor, whose edges show behind it', asy
 	expect(editor.y + editor.height).toBeGreaterThan(site.y + site.height);
 });
 
-test('raises a window clicked behind, and the URL follows', async ({page}) => {
+test('raises a window clicked behind', async ({page}) => {
 	await visit(page, '/cv');
 	const editor = await box(windowOf(page, 'Editor'));
 
 	// Its bottom edge, below the website.
 	await page.mouse.click(editor.x + editor.width / 2, editor.y + editor.height - 10);
-	await expect(page).toHaveURL('/cv/source');
 	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Editor');
 
 	const site = await box(windowOf(page, 'Website'));
 	await page.mouse.click(site.x + 20, site.y + site.height / 2);
-	await expect(page).toHaveURL('/cv');
 	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Website');
 });
 
@@ -39,14 +37,11 @@ test('switches windows from the dock, marking the ones running', async ({page}) 
 	await expect(dockItem(page, 'console')).not.toHaveClass(/is-running/);
 
 	await dockItem(page, 'source').click();
-	await expect(page).toHaveURL('/cv/source');
 	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Editor');
 
 	await dockItem(page, 'console').click();
 	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Terminal');
 	await expect(dockItem(page, 'console')).toHaveClass(/is-running/);
-	// The terminal has no page of its own.
-	await expect(page).toHaveURL('/cv/source');
 });
 
 test('lays every window out side by side in Activities, and leaves it on Escape, on the desktop, or by picking one', async ({page}) => {
@@ -74,7 +69,7 @@ test('lays every window out side by side in Activities, and leaves it on Escape,
 	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Editor');
 });
 
-test('closes a window to reveal the one behind, and an empty desktop suggests a way back after 5 seconds', async ({page}) => {
+test('closes a window to reveal the one behind, and an empty desktop suggests a way back after 4 seconds', async ({page}) => {
 	await page.clock.install();
 	await visit(page, '/side-quests');
 
@@ -85,7 +80,7 @@ test('closes a window to reveal the one behind, and an empty desktop suggests a 
 	await page.getByTitle('Close', {exact: true}).click();
 	await expect(page.locator('.dt-window')).toHaveCount(0);
 
-	await page.clock.runFor(4500);
+	await page.clock.runFor(3500);
 	await expect(page.getByRole('status')).toHaveCount(0);
 	await page.clock.runFor(1000);
 	await expect(page.getByRole('status')).toContainText('You look like you might be lost.');

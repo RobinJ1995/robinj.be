@@ -21,6 +21,25 @@ const PACKAGES = {
 		],
 		commands: ['cowsay', 'cowthink'],
 	},
+	// GNOME's Showtime, under the name the desktop gives it.
+	'video-player': {
+		version: '49.0',
+		release: '1.rj1',
+		arch: 'noarch',
+		download: 322.4,
+		installed: 1206.0,
+		summary: 'Watch without distraction',
+		url: 'https://apps.gnome.org/Showtime/',
+		license: 'GPL-3.0-or-later',
+		description: [
+			'Play your favorite movies and video files without hassle. Showtime',
+			'features simple playback controls that fade out of your way when',
+			"you're watching, fullscreen, adjustable playback speed, multiple",
+			'language and subtitle tracks, and screenshots — everything you need',
+			'for a straightforward viewing experience.',
+		],
+		commands: ['video-player'],
+	},
 	wget: {
 		version: '1.25.0',
 		release: '1.rj1',
@@ -339,4 +358,9 @@ export const PACKAGE_COMMANDS = {
 	dnf,
 	cowsay: cowsay(false),
 	cowthink: cowsay(true),
+	// A window of its own: the shell gets its prompt back at once.
+	'video-player': api => {
+		api.system.launch('video-player');
+		return 0;
+	},
 };

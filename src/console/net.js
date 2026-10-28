@@ -373,8 +373,8 @@ const requestBody = async (api, data) => {
 	return parts.join('&');
 };
 
-// Where the body goes: stdout, or a file that, the filesystem being what it
-// is, can't be written unless it's a device.
+// Where the body goes: stdout, or a file, which the read-only filesystem only
+// allows for devices.
 const outputFor = (api, opts, url) => {
 	const toStdout = {write: api.out, drain: api.drain, terminal: api.stdout.isTTY};
 	let name = opts.output;
@@ -576,7 +576,7 @@ const retrieve = async (api, opts, url, {file, log, talk}) => {
 		const stdout = opts.output === '-';
 		const name = opts.output;
 		if (!stdout && !file) {
-			// A file of its own: new, so not one the read-only filesystem can take.
+			// A new file, which the read-only filesystem refuses.
 			const saved = savedName(api, opts, url);
 			const {error} = api.openWrite(saved);
 			log(`${saved}: ${error}\n\nCannot write to ‘${saved}’ (${error}).\n`);

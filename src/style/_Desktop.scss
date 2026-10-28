@@ -205,8 +205,8 @@ $restyle-transitions: ();
 	}
 }
 
-// The workspace's wallpaper: blurred behind the windows, scaled up around its
-// centre so the blur doesn't pull in a dark edge. The --ov-* geometry comes
+// The workspace's wallpaper: blurred while windows are open on it, and scaled up
+// around its centre so the blur doesn't pull in a dark edge. The --ov-* geometry comes
 // from workspaceCard() in Desktop.jsx.
 .dt-wallpaper,
 .dt-workspace-peek {
@@ -219,8 +219,11 @@ $restyle-transitions: ();
 }
 
 .dt-wallpaper {
-	filter: blur(4px);
 	transform: translate(-2%, -2%) scale(1.04);
+}
+
+.has-windows:not(.is-overview) .dt-wallpaper {
+	filter: blur(4px);
 }
 
 // The next workspace waits off to the right.
@@ -229,7 +232,6 @@ $restyle-transitions: ();
 }
 
 .is-overview .dt-wallpaper {
-	filter: none;
 	transform: translate(var(--ov-x), var(--ov-y)) scale(var(--ov-scale));
 	border-radius: calc(30px / var(--ov-scale));
 	box-shadow: 0 calc(4px / var(--ov-scale)) calc(16px / var(--ov-scale)) calc(4px / var(--ov-scale)) rgba(0, 0, 0, .3);
@@ -240,11 +242,12 @@ $restyle-transitions: ();
 	border-radius: calc(30px / var(--ov-peek-scale));
 }
 
-// Top bar: always dark, like GNOME Shell's; see-through in Activities.
+// Top bar: always dark, like GNOME Shell's; see-through in Activities. Above every
+// window, as is the dock.
 .dt-topbar {
 	position: absolute;
 	inset: 0 0 auto;
-	z-index: 10;
+	z-index: 20;
 	height: 32px;
 	display: grid;
 	grid-template-columns: 1fr auto 1fr;
@@ -424,6 +427,13 @@ $restyle-transitions: ();
 		height: min(540px, calc(100% - var(--dt-dock-bottom) - 160px));
 	}
 
+	&[data-win='video'] {
+		top: 96px;
+		left: calc(var(--dt-dock-left) + 220px);
+		width: min(720px, calc(100% - var(--dt-dock-left) - 260px));
+		height: min(460px, calc(100% - var(--dt-dock-bottom) - 140px));
+	}
+
 	&:not(.is-focused) {
 		display: block;
 	}
@@ -484,6 +494,77 @@ $restyle-transitions: ();
 	border-radius: 12px;
 	background: transparent;
 	cursor: default;
+}
+
+// Where a window resizes from (Window.jsx): unseen, just outside its edges, as in GNOME.
+.dt-window-resize {
+	position: absolute;
+	touch-action: none;
+
+	&.is-n,
+	&.is-s {
+		right: 8px;
+		left: 8px;
+		height: 8px;
+		cursor: ns-resize;
+	}
+
+	&.is-e,
+	&.is-w {
+		top: 8px;
+		bottom: 8px;
+		width: 8px;
+		cursor: ew-resize;
+	}
+
+	&.is-ne,
+	&.is-se,
+	&.is-sw,
+	&.is-nw {
+		width: 16px;
+		height: 16px;
+	}
+
+	&.is-n,
+	&.is-ne,
+	&.is-nw {
+		top: -8px;
+	}
+
+	&.is-s,
+	&.is-se,
+	&.is-sw {
+		bottom: -8px;
+	}
+
+	&.is-e,
+	&.is-ne,
+	&.is-se {
+		right: -8px;
+	}
+
+	&.is-w,
+	&.is-nw,
+	&.is-sw {
+		left: -8px;
+	}
+
+	&.is-ne,
+	&.is-sw {
+		cursor: nesw-resize;
+	}
+
+	&.is-nw,
+	&.is-se {
+		cursor: nwse-resize;
+	}
+}
+
+// Dragging a title bar moves the window, rather than scrolling or zooming the page.
+@media (width >= $small-width) and (height >= $small-height) {
+	[data-titlebar] {
+		touch-action: none;
+	}
 }
 
 // libadwaita header bar, as in GNOME Web.
@@ -671,6 +752,75 @@ $restyle-transitions: ();
 	font-size: 13px;
 }
 
+// libadwaita's window background is its backdrop header bars' colour.
+.video-player {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--dt-headerbar-backdrop);
+	color: var(--dt-headerbar-fg);
+	font-family: var(--dt-font);
+}
+
+.video-player-library {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 12px;
+	margin: 0;
+	padding: 18px;
+	overflow-y: auto;
+	list-style: none;
+}
+
+.video-player-video {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 100%;
+	padding: 6px;
+	border: 0;
+	border-radius: 12px;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: default;
+
+	&:hover {
+		background: color-mix(in srgb, currentColor 7%, transparent);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--dt-accent);
+	}
+}
+
+// A placeholder, crossed through as one is: the video has no thumbnail.
+.video-player-thumbnail {
+	display: grid;
+	place-items: center;
+	aspect-ratio: 16 / 9;
+	border-radius: 8px;
+	background:
+		linear-gradient(to top right, transparent calc(50% - .5px), var(--dt-headerbar-shade) 50%, transparent calc(50% + .5px)),
+		linear-gradient(to bottom right, transparent calc(50% - .5px), var(--dt-headerbar-shade) 50%, transparent calc(50% + .5px)),
+		var(--dt-entry);
+	color: var(--dt-headerbar-dim);
+}
+
+.video-player-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 14px;
+}
+
+.video-player-screen {
+	flex: 1;
+	width: 100%;
+	border: 0;
+	background: #000;
+}
+
 // Shutting down, booting, a kernel panic: a text console over everything.
 .dt-power {
 	position: absolute;
@@ -697,6 +847,13 @@ $restyle-transitions: ();
 		font: 14px/1.3 'JetBrains Mono', ui-monospace, monospace;
 		white-space: pre-wrap;
 		word-break: break-all;
+	}
+}
+
+// Narrow and upright: smaller text, so that more of each line fits.
+@media (width < $small-width) and (aspect-ratio < 1) {
+	.dt-tty pre {
+		font-size: 11.5px;
 	}
 }
 
@@ -793,7 +950,7 @@ $restyle-transitions: ();
 	display: flex;
 	gap: 4px;
 	position: absolute;
-	z-index: 5;
+	z-index: 20;
 	padding: 6px;
 	border-radius: 22px;
 	background: rgba(54, 54, 58, .6);
@@ -1091,9 +1248,8 @@ $restyle-transitions: ();
 	}
 }
 
-// The caffeine kernel module: windows twitch in short bursts, each to its own
-// rhythm, the dock's icons fidget and the clock can't sit still. Only a moment
-// in every few seconds, so it all stays usable.
+// The caffeine kernel module's jitters: brief bursts every few seconds, each to
+// its own rhythm, so it all stays usable.
 @keyframes dt-jitter {
 	0%,
 	82%,
@@ -1214,5 +1370,67 @@ $restyle-transitions: ();
 
 	.dt-switch-indicator {
 		transition: none;
+	}
+}
+
+// Printed, the site is the website's page alone, as if opened on its own: from
+// the window if it's open, otherwise from the copy Desktop.jsx lays out for it.
+.dt-print {
+	display: none;
+}
+
+@media print {
+	html,
+	body,
+	#root {
+		height: auto;
+	}
+
+	.dt-wallpaper,
+	.dt-workspace-peek,
+	.dt-topbar,
+	.dt-dock,
+	.dt-notification,
+	.dt-power,
+	.dt-window:not([data-win='site']),
+	.dt-window .dt-headerbar,
+	.dt-window-activate,
+	.dt-window-resize {
+		display: none !important;
+	}
+
+	.desktop,
+	.dt-screen,
+	.dt-stage,
+	.dt-window,
+	.dt-window-frame,
+	.dt-window-content {
+		position: static !important;
+		width: auto !important;
+		height: auto !important;
+		overflow: visible !important;
+		transform: none !important;
+		animation: none !important;
+		visibility: visible !important;
+		box-shadow: none !important;
+		border-radius: 0 !important;
+		--dt-fade: 1 !important;
+		--ed-inset-top: 0px !important;
+	}
+
+	.dt-print {
+		display: block;
+		container: window / inline-size;
+	}
+
+	.editorial {
+		height: auto !important;
+		overflow: visible !important;
+
+		.ed-sidebar,
+		main {
+			height: auto !important;
+			overflow: visible !important;
+		}
 	}
 }

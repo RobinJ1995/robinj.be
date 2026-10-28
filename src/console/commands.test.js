@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
-import {fakeSystem, setup, stubStorage} from './test-helpers';
+import {fakeSystem, setup, stubRepositories, stubStorage} from './test-helpers';
 
 const STAMP = '\\w{3} [ \\d]\\d \\d\\d:\\d\\d';
 
@@ -18,6 +18,7 @@ const coloured = async ({shell, tty}, line) => {
 
 beforeEach(() => {
 	stubStorage();
+	stubRepositories();
 });
 
 afterEach(() => {
@@ -30,17 +31,18 @@ describe('ls', () => {
 
 		expect(await run('ls -l')).toMatch(new RegExp(`^total 16\\n-rw-r--r--\\. 1 robin robin +181 ${STAMP} contact\\.yml\\n(-rw-r--r--\\. 1 robin robin +\\d+ ${STAMP} \\S+\\n){2}-rw-r--r--\\. 1 robin robin +\\d+ ${STAMP} whoami\\.txt$`));
 		expect(await run('ls -la ~')).toMatch(new RegExp([
-			'^total 24',
-			`drwx------\\. 4 robin robin 4096 ${STAMP} \\.`,
+			'^total 28',
+			`drwx------\\. 5 robin robin 4096 ${STAMP} \\.`,
 			`drwxr-xr-x\\. 3 root  root  4096 ${STAMP} \\.\\.`,
 			`-rw-------\\. 1 robin robin +\\d+ ${STAMP} \\.bash_history`,
 			`drwx------\\. 2 robin robin 4096 ${STAMP} \\.kube`,
 			`-rw-r--r--\\. 1 robin robin +\\d+ ${STAMP} \\.profile`,
+			`drwxr-xr-x\\. 2 robin robin 4096 ${STAMP} Projects`,
 			`drwxr-xr-x\\. 3 robin robin 4096 ${STAMP} portfolio$`,
 		].join('\\n')));
 		expect(await run('ls -ld /tmp /dev/null')).toMatch(new RegExp(`^crw-rw-rw-\\. 1 root root 1, 3 ${STAMP} /dev/null\\ndrwxrwxrwt\\. 2 root root 4096 ${STAMP} /tmp$`));
 		expect(await run('ls -lh /usr/bin/ls /etc/passwd')).toMatch(new RegExp(`^-rw-r--r--\\. 1 root root 128 ${STAMP} /etc/passwd\\n-rwxr-xr-x\\. 1 root root  38 ${STAMP} /usr/bin/ls$`));
-		expect(await run('ls -l /bin/ | head -1')).toBe('total 276');
+		expect(await run('ls -l /bin/ | head -1')).toBe('total 288');
 		expect(await run('ls -lh /usr | head -1')).toBe('total 12K');
 		expect(await run('ls -l /tmp')).toBe('total 0');
 	});
@@ -77,7 +79,7 @@ describe('ls', () => {
 	it('goes into subdirectories with -R, with a heading for each', async () => {
 		const {run} = setup();
 
-		expect(await run('ls -R ~')).toBe('/home/robin:\nportfolio\n\n/home/robin/portfolio:\ncontact.yml  cv.md  side-quests.yml  whoami.txt');
+		expect(await run('ls -R ~')).toBe('/home/robin:\nProjects  portfolio\n\n/home/robin/Projects:\n\n/home/robin/portfolio:\ncontact.yml  cv.md  side-quests.yml  whoami.txt');
 		expect(await run('ls cv.md /etc')).toBe('cv.md\n\n/etc:\nhostname  os-release  passwd  robinj-release  shadow');
 		expect(await run('ls /etc /tmp')).toBe('/etc:\nhostname  os-release  passwd  robinj-release  shadow\n\n/tmp:');
 	});
@@ -96,8 +98,8 @@ describe('tree', () => {
 	it('draws directories as a tree, counting what it saw', async () => {
 		const {run} = setup();
 
-		expect(await run('tree ~')).toBe('/home/robin\n└── portfolio\n    ├── contact.yml\n    ├── cv.md\n    ├── side-quests.yml\n    └── whoami.txt\n\n1 directory, 4 files');
-		expect(await run('tree -a -L 2 ~')).toBe('/home/robin\n├── .bash_history\n├── .kube\n│   └── config\n├── .profile\n└── portfolio\n    ├── .git\n    ├── contact.yml\n    ├── cv.md\n    ├── side-quests.yml\n    └── whoami.txt\n\n3 directories, 7 files');
+		expect(await run('tree ~')).toBe('/home/robin\n├── Projects\n└── portfolio\n    ├── contact.yml\n    ├── cv.md\n    ├── side-quests.yml\n    └── whoami.txt\n\n2 directories, 4 files');
+		expect(await run('tree -a -L 2 ~')).toBe('/home/robin\n├── .bash_history\n├── .kube\n│   └── config\n├── .profile\n├── Projects\n└── portfolio\n    ├── .git\n    ├── contact.yml\n    ├── cv.md\n    ├── side-quests.yml\n    └── whoami.txt\n\n4 directories, 7 files');
 		expect(await run('tree -L 1 /usr')).toBe('/usr\n├── bin\n├── lib\n├── sbin -> bin\n└── share\n\n4 directories, 0 files');
 	});
 
@@ -105,18 +107,18 @@ describe('tree', () => {
 		const {run} = setup();
 
 		expect(await run('tree -d /')).toBe([
-			'/', '├── bin -> usr/bin', '├── boot', '├── dev', '├── etc', '├── home', '│   └── robin', '│       └── portfolio',
+			'/', '├── bin -> usr/bin', '├── boot', '├── dev', '├── etc', '├── home', '│   └── robin', '│       ├── Projects', '│       └── portfolio',
 			'├── root  [error opening dir]', '├── tmp', '├── usr', '│   ├── bin', '│   ├── lib', '│   ├── sbin -> bin', '│   └── share', '└── var', '    └── log',
-			'', '16 directories',
+			'', '17 directories',
 		].join('\n'));
 	});
 
 	it('colours on a terminal or with -C, unless told not to', async () => {
 		const session = setup();
 
-		expect(await coloured(session, 'tree -L 1 ~')).toBe('\x1b[01;34m/home/robin\x1b[0m\n└── \x1b[01;34mportfolio\x1b[0m\n\n1 directory, 0 files\n');
-		expect(await coloured(session, 'tree -n -L 1 ~')).toBe('/home/robin\n└── portfolio\n\n1 directory, 0 files\n');
-		expect(await coloured(session, 'tree -C -d -L 1 / | head -2')).toBe('\x1b[01;34m/\x1b[0m\n├── \x1b[01;36mbin\x1b[0m -> usr/bin\n');
+		expect(await coloured(session, 'tree -L 1 ~')).toBe('\x1b[01;34m/home/robin\x1b[0m\n├── \x1b[01;34mProjects\x1b[0m\n└── \x1b[01;34mportfolio\x1b[0m\n\n2 directories, 0 files\n');
+		expect(await coloured(session, 'tree -n -L 1 ~')).toBe('/home/robin\n├── Projects\n└── portfolio\n\n2 directories, 0 files\n');
+		expect(await coloured(session, 'tree -C -d -L 1 / | head -2')).toBe('\x1b[01;34m/\x1b[0m\n├── \x1b[01;36mbin\x1b[0m -> \x1b[01;34musr/bin\x1b[0m\n');
 	});
 
 	it('reports what is not a directory, and bad options', async () => {
@@ -596,6 +598,107 @@ describe('chmod and chown', () => {
 		expect(await run('chown -R root.root cv.md')).toBe("chown: changing ownership of 'cv.md': Read-only file system");
 		expect(await run('chown :bin cv.md')).toBe("chown: changing ownership of 'cv.md': Read-only file system");
 		expect(await run('chown robin')).toBe("chown: missing operand after 'robin'\nTry 'chown --help' for more information.");
+	});
+});
+
+describe('ln', () => {
+	it('checks what it can, then fails as on any read-only filesystem', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('ln')).toBe("ln: missing file operand\nTry 'ln --help' for more information.");
+		expect(await run('ln -z')).toBe("ln: invalid option -- 'z'\nTry 'ln --help' for more information.");
+		expect(await run('ln cv.md contact.yml nope')).toBe("ln: target 'nope' is not a directory");
+		expect(await run('ln nope x')).toBe("ln: failed to access 'nope': No such file or directory");
+		expect(await run('ln /etc x')).toBe('ln: /etc: hard link not allowed for directory');
+		expect(await run('ln /etc/passwd')).toBe("ln: failed to create hard link './passwd': Read-only file system");
+		expect(await run('ln cv.md contact.yml /tmp')).toBe("ln: failed to create hard link '/tmp/cv.md': Read-only file system\nln: failed to create hard link '/tmp/contact.yml': Read-only file system");
+		expect(await run('ln cv.md /root/x')).toBe("ln: failed to create hard link '/root/x' => 'cv.md': Permission denied");
+		expect(await run('ln /etc/passwd cv.md')).toBe("ln: failed to create hard link 'cv.md': File exists");
+		expect(await run('ln -s x cv.md')).toBe("ln: failed to create symbolic link 'cv.md': File exists");
+		expect(await run('ln -sf x cv.md')).toBe("ln: failed to create symbolic link 'cv.md': Read-only file system");
+		expect(await run('ln -s x /dev/x')).toBe("ln: failed to create symbolic link '/dev/x': Permission denied");
+		expect(await run('ln -s https://github.com/RobinJ1995/dotfiles')).toBe("ln: failed to create symbolic link './dotfiles': Read-only file system");
+		expect(shell.state.status).toBe(1);
+	});
+});
+
+describe('readlink', () => {
+	it('says where a link leads, and nothing about anything else unless asked', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('readlink /bin /usr/sbin')).toBe('usr/bin\nbin');
+		expect(await run('readlink cv.md; echo $?')).toBe('1');
+		expect(await run('readlink -v cv.md /nope')).toBe('readlink: cv.md: Invalid argument\nreadlink: /nope: No such file or directory');
+		expect(await run('readlink')).toBe("readlink: missing operand\nTry 'readlink --help' for more information.");
+		expect(await run('readlink -x')).toBe("readlink: invalid option -- 'x'\nTry 'readlink --help' for more information.");
+		expect(shell.state.status).toBe(1);
+	});
+
+	it('resolves every link on the way with -f, -e and -m, as much of the path as has to exist', async () => {
+		const {run} = setup();
+
+		expect(await run('readlink -f /bin/ls /usr/sbin nope /')).toBe('/usr/bin/ls\n/usr/bin\n/home/robin/portfolio/nope\n/');
+		expect(await run('readlink -e /bin/ls')).toBe('/usr/bin/ls');
+		expect(await run('readlink -ev nope /nope/x cv.md/x')).toBe('readlink: nope: No such file or directory\nreadlink: /nope/x: No such file or directory\nreadlink: cv.md/x: Not a directory');
+		expect(await run('readlink --canonicalize-missing /nope/x/../y')).toBe('/nope/y');
+	});
+});
+
+describe('stat', () => {
+	const TIME = '\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d{9} [-+]\\d{4}';
+
+	it('describes a file in full', async () => {
+		const {run} = setup();
+
+		expect(await run('stat cv.md contact.yml')).toMatch(new RegExp([
+			'^  File: cv\\.md',
+			'  Size: \\d{4} +\\tBlocks: 16         IO Block: 4096   regular file',
+			'Device: 259,3\\tInode: \\d+ +Links: 1',
+			'Access: \\(0644/-rw-r--r--\\)  Uid: \\( 1000/   robin\\)   Gid: \\( 1000/   robin\\)',
+			'Context: unconfined_u:object_r:user_home_t:s0',
+			`Access: ${TIME}`,
+			`Modify: ${TIME}`,
+			`Change: ${TIME}`,
+			` Birth: ${TIME}\\n  File: contact\\.yml\\n  Size: 181 +\\tBlocks: 8 `,
+		].join('\\n')));
+	});
+
+	it('tells directories, devices, links and empty files apart', async () => {
+		const {run} = setup();
+		const summary = async line => (await run(`${line} | grep -E '^ *(File|Size|Device|Access: \\(|Context)'`)).replace(/Inode: \d+ +/g, 'Inode: … ');
+
+		expect(await summary('stat /dev/null')).toBe([
+			'  File: /dev/null',
+			'  Size: 0         \tBlocks: 0          IO Block: 4096   character special file',
+			'Device: 0,5\tInode: … Links: 1     Device type: 1,3',
+			'Access: (0666/crw-rw-rw-)  Uid: (    0/    root)   Gid: (    0/    root)',
+			'Context: system_u:object_r:null_device_t:s0',
+		].join('\n'));
+		expect(await summary('stat /tmp ~')).toBe([
+			'  File: /tmp',
+			'  Size: 4096      \tBlocks: 8          IO Block: 4096   directory',
+			'Device: 259,3\tInode: … Links: 2',
+			'Access: (1777/drwxrwxrwt)  Uid: (    0/    root)   Gid: (    0/    root)',
+			'Context: system_u:object_r:tmp_t:s0',
+			'  File: /home/robin',
+			'  Size: 4096      \tBlocks: 8          IO Block: 4096   directory',
+			'Device: 259,3\tInode: … Links: 5',
+			'Access: (0700/drwx------)  Uid: ( 1000/   robin)   Gid: ( 1000/   robin)',
+			'Context: unconfined_u:object_r:user_home_dir_t:s0',
+		].join('\n'));
+		expect(await summary('stat /bin')).toMatch(/^  File: \/bin -> usr\/bin\n  Size: 7 +\tBlocks: 0 +IO Block: 4096   symbolic link\n/);
+		expect(await summary('stat -L /bin')).toMatch(/^  File: \/bin\n  Size: 4096 +\tBlocks: 8 +IO Block: 4096   directory\n.*\n.*\nContext: system_u:object_r:bin_t:s0$/);
+		expect(await summary('history -c; stat ~/.bash_history')).toMatch(/IO Block: 4096   regular empty file\n/);
+		expect(await summary('stat /usr/share')).toMatch(/Context: system_u:object_r:usr_t:s0$/);
+	});
+
+	it('says what it cannot stat', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('stat /nope /root/x')).toBe("stat: cannot statx '/nope': No such file or directory\nstat: cannot statx '/root/x': Permission denied");
+		expect(shell.state.status).toBe(1);
+		expect(await run('stat')).toBe("stat: missing operand\nTry 'stat --help' for more information.");
+		expect(await run('stat -c %s cv.md')).toBe("stat: invalid option -- 'c'\nTry 'stat --help' for more information.");
 	});
 });
 

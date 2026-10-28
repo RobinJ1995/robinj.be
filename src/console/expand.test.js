@@ -1,8 +1,9 @@
 import {describe, it, expect, beforeEach} from 'vitest';
-import {setup, stubStorage} from './test-helpers';
+import {setup, stubRepositories, stubStorage} from './test-helpers';
 
 beforeEach(() => {
 	stubStorage();
+	stubRepositories();
 });
 
 describe('brace expansion', () => {
@@ -209,7 +210,7 @@ describe('pathname expansion', () => {
 		const {run} = setup();
 
 		expect(await run('echo /etc/host?ame /etc/[ph]* /etc/[^ph]*')).toBe('/etc/hostname /etc/hostname /etc/passwd /etc/os-release /etc/robinj-release /etc/shadow');
-		expect(await run('cd ~; echo * .* .[bk]*')).toBe('portfolio .bash_history .kube .profile .bash_history .kube');
+		expect(await run('cd ~; echo * .* .[bk]*')).toBe('Projects portfolio .bash_history .kube .profile .bash_history .kube');
 		expect(await run('echo /etc/*[[:digit:]]* /etc/[[:alpha:]]ostname /etc/[[:bogus:]h]ostname')).toBe('/etc/*[[:digit:]]* /etc/hostname /etc/hostname');
 	});
 

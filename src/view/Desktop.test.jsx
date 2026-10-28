@@ -58,15 +58,12 @@ describe('desktop', () => {
 		expect(container.querySelector('.editor')).not.toBeNull();
 	});
 
-	it('raises the editor when it is clicked, and the URL follows', () => {
-		const pushSpy = vi.spyOn(window.history, 'pushState');
+	it('raises the editor when it is clicked', () => {
 		const {container} = render(<App initialPath="/contact" />);
 
 		fireEvent.click(screen.getByRole('button', {name: 'Switch to Editor'}));
 
 		expect(focused(container)).toBe('Editor');
-		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/contact/source');
-		pushSpy.mockRestore();
 	});
 
 	it('switches windows from the dock', () => {
@@ -90,7 +87,7 @@ describe('desktop', () => {
 		expect(container.querySelector('.desktop.is-overview')).toBeNull();
 	});
 
-	it('leaves an empty desktop when the last window closes, and the dock starts one again', () => {
+	it('leaves an empty desktop in Activities when the last window closes, and the dock starts one again', () => {
 		vi.useFakeTimers();
 		const {container} = render(<App initialPath="/cv" />);
 
@@ -101,36 +98,51 @@ describe('desktop', () => {
 		fireEvent.click(screen.getByTitle('Close'));
 		act(() => vi.advanceTimersByTime(250));
 		expect(windows(container)).toEqual([]);
-		expect(container.querySelector('.desktop.is-overview')).toBeNull();
-		expect(screen.getByRole('button', {name: 'Activities'})).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.getByRole('button', {name: 'Activities'})).toHaveAttribute('aria-pressed', 'true');
 		expect(screen.queryByText('You look like you might be lost.')).toBeNull();
 
 		fireEvent.click(screen.getByRole('link', {name: 'Website'}));
+		expect(screen.getByRole('button', {name: 'Activities'})).toHaveAttribute('aria-pressed', 'false');
 		expect(focused(container)).toBe('Website');
 		expect(screen.getByText('Work Experience')).toBeInTheDocument();
 	});
 
 	it('suggests a way back to the CV once the desktop has been empty for a while', () => {
 		vi.useFakeTimers();
-		const pushSpy = vi.spyOn(window.history, 'pushState');
+		window.history.replaceState(null, '', '/side-quests');
 		const {container} = render(<App initialPath="/side-quests" />);
 
 		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
 		fireEvent.click(screen.getByTitle('Close'));
-		act(() => vi.advanceTimersByTime(4900));
+		act(() => vi.advanceTimersByTime(3900));
 		expect(screen.queryByText('You look like you might be lost.')).toBeNull();
 		act(() => vi.advanceTimersByTime(100));
 		expect(screen.getByRole('status')).toHaveTextContent('You look like you might be lost.');
 
-		// The empty desktop no longer opens Activities when clicked.
+		// The bare desktop leaves Activities when clicked, and doesn't open it again.
+		fireEvent.click(container.querySelector('.dt-stage'));
 		fireEvent.click(container.querySelector('.dt-stage'));
 		expect(container.querySelector('.desktop.is-overview')).toBeNull();
 
 		fireEvent.click(screen.getByRole('link', {name: 'Back to my CV?'}));
 		expect(focused(container)).toBe('Website');
-		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/cv');
+		expect(window.location.pathname).toBe('/cv');
 		expect(screen.queryByText('You look like you might be lost.')).toBeNull();
-		pushSpy.mockRestore();
+	});
+
+	it('blurs the wallpaper behind open windows, and opens Activities once the last one closes', () => {
+		vi.useFakeTimers();
+		const {container} = render(<App initialPath="/cv" />);
+		const desktop = container.querySelector('.desktop');
+		expect(desktop).toHaveClass('has-windows');
+		expect(desktop).not.toHaveClass('is-overview');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		expect(desktop).not.toHaveClass('is-overview');
+		fireEvent.click(screen.getByTitle('Close'));
+
+		expect(desktop).not.toHaveClass('has-windows');
+		expect(desktop).toHaveClass('is-overview');
 	});
 
 	it('suggests a way back sooner on a phone', () => {
@@ -549,7 +561,7 @@ describe('desktop', () => {
 		act(() => session.startSession.mock.calls.at(-1)[0].onOpenFile('side-quests'));
 
 		expect(focused(container)).toBe('Editor');
-		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/side-quests/source');
+		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/side-quests');
 		pushSpy.mockRestore();
 	});
 
@@ -577,6 +589,147 @@ describe('desktop', () => {
 		expect(system.processes()[1].pid).not.toBe(processes[1].pid);
 	});
 
+	it('opens the video player the terminal launches, in the dock while it runs, and lists it as a process', async () => {
+		window.history.replaceState(null, '', '/cv');
+		const {container} = render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		expect(screen.queryByRole('button', {name: 'Video Player'})).toBeNull();
+
+		act(() => system.launch('video-player'));
+
+		expect(focused(container)).toBe('Video Player');
+		expect(screen.getByRole('button', {name: 'Video Player'})).toHaveClass('is-running');
+		const video = system.processes().find(proc => proc.name === 'video-player');
+		expect(video).toBeDefined();
+		expect(window.location.pathname).toBe('/cv');
+
+		act(() => {
+			system.kill(video.pid);
+		});
+		await waitFor(() => expect(windows(container)).not.toContain('Video Player'));
+		expect(screen.queryByRole('button', {name: 'Video Player'})).toBeNull();
+	});
+
+	it('opens links in a new tab of the visitor\'s browser, cut off from this one', async () => {
+		render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		const tab = {opener: window};
+		vi.stubGlobal('open', vi.fn(() => tab));
+
+		expect(system.openUrl('https://github.com/RobinJ1995/robinj.be')).toBe(true);
+		expect(window.open).toHaveBeenCalledWith('https://github.com/RobinJ1995/robinj.be', '_blank');
+		expect(tab.opener).toBeNull();
+
+		window.open.mockReturnValue(null);
+		expect(system.openUrl('https://github.com/RobinJ1995/robinj.be')).toBe(false);
+	});
+
+	it('remembers where a window was put until it is closed', () => {
+		vi.useFakeTimers();
+		const {container} = render(<App initialPath="/cv" />);
+		const site = () => container.querySelector('[data-win="site"]');
+		const bar = site().querySelector('[data-titlebar]');
+		vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue({left: 0, right: 500, top: 0, bottom: 46});
+
+		fireEvent.pointerDown(bar, {clientX: 100, clientY: 20});
+		fireEvent.pointerMove(site(), {clientX: 150, clientY: 60});
+		fireEvent.pointerUp(site());
+		expect(site().style.left).not.toBe('');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		act(() => vi.advanceTimersByTime(500));
+		fireEvent.click(screen.getByRole('link', {name: 'Website'}));
+		expect(site().style.left).toBe('');
+	});
+
+	it('keeps a window that was put somewhere within reach as the screen shrinks, and puts it back as it grows', () => {
+		const {container} = render(<App initialPath="/cv" />);
+		const site = () => container.querySelector('[data-win="site"]');
+		const stage = container.querySelector('.dt-stage');
+		const size = (width, height) => {
+			Object.defineProperty(stage, 'clientWidth', {value: width, configurable: true});
+			Object.defineProperty(stage, 'clientHeight', {value: height, configurable: true});
+			act(() => window.dispatchEvent(new Event('resize')));
+		};
+		size(1600, 1000);
+		vi.spyOn(site().querySelector('[data-titlebar]'), 'getBoundingClientRect').mockReturnValue({left: 0, right: 500, top: 0, bottom: 46});
+		vi.spyOn(site(), 'offsetWidth', 'get').mockReturnValue(1200);
+		vi.spyOn(site(), 'offsetHeight', 'get').mockReturnValue(800);
+
+		fireEvent.pointerDown(site().querySelector('[data-titlebar]'), {clientX: 100, clientY: 20});
+		fireEvent.pointerMove(site(), {clientX: 500, clientY: 220});
+		expect(site().style).toMatchObject({left: '400px', top: '200px', width: '1200px', height: '800px'});
+
+		// Away from the screen's edges, as no dock's to be seen here.
+		size(1000, 700);
+		expect(site().style).toMatchObject({left: '8px', top: '0px', width: '984px', height: '692px'});
+
+		size(1600, 1000);
+		expect(site().style).toMatchObject({left: '400px', top: '200px', width: '1200px', height: '800px'});
+	});
+
+	it('leaves where windows were put alone while they are maximised', () => {
+		vi.useFakeTimers();
+		const {container} = render(<App initialPath="/cv" />);
+		const site = () => container.querySelector('[data-win="site"]');
+		const stage = container.querySelector('.dt-stage');
+		const size = (width, height) => {
+			Object.defineProperty(stage, 'clientWidth', {value: width, configurable: true});
+			Object.defineProperty(stage, 'clientHeight', {value: height, configurable: true});
+			act(() => window.dispatchEvent(new Event('resize')));
+			act(() => vi.advanceTimersByTime(1000));
+		};
+		size(1600, 1000);
+		vi.spyOn(site().querySelector('[data-titlebar]'), 'getBoundingClientRect').mockReturnValue({left: 0, right: 500, top: 0, bottom: 46});
+		vi.spyOn(site(), 'offsetWidth', 'get').mockReturnValue(1200);
+		vi.spyOn(site(), 'offsetHeight', 'get').mockReturnValue(800);
+		fireEvent.pointerDown(site().querySelector('[data-titlebar]'), {clientX: 100, clientY: 20});
+		fireEvent.pointerMove(site(), {clientX: 500, clientY: 220});
+
+		smallScreen();
+		size(800, 500);
+		vi.unstubAllGlobals();
+		size(1600, 1000);
+
+		expect(site().style).toMatchObject({left: '400px', top: '200px', width: '1200px', height: '800px'});
+	});
+
+	it('neither moves nor resizes windows where they are maximised', () => {
+		smallScreen();
+		const {container} = render(<App initialPath="/cv" />);
+		const site = container.querySelector('[data-win="site"]');
+		vi.spyOn(site.querySelector('[data-titlebar]'), 'getBoundingClientRect').mockReturnValue({left: 0, right: 500, top: 0, bottom: 46});
+
+		fireEvent.pointerDown(site.querySelector('[data-titlebar]'), {clientX: 100, clientY: 20});
+		fireEvent.pointerMove(site, {clientX: 150, clientY: 60});
+
+		expect(site.style.left).toBe('');
+		expect(site.querySelector('[data-resize]')).toBeNull();
+	});
+
+	it('prints the website\'s page, laying out a copy for the occasion when its window is closed', () => {
+		vi.useFakeTimers();
+		const {container} = render(<App initialPath="/contact" />);
+		const copy = () => container.querySelector('.dt-print');
+
+		act(() => window.dispatchEvent(new Event('beforeprint')));
+		expect(copy()).toBeNull();
+		act(() => window.dispatchEvent(new Event('afterprint')));
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		act(() => vi.advanceTimersByTime(500));
+		expect(copy()).toBeNull();
+		act(() => window.dispatchEvent(new Event('beforeprint')));
+		expect(copy()).toHaveTextContent(/on LinkedIn/);
+
+		act(() => window.dispatchEvent(new Event('afterprint')));
+		expect(copy()).toBeNull();
+	});
+
 	it('powers off through the console, then boots to an empty desktop', async () => {
 		const {container} = render(<App initialPath="/cv" />);
 		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
@@ -592,6 +745,8 @@ describe('desktop', () => {
 		act(() => vi.advanceTimersByTime(10));
 		expect(screen.getByRole('log', {name: 'System console'})).toHaveTextContent('Reached target poweroff.target');
 		expect(windows(container)).toEqual([]);
+		// Shutting down closes every window without opening Activities.
+		expect(container.querySelector('.desktop')).not.toHaveClass('is-overview');
 
 		act(() => vi.advanceTimersByTime(800));
 		expect(screen.queryByRole('button', {name: 'Power on'})).toBeNull();

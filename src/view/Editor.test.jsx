@@ -1,9 +1,10 @@
 import {describe, it, expect, vi, afterEach} from 'vitest';
 import {render, screen, fireEvent, cleanup, act} from '@testing-library/react';
-import EditorApp from './Editor';
+import EditorApp, {forgetGitStats} from './Editor';
 
 afterEach(() => {
 	cleanup();
+	forgetGitStats();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
 });
@@ -164,6 +165,37 @@ describe('editor', () => {
 		fireEvent.click(container.querySelector('.editor-tab a[aria-label="cv.md"]'));
 
 		expect(onNavigate).toHaveBeenCalledWith('cv/source', expect.anything());
+	});
+
+	it('makes do with what GitHub leaves out, and keeps its placeholders when it says no', async () => {
+		vi.stubGlobal('fetch', vi.fn(url => Promise.resolve(url.includes('/commits')
+			? {ok: true, headers: {get: () => null}, json: () => Promise.resolve([])}
+			: {ok: true, json: () => Promise.resolve({pushed_at: new Date().toISOString()})})));
+		const {container, unmount} = editor();
+
+		expect(await screen.findByText(/last commit: just now/)).toBeInTheDocument();
+		expect(container.querySelector('.editor-sidebar')).toHaveTextContent('branch: master');
+		expect(container.querySelector('.editor-sidebar')).toHaveTextContent('… commits');
+		expect(container.querySelector('.editor-statusbar')).toHaveTextContent('Robin Jacobs · …');
+		unmount();
+
+		forgetGitStats();
+		vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ok: false})));
+		const refused = editor();
+		await act(() => Promise.resolve());
+		expect(refused.container.querySelector('.editor-sidebar')).toHaveTextContent('last commit: …');
+	});
+
+	it('asks GitHub once, however often it opens', async () => {
+		vi.stubGlobal('fetch', github());
+		const {unmount} = editor();
+		await screen.findByText('432 commits');
+		unmount();
+
+		editor();
+
+		expect(await screen.findByText('432 commits')).toBeInTheDocument();
+		expect(fetch).toHaveBeenCalledTimes(2);
 	});
 
 	it('closes through onClose when it has one, and runs the page otherwise', () => {

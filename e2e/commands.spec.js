@@ -119,6 +119,41 @@ test('has the site\'s own repository checked out, at GitHub\'s last commit', asy
 	await expect(screen(page)).toContainText('found .git');
 });
 
+test('lists Robin\'s repositories in ~/Projects as links, which only open in a new tab', async ({page}) => {
+	await page.route('https://api.github.com/users/RobinJ1995/repos?*', route => route.fulfill({
+		json: [{name: 'dotfiles', html_url: 'https://github.com/RobinJ1995/dotfiles'}, {name: 'robinj.be', html_url: 'https://github.com/RobinJ1995/robinj.be'}],
+		headers: {'access-control-allow-origin': '*'},
+	}));
+	await page.context().route('https://github.com/**', route => route.fulfill({body: 'a repository'}));
+	await start(page);
+
+	await run(page, 'echo found $(ls ~/Projects)');
+	await expect(screen(page)).toContainText('found dotfiles robinj.be');
+	await run(page, 'cat ~/Projects/robinj.be');
+	await expect(screen(page)).toContainText('No such file or directory');
+
+	const popup = page.waitForEvent('popup');
+	await run(page, 'xdg-open ~/Projects/dotfiles');
+	expect((await popup).url()).toBe('https://github.com/RobinJ1995/dotfiles');
+});
+
+test('opens the video player once it is installed, and plays its video', async ({page}) => {
+	await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({body: '<p>a video</p>', contentType: 'text/html'}));
+	await start(page);
+
+	await run(page, 'video-player');
+	await expect(screen(page)).toContainText('video-player: command not found');
+	await run(page, 'sudo dnf install -y video-player');
+	await expect(screen(page)).toContainText('Complete!', {timeout: 15_000});
+	await run(page, 'video-player');
+
+	const player = page.locator('.dt-window[aria-label="Video Player"]');
+	await expect(page.locator('.dt-window.is-focused')).toHaveAttribute('aria-label', 'Video Player');
+	await expect(page.locator('.dt-dock-item[data-win="video"]')).toHaveClass(/is-running/);
+	await player.getByRole('button', {name: 'video.mp4'}).click();
+	await expect(player.locator('iframe')).toHaveAttribute('src', /^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ\?.*fs=0/);
+});
+
 test.describe('the caffeine module', () => {
 	test('gives the desktop the jitters while it\'s loaded', async ({page}) => {
 		await start(page);

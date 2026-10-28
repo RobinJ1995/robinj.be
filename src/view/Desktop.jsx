@@ -1,24 +1,37 @@
 import React, {useState, useEffect, useLayoutEffect, useRef, useMemo} from 'react';
+import {flushSync} from 'react-dom';
+import Window, {CloseIcon, fitGeometry, refitGeometry, dockOverlap} from './Window';
 
-const ORDER = ['site', 'source', 'console'];
-// The windows the URL can point at; the terminal has no URL of its own.
+const ORDER = ['site', 'source', 'console', 'video'];
+// Always in the dock; other apps only while they run.
+const FAVOURITES = ['site', 'source', 'console'];
+// The windows that show the page; the others have no URL of their own.
 const URL_WINDOWS = ['site', 'source'];
+// As small as each app can be and still work comfortably.
+const MIN_SIZES = {
+	site: {width: 360, height: 360},
+	source: {width: 360, height: 360},
+	console: {width: 420, height: 260},
+	video: {width: 360, height: 294},
+};
 // Where windows are maximised, as in _Desktop.scss.
 const SMALL = '(width < 900px), (height < 600px)';
 const SITE = {title: 'Robin Jacobs', url: 'https://robinj.be/'};
 // Matches the dt-close animation in _Desktop.scss.
 const CLOSE_MS = 180;
 // The windows as the terminal's processes, and back.
-const PROCESSES = {site: 'web', source: 'editor', console: 'terminal'};
-const WINDOWS = {web: 'site', editor: 'source', terminal: 'console'};
+const PROCESSES = {site: 'web', source: 'editor', console: 'terminal', video: 'video-player'};
+const WINDOWS = {web: 'site', editor: 'source', terminal: 'console', 'video-player': 'video'};
 const DESKTOP_PID = 1337;
 const FIRST_PID = 2000;
 // How long the screen stays black after powering off, before the power button.
 const OFF_MS = 3000;
 const RESTART_MS = 1200;
 // How long an empty desktop waits before suggesting a way back; less on a phone.
-const LOST_MS = 5000;
+const LOST_MS = 4000;
 const LOST_SMALL_MS = 3000;
+// A pause this long ends a change of the screen's size.
+const RESIZE_SETTLE_MS = 500;
 // Minimising a window to its dock icon, or restoring it, on a small screen.
 const MINIMISE = {duration: 300, easing: 'cubic-bezier(.25, .46, .45, .94)'};
 // A panic stays on screen this long, then the machine is off as after a shutdown.
@@ -29,12 +42,6 @@ const LockIcon = () => (
 	<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
 		<rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" />
 		<path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-	</svg>
-);
-
-export const CloseIcon = () => (
-	<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-		<path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
 	</svg>
 );
 
@@ -115,11 +122,12 @@ const DarkIcon = () => (
 	</svg>
 );
 
-// GNOME's own app icons (see public/img/icons/README.md).
+// GNOME's own app icons (see public/img/icons/attribution.md).
 const APPS = {
 	site: {name: 'Website', icon: '/img/icons/org.gnome.Epiphany.svg'},
 	source: {name: 'Editor', icon: '/img/icons/org.gnome.TextEditor.svg'},
 	console: {name: 'Terminal', icon: '/img/icons/org.gnome.Console.svg'},
+	video: {name: 'Video Player', icon: '/img/icons/org.gnome.Showtime.svg'},
 };
 
 const THEMES = [
@@ -429,7 +437,7 @@ const BrowserBar = ({address, scrollAway, onClose}) => {
 	});
 
 	return (
-		<div ref={ref} className={`dt-headerbar${hidden ? ' is-hidden' : ''}`}>
+		<div ref={ref} className={`dt-headerbar${hidden ? ' is-hidden' : ''}`} data-titlebar>
 			<span />
 			<div className="dt-address-group">
 				<div className="dt-address">
@@ -449,32 +457,9 @@ const BrowserBar = ({address, scrollAway, onClose}) => {
 	);
 };
 
-const Window = ({ref, win, focused, closing, overview, layer, fit, animate, header, onActivate, children}) => {
-	// Only windows opened after hydration animate in; the prerendered ones are just there.
-	const [opening] = useState(animate);
-	const {name} = APPS[win];
-	const interactive = focused && !overview && !closing;
-	const classes = ['dt-window', focused && 'is-focused', opening && 'is-opening', closing && 'is-closing'];
-	const style = overview && fit
-		? {'--z': layer, transform: `translate(${fit.x}px, ${fit.y}px) scale(${fit.scale})`, '--ov-scale': fit.scale}
-		: {'--z': layer};
-
-	return (
-		<section ref={ref} className={classes.filter(Boolean).join(' ')} data-win={win} style={style} aria-label={name} inert={closing}>
-			<div className="dt-window-frame">
-				{header}
-				<div className="dt-window-content" inert={!interactive}>{children}</div>
-			</div>
-			{!interactive && (
-				<button type="button" className="dt-window-activate" aria-label={`Switch to ${name}`} onClick={onActivate} />
-			)}
-		</section>
-	);
-};
-
 const Dock = ({open, hrefs, onShow}) => (
 	<div className="dt-dock" aria-label="Dock">
-		{ORDER.map(win => {
+		{ORDER.filter(win => FAVOURITES.includes(win) || open[win]).map(win => {
 			const {name, icon} = APPS[win];
 
 			const props = {
@@ -501,17 +486,21 @@ const Dock = ({open, hrefs, onShow}) => (
 const TOP_BAR = 32;
 const INACTIVE_WORKSPACE_SCALE = 0.94;
 
+// The room the dock takes along the screen's left or bottom edge.
+const dockSize = desktop => {
+	const css = getComputedStyle(desktop);
+	return {left: parseFloat(css.getPropertyValue('--dt-dock-left')) || 0, bottom: parseFloat(css.getPropertyValue('--dt-dock-bottom')) || 0};
+};
+
 const workspaceCard = desktop => {
 	const width = desktop.clientWidth;
 	const height = desktop.clientHeight;
-	const css = getComputedStyle(desktop);
-	const dockLeft = parseFloat(css.getPropertyValue('--dt-dock-left')) || 0;
-	const dockBottom = parseFloat(css.getPropertyValue('--dt-dock-bottom')) || 0;
+	const dock = dockSize(desktop);
 	const area = {
-		x: dockLeft + width * 0.06,
+		x: dock.left + width * 0.06,
 		y: TOP_BAR + height * 0.05,
-		width: width - dockLeft - width * 0.12,
-		height: height - TOP_BAR - dockBottom - height * 0.1,
+		width: width - dock.left - width * 0.12,
+		height: height - TOP_BAR - dock.bottom - height * 0.1,
 	};
 	const scale = Math.min(area.width / width, area.height / height);
 	const x = area.x + (area.width - width * scale) / 2;
@@ -604,12 +593,12 @@ const PowerScreen = ({power, onDone, onPowerOn}) => {
 	);
 };
 
-// A GNOME-style desktop around the website, the editor and a terminal. The website
-// or editor in front follows the URL (`/x` vs `/x/source`); the terminal, and which
-// windows are open, are local to the visit.
-const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindow}) => {
-	const [open, setOpen] = useState({site: true, source: true, console: false});
-	// The terminal, when it's in front of whatever the URL points at.
+// A GNOME-style desktop around the website, the editor and other apps. App says
+// which of the website and editor is in front (`focused`), and hears whether either
+// is open (`onPageOpen`); the rest is the desktop's own.
+const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onPageOpen, renderWindow}) => {
+	const [open, setOpen] = useState({site: true, source: true, console: false, video: false});
+	// A window other than those two, when it's in front of them.
 	const [front, setFront] = useState(null);
 	// Back to front.
 	const [stack, setStack] = useState(() => [...URL_WINDOWS.filter(win => win !== focused), focused]);
@@ -628,6 +617,15 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 	// Just booted: the desktop zooms in, as GNOME's does after logging in.
 	const [starting, setStarting] = useState(false);
 	const [caffeinated, setCaffeinated] = useState(false);
+	// Where windows were moved or resized to; the others keep their default place.
+	const [placed, setPlaced] = useState({});
+	const [stage, setStage] = useState(null);
+	const [printing, setPrinting] = useState(false);
+	const placedNow = useRef(placed);
+	placedNow.current = placed;
+	// While the screen changes size: where the windows were before it began, so
+	// that they're back there if it grows again.
+	const resizing = useRef(null);
 	const keyboard = useKeyboardFit();
 	const small = useMedia(SMALL);
 	const reduceMotion = useMedia('(prefers-reduced-motion: reduce)');
@@ -670,7 +668,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		}
 	};
 
-	// However the URL changed (in-page toggle, back button), its window comes to the front.
+	// However `focused` changed (a link to the source, the back button), its window comes to the front.
 	useEffect(() => {
 		spawn(focused);
 		setOpen(o => (o[focused] ? o : {...o, [focused]: true}));
@@ -700,6 +698,15 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 	const isUp = win => open[win] && !closing[win];
 
 	const anyUp = ORDER.some(isUp);
+
+	// Closing the last window opens Activities; shutting down, which closes them all, doesn't.
+	const wasUp = useRef(anyUp);
+	useEffect(() => {
+		if (wasUp.current && !anyUp && !power) {
+			setOverview(true);
+		}
+		wasUp.current = anyUp;
+	}, [anyUp]);
 	useEffect(() => {
 		if (anyUp) {
 			setLost(false);
@@ -724,13 +731,64 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		setDismissed(true);
 	};
 
+	const pageOpen = URL_WINDOWS.some(win => open[win]);
+	useEffect(() => {
+		onPageOpen?.(pageOpen);
+	}, [pageOpen]);
+
+	// Printing gives just the website's page (see @media print in _Desktop.scss);
+	// with its window closed, a copy is laid out for the occasion. It has to be in
+	// place before the browser lays out the printout, hence flushSync.
+	useEffect(() => {
+		const start = () => flushSync(() => setPrinting(true));
+		const end = () => setPrinting(false);
+		window.addEventListener('beforeprint', start);
+		window.addEventListener('afterprint', end);
+
+		return () => {
+			window.removeEventListener('beforeprint', start);
+			window.removeEventListener('afterprint', end);
+		};
+	}, []);
+
 	// Measured ahead of time, so the zoom into Activities starts from where things are.
 	useLayoutEffect(() => {
-		const measure = () => setCard(workspaceCard(stageRef.current.parentElement));
-		measure();
-		window.addEventListener('resize', measure);
+		const measure = () => {
+			const size = {width: stageRef.current.clientWidth, height: stageRef.current.clientHeight};
+			setCard(workspaceCard(stageRef.current.parentElement));
+			setStage(size);
+			return size;
+		};
+		let size = measure();
 
-		return () => window.removeEventListener('resize', measure);
+		const onResize = () => {
+			const before = size;
+			size = measure();
+			if (window.matchMedia?.(SMALL).matches) {
+				return;
+			}
+
+			const dock = dockSize(stageRef.current.parentElement);
+			resizing.current ??= {
+				from: placedNow.current,
+				overlaps: Object.fromEntries(Object.entries(placedNow.current).map(([win, geometry]) => [win, dockOverlap(geometry, before, dock)])),
+			};
+			clearTimeout(resizing.current.timer);
+			resizing.current.timer = setTimeout(() => {
+				resizing.current = null;
+			}, RESIZE_SETTLE_MS);
+			const {from, overlaps} = resizing.current;
+			setPlaced(now => Object.fromEntries(Object.entries(now).map(([win, geometry]) => [
+				win,
+				from[win] ? refitGeometry(from[win], size, MIN_SIZES[win], dock, overlaps[win]) : geometry,
+			])));
+		};
+		window.addEventListener('resize', onResize);
+
+		return () => {
+			window.removeEventListener('resize', onResize);
+			clearTimeout(resizing.current?.timer);
+		};
 	}, []);
 
 	// Small screens: switching, or closing with another window open, minimises the
@@ -766,7 +824,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		if (overview) {
 			setFits(fitWindows(ORDER.filter(isUp).map(win => [win, windowEls.current[win]]), card));
 		}
-	}, [overview, card, open.site, open.source, open.console, closing.site, closing.source, closing.console]);
+	}, [overview, card, ...ORDER.map(win => open[win]), ...ORDER.map(win => closing[win])]);
 
 	// Opens a window and brings it to the front, without touching the URL.
 	const raise = win => {
@@ -775,22 +833,24 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		setClosing(c => ({...c, [win]: false}));
 		setOverview(false);
 		setOpen(o => ({...o, [win]: true}));
-		setFront(win === 'console' ? win : null);
+		setFront(URL_WINDOWS.includes(win) ? null : win);
 	};
 
 	const show = (win, e = null) => {
 		e?.preventDefault();
 		raise(win);
-		if (win !== 'console' && win !== focused) {
+		if (URL_WINDOWS.includes(win) && win !== focused) {
 			onShow(win);
 		}
 	};
 
+	// Closed, it's forgotten where it was put: it opens in its default place.
 	const finishClosing = win => {
 		delete pids.current[win];
 		setOpen(o => ({...o, [win]: false}));
 		setClosing(c => ({...c, [win]: false}));
 		setFront(f => (f === win ? null : f));
+		setPlaced(({[win]: _, ...rest}) => rest);
 	};
 
 	// The window behind the one being closed comes to the front.
@@ -840,7 +900,8 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		setDismissed(false);
 		Object.values(closeTimers.current).forEach(clearTimeout);
 		pids.current = {};
-		setOpen({site: false, source: false, console: false});
+		setOpen({site: false, source: false, console: false, video: false});
+		setPlaced({});
 		setClosing({});
 		setFront(null);
 		setOverview(false);
@@ -912,6 +973,14 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 			return 'ok';
 		},
 		launch: app => latest.current.show(WINDOWS[app]),
+		// A tab in the visitor's own browser; false if the browser wouldn't open one.
+		openUrl: url => {
+			const tab = window.open(url, '_blank');
+			if (tab) {
+				tab.opener = null;
+			}
+			return !!tab;
+		},
 		halt: sequence => latest.current.halt(sequence),
 		// The caffeine kernel module: the desktop gets the jitters while it's loaded.
 		get caffeinated() {
@@ -921,7 +990,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 	}), []);
 
 	return (
-		<div className={`desktop${overview ? ' is-overview' : ''}${caffeinated ? ' is-caffeinated' : ''}`} style={card || keyboard ? {
+		<div className={`desktop${overview ? ' is-overview' : ''}${anyUp ? ' has-windows' : ''}${caffeinated ? ' is-caffeinated' : ''}`} style={card || keyboard ? {
 			...card && {
 				'--ov-x': `${card.x}px`, '--ov-y': `${card.y}px`, '--ov-scale': card.scale,
 				'--ov-peek-x': `${card.peekX}px`, '--ov-peek-y': `${card.peekY}px`, '--ov-peek-scale': card.peekScale,
@@ -937,8 +1006,14 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 					{openWindows.map(win => (
 						<Window key={win} ref={el => {
 							windowEls.current[win] = el;
-						}} win={win} focused={win === active} closing={!!closing[win]} overview={overview}
+						}} win={win} name={APPS[win].name} focused={win === active} closing={!!closing[win]} overview={overview}
 							layer={stack.indexOf(win) + 1} fit={fits[win]} animate={hydrated && animate}
+							geometry={!small && placed[win] && stage ? fitGeometry(placed[win], stage, MIN_SIZES[win]) : null}
+							movable={!small && !overview && !closing[win]} minSize={MIN_SIZES[win]}
+							onPlace={geometry => {
+								resizing.current = null;
+								setPlaced(p => ({...p, [win]: geometry}));
+							}}
 							header={win === 'site' && <BrowserBar address={address} scrollAway={small} onClose={() => close('site')} />}
 							onActivate={() => show(win)}>
 							{hasContent(win) && renderWindow(win, {close: () => close(win), raise, focused: win === active && !overview && !power, system})}
@@ -946,6 +1021,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 					))}
 					<Dock open={open} hrefs={hrefs} onShow={show} />
 				</div>
+				{printing && !isUp('site') && <div className="dt-print">{renderWindow('site', {focused: false, system})}</div>}
 				{lost && (
 					<div className="dt-notification" role="status">
 						<div className="dt-notification-header">

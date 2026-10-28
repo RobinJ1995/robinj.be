@@ -1,5 +1,6 @@
 import {vi} from 'vitest';
 import {createShell} from './shell';
+import {resetRepositories} from './projects';
 
 // Output without colour codes or cursor movement.
 export const plain = text => text.replace(/\x1b\[[\d;?]*[A-Za-z]/g, '');
@@ -71,6 +72,7 @@ export const fakeSystem = (overrides = {}) => {
 		processes: () => [],
 		kill: vi.fn(() => 'ok'),
 		launch: vi.fn(),
+		openUrl: vi.fn(() => true),
 		halt: vi.fn(),
 		get caffeinated() {
 			return awake;
@@ -91,4 +93,14 @@ export const stubStorage = (initial = {}) => {
 	});
 
 	return items;
+};
+
+// GitHub's answer for ~/Projects: Robin's repositories, by name, or a failure.
+export const stubRepositories = (names = [], {ok = true} = {}) => {
+	resetRepositories();
+	vi.stubGlobal('fetch', vi.fn(async () => ({
+		ok,
+		headers: new Headers(),
+		json: async () => names.map(name => ({name, html_url: `https://github.com/RobinJ1995/${name}`})),
+	})));
 };

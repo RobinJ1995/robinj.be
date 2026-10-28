@@ -124,7 +124,7 @@ const EditorChrome = ({page, onToggleView, onClose}) => {
 		: onToggleView;
 
 	return (
-		<div className="editor-chrome" style={{
+		<div className="editor-chrome" data-titlebar style={{
 			height: 38, background: 'var(--editor-chrome)', borderBottom: '1px solid var(--editor-rule)',
 			display: 'flex', alignItems: 'center', padding: '0 10px 0 14px', gap: 14, flexShrink: 0,
 		}}>
@@ -170,42 +170,57 @@ const relativeTime = iso => {
 	return 'just now';
 };
 
+// Asked once per page load, however often the editor opens: GitHub answers 60
+// requests an hour without a login, and then nothing.
+let gitStats = null;
+
+const fetchGitStats = () => {
+	gitStats ??= (async () => {
+		const ctrl = new AbortController();
+		const timer = setTimeout(() => ctrl.abort(), 6000);
+		try {
+			const repo = await fetch(`https://api.github.com/repos/${GIT_REPO}`, {signal: ctrl.signal})
+				.then(r => (r.ok ? r.json() : Promise.reject(new Error('repo'))));
+			const branch = repo.default_branch || 'master';
+			const next = {branch, lastCommit: relativeTime(repo.pushed_at) || '…'};
+
+			const res = await fetch(`https://api.github.com/repos/${GIT_REPO}/commits?per_page=1&sha=${branch}`, {signal: ctrl.signal});
+			if (res.ok) {
+				const link = res.headers.get('Link');
+				const match = link && link.match(/[?&]page=(\d+)>;\s*rel="last"/);
+				if (match) {
+					next.commitCount = Number(match[1]);
+				}
+				const [latest] = await res.json();
+				next.head = latest?.sha?.slice(0, 7) ?? null;
+			}
+
+			return next;
+		} catch {
+			/* Offline or rate-limited: keep the placeholders. */
+			return {};
+		} finally {
+			clearTimeout(timer);
+		}
+	})();
+
+	return gitStats;
+};
+
+// For tests: forget what GitHub said.
+export const forgetGitStats = () => {
+	gitStats = null;
+};
+
 const useGitStats = () => {
 	const [stats, setStats] = useState({branch: 'master', lastCommit: '…', commitCount: null, head: null});
 
 	useEffect(() => {
-		const ctrl = new AbortController();
-		const timer = setTimeout(() => ctrl.abort(), 6000);
-
-		(async () => {
-			try {
-				const repo = await fetch(`https://api.github.com/repos/${GIT_REPO}`, {signal: ctrl.signal})
-					.then(r => (r.ok ? r.json() : Promise.reject(new Error('repo'))));
-				const branch = repo.default_branch || 'master';
-				const next = {branch, lastCommit: relativeTime(repo.pushed_at) || '…'};
-
-				const res = await fetch(`https://api.github.com/repos/${GIT_REPO}/commits?per_page=1&sha=${branch}`, {signal: ctrl.signal});
-				if (res.ok) {
-					const link = res.headers.get('Link');
-					const match = link && link.match(/[?&]page=(\d+)>;\s*rel="last"/);
-					if (match) {
-						next.commitCount = Number(match[1]);
-					}
-					const [latest] = await res.json();
-					next.head = latest?.sha?.slice(0, 7) ?? null;
-				}
-
-				setStats(prev => ({...prev, ...next}));
-			} catch {
-				/* Offline or rate-limited: keep the placeholders. */
-			} finally {
-				clearTimeout(timer);
-			}
-		})();
+		let current = true;
+		fetchGitStats().then(next => current && setStats(prev => ({...prev, ...next})));
 
 		return () => {
-			clearTimeout(timer);
-			ctrl.abort();
+			current = false;
 		};
 	}, []);
 

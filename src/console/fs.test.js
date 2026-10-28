@@ -1,5 +1,6 @@
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, beforeAll, afterAll, vi} from 'vitest';
 import {CHUNK, createFs, displayPath, modeString, normalize, sizeOf} from './fs';
+import {listRepositories, resetRepositories} from './projects';
 
 const fs = createFs({history: () => ['ls', 'pwd'], binaries: () => ['ls']});
 
@@ -98,5 +99,39 @@ describe('the repository', () => {
 
 	it('is in /usr/sbin too, which is /usr/bin', () => {
 		expect(fs.lookup('/usr/sbin/ls').path).toBe('/usr/bin/ls');
+	});
+});
+
+describe('~/Projects', () => {
+	beforeAll(() => {
+		resetRepositories();
+		vi.stubGlobal('fetch', vi.fn(async () => ({ok: true, headers: new Headers(), json: async () => [{name: 'dotfiles', html_url: 'https://github.com/RobinJ1995/dotfiles'}]})));
+	});
+
+	afterAll(() => {
+		vi.unstubAllGlobals();
+		resetRepositories();
+	});
+
+	it('is empty until GitHub has listed it', () => {
+		expect(fs.list('/home/robin/Projects')).toEqual({names: [], path: '/home/robin/Projects'});
+	});
+
+	it('has a link for each repository, its URL a path relative to the folder, so leading nowhere', async () => {
+		await listRepositories();
+
+		expect(fs.list('/home/robin/Projects').names).toEqual(['dotfiles']);
+		expect(fs.lookup('/home/robin/Projects/dotfiles', {follow: false}).entry).toEqual({type: 'link', owner: 'robin', mode: 0o777, target: 'https://github.com/RobinJ1995/dotfiles'});
+		expect(fs.lookup('/home/robin/Projects/dotfiles')).toEqual({error: 'No such file or directory'});
+		expect(fs.lookup('/home/robin/Projects/dotfiles/README.md', {follow: false})).toEqual({error: 'No such file or directory'});
+		expect(fs.read('/home/robin/Projects/dotfiles')).toEqual({error: 'No such file or directory'});
+	});
+
+	it('would be written where a link leads', async () => {
+		await listRepositories();
+
+		expect(fs.writeError('/home/robin/Projects/dotfiles')).toBe('No such file or directory');
+		expect(fs.writeError('/bin')).toBe('Is a directory');
+		expect(fs.writeError('/bin/new')).toBe('Read-only file system');
 	});
 });

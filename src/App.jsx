@@ -1,10 +1,11 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import './style/App.scss';
 import {PAGES} from './constants';
 import EditorialApp from './view/Editorial';
 import EditorApp from './view/Editor';
 import Desktop from './view/Desktop';
 import Console from './view/Console';
+import VideoPlayer from './view/VideoPlayer';
 
 // Pure path parsers (no `window`), so they run identically on the server and client.
 const parseViewSource = path => String(path)
@@ -22,23 +23,26 @@ const homePath = () => (typeof window !== 'undefined' ? window.location.pathname
 const findPage = name => Object.values(PAGES).find(p => p.name === name);
 
 // Also used by the prerenderer (entry-server) so static <title> tags match the client's.
+// A page's source view shares its title, as it does its URL.
 export const pageTitle = path => {
-	const pageName = parsePage(path);
-	const viewSource = parseViewSource(path);
-	const page = findPage(pageName) || Object.values(PAGES).find(p => p['404']);
+	const page = findPage(parsePage(path)) || Object.values(PAGES).find(p => p['404']);
 
-	return `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
+	return `${page.title} • Robin Jacobs`;
 };
 
 const App = ({initialPath}) => {
 	const path = initialPath ?? homePath();
 	const [viewSource, setViewSource] = useState(() => parseViewSource(path));
 	const [pageName, setPageName] = useState(() => parsePage(path));
+	// Whether the website or editor is open. With neither, the URL names no page.
+	const [pageOpen, setPageOpen] = useState(true);
+	const pageless = useRef(false);
 
+	// Back and forward go from page to page, in whichever window is in front.
 	useEffect(() => {
 		const handlePopState = e => {
 			if (e?.state?.name) {
-				return navigate(e.state.name, e, false);
+				return navigate(e.state.name, e, false, true);
 			}
 
 			return window.location.reload();
@@ -49,8 +53,9 @@ const App = ({initialPath}) => {
 		return () => window.removeEventListener('popstate', handlePopState);
 	}, []);
 
-	// `name` may end in `/source` to open that page's source view.
-	const navigate = (name, e = null, pushHistory = true) => {
+	// `name` may end in `/source` for the page's source view; `keepView` keeps the
+	// current view instead. Only a change of page adds to the history.
+	const navigate = (name, e = null, pushHistory = true, keepView = false) => {
 		if (e) {
 			e.preventDefault();
 		}
@@ -63,14 +68,10 @@ const App = ({initialPath}) => {
 		}
 
 		setPageName(page.name);
-		setViewSource(source && !!page.source);
+		setViewSource(inSource => (source || (keepView && inSource)) && !!page.source);
 
-		if (pushHistory && typeof window !== 'undefined') {
-			const historyPageTitle = page.title + (source ? ' (Source)' : '') + ' • Robin Jacobs';
-			const historyPageName = page.name + (source ? '/source' : '');
-			const historyPageUrl = page.url + (source ? '/source' : '');
-
-			window.history.pushState({name: historyPageName, title: historyPageTitle}, historyPageTitle, historyPageUrl);
+		if (pushHistory && page.name !== pageName && typeof window !== 'undefined') {
+			window.history.pushState({name: page.name}, '', page.url);
 		}
 	};
 
@@ -84,9 +85,18 @@ const App = ({initialPath}) => {
 		page = notFound;
 	}
 
-	if (typeof document !== 'undefined') {
-		document.title = `${page.title} ${viewSource ? ' (Source)' : ''} • Robin Jacobs`;
-	}
+	// The URL is always the page's, never its source view's, so that's what gets
+	// shared; with the website and editor both closed, it's the bare site.
+	useEffect(() => {
+		const {pathname} = window.location;
+		const url = !pageOpen ? '/' : pageless.current ? page.url : pathname.replace(/\/source\/?$/, '') || '/';
+		pageless.current = !pageOpen;
+		// Named, so that coming back to the page arrived at doesn't reload it.
+		if (url !== pathname || window.history.state?.name !== page.name) {
+			window.history.replaceState({name: page.name}, '', url);
+		}
+		document.title = pageTitle(url);
+	}, [page.name, viewSource, pageOpen]);
 
 	const toggleViewSource = e => {
 		if (e) {
@@ -101,12 +111,22 @@ const App = ({initialPath}) => {
 	};
 
 	const showSource = viewSource && !!page.source;
+
+	// With the website and editor both closed, they open on the home page again.
+	const onPageOpen = open => {
+		setPageOpen(open);
+		if (!open) {
+			setPageName(Object.values(PAGES).find(p => p.home).name);
+		}
+	};
 	const sourcePage = page.source ? page.name : 'cv';
 
 	const showWindow = win => navigate(win === 'source' ? `${sourcePage}/source` : page.name);
 
 	const renderWindow = (win, {close, raise, focused, system}) => {
-		if (win === 'console') {
+		if (win === 'video') {
+			return <VideoPlayer onClose={close} />;
+		} else if (win === 'console') {
 			const openInEditor = name => {
 				raise('source');
 				navigate(`${name}/source`);
@@ -128,6 +148,7 @@ const App = ({initialPath}) => {
 			homeHref={findPage('cv').url}
 			onShow={showWindow}
 			onHome={e => navigate('cv', e)}
+			onPageOpen={onPageOpen}
 			renderWindow={renderWindow} />
 	);
 };

@@ -458,7 +458,7 @@ export const expandWords = async (words, env) => {
 		for (const parts of braceExpand(word)) {
 			for (const field of await toFields(tilde(parts, env), env, true)) {
 				const globbing = field.segments.some(segment => !segment.quoted && /[*?[]/.test(segment.text));
-				const matches = globbing ? env.glob(patternOf(field)) : [];
+				const matches = globbing ? await env.glob(patternOf(field)) : [];
 				result.push(...(matches.length ? matches : [textOf(field)]));
 			}
 		}

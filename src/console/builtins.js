@@ -513,7 +513,7 @@ export const BUILTINS = {
 		return ctx.printfFailed ? 1 : 0;
 	},
 
-	cd: (sh, ctx, args) => {
+	cd: async (sh, ctx, args) => {
 		const operands = args.filter(arg => !/^-[LPe@]+$/.test(arg));
 		if (operands.length > 1) {
 			error(ctx, 'bash: cd: too many arguments');
@@ -533,6 +533,7 @@ export const BUILTINS = {
 		}
 
 		const path = normalize(ctx.state.cwd, target);
+		await sh.ready([path], ctx.abort);
 		const found = sh.fs.lookup(path);
 		const problem = found.error ?? (found.entry.type === 'dir' ? sh.fs.access(path, 0o1) : 'Not a directory');
 		if (problem) {

@@ -529,17 +529,20 @@ const push = async api => {
 	throw new Fatal(`fatal: Authentication failed for '${ORIGIN}/'`);
 };
 
-const clone = (api, args) => {
+const clone = async (api, args) => {
 	const [url, directory] = args.filter(arg => !arg.startsWith('-'));
 	if (url === undefined) {
 		throw new Fatal('fatal: You must specify a repository to clone.\n\nusage: git clone [<options>] [--] <repo> [<dir>]', 129);
 	}
 	const name = directory ?? url.replace(/\/+$/, '').replace(/\.git$/, '').split(/[/:]/).pop();
-	const found = api.fs.list(api.resolve(name));
-	if (!found.error && found.names.length) {
+	const path = api.resolve(name);
+	await api.ready(path);
+	const listing = api.fs.list(path);
+	// Anything there, a link that leads nowhere included, unless it's an empty directory.
+	if (!api.fs.lookup(path, {follow: false}).error && (listing.error || listing.names.length)) {
 		throw new Fatal(`fatal: destination path '${name}' already exists and is not an empty directory.`);
 	}
-	throw new Fatal(`fatal: could not create work tree dir '${name}': ${api.fs.writeError(api.resolve(name)) ?? 'Read-only file system'}`);
+	throw new Fatal(`fatal: could not create work tree dir '${name}': ${api.fs.writeError(path)}`);
 };
 
 // Subcommands that need the repository, and change nothing in it or fail trying.
@@ -666,7 +669,7 @@ export const git = async api => {
 			api.out(`git version ${VERSION}\n`);
 			return 0;
 		} else if (command === 'clone') {
-			return clone(api, rest);
+			return await clone(api, rest);
 		} else if (command === 'config') {
 			return config(api, rest, inRepo);
 		} else if (!Object.hasOwn(REPOSITORY, command)) {

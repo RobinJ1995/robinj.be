@@ -122,11 +122,11 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 
 		fireEvent.click(screen.getAllByRole('link', {name: 'contact.yml'})[0]);
 		expect(tabs()).toEqual(['Mcv.md', 'Ycontact.yml']);
-		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/contact/source');
+		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/contact');
 
 		fireEvent.click(screen.getByRole('button', {name: 'Close contact.yml'}));
 		expect(tabs()).toEqual(['Mcv.md']);
-		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/cv/source');
+		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/cv');
 
 		fireEvent.click(screen.getByRole('button', {name: 'Close cv.md'}));
 		expect(tabs()).toEqual([]);
@@ -142,6 +142,96 @@ describe('view source toggles between the two designs (requirement 3)', () => {
 
 		expect(inFront()).toBe('Website');
 		expect(front().getByRole('heading', {level: 1, name: 'Robin Jacobs'})).toBeInTheDocument();
+	});
+});
+
+describe('the URL', () => {
+	const visit = path => {
+		window.history.replaceState(null, '', path);
+		return render(<App initialPath={path} />);
+	};
+
+	it('is the page\'s own after arriving at its source view, which opens the editor', () => {
+		visit('/side-quests/source');
+
+		expect(inFront()).toBe('Editor');
+		expect(window.location.pathname).toBe('/side-quests');
+		expect(document.title).toBe('Side Quests • Robin Jacobs');
+	});
+
+	it('stays put when the editor is raised, and gains no history', () => {
+		const pushSpy = vi.spyOn(window.history, 'pushState');
+		visit('/contact');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Switch to Editor'}));
+
+		expect(inFront()).toBe('Editor');
+		expect(pushSpy).not.toHaveBeenCalled();
+		expect(window.location.pathname).toBe('/contact');
+		pushSpy.mockRestore();
+	});
+
+	it('names no page with the website and editor closed, and opens them on the CV again', () => {
+		vi.useFakeTimers();
+		const {container} = visit('/contact');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		act(() => vi.advanceTimersByTime(500));
+		fireEvent.click(within(container.querySelector('[data-win="source"]')).getByTitle('Close'));
+		act(() => vi.advanceTimersByTime(500));
+
+		expect(window.location.pathname).toBe('/');
+		expect(document.title).toBe('CV • Robin Jacobs');
+
+		fireEvent.click(screen.getByRole('link', {name: 'Editor'}));
+		expect(inFront()).toBe('Editor');
+		expect(front().getByRole('textbox', {name: 'cv.md'})).toBeInTheDocument();
+		expect(window.location.pathname).toBe('/cv');
+		expect(document.title).toBe('CV • Robin Jacobs');
+		vi.useRealTimers();
+	});
+
+	it('stays where it is when going back to a page that no longer exists', () => {
+		visit('/contact');
+
+		act(() => window.dispatchEvent(new PopStateEvent('popstate', {state: {name: 'gone'}})));
+
+		expect(inFront()).toBe('Website');
+		expect(front().getByText(/on LinkedIn/)).toBeInTheDocument();
+	});
+
+	it('leaves an unknown path as it is, showing the 404 page', () => {
+		visit('/nowhere/source');
+
+		expect(window.location.pathname).toBe('/nowhere');
+		expect(document.title).toBe('[404] Not Found • Robin Jacobs');
+	});
+
+	it('names the page arrived at in the history, and goes back to it in whichever window is in front', () => {
+		const {container} = visit('/cv/source');
+		expect(window.history.state).toEqual({name: 'cv'});
+		fireEvent.click(screen.getAllByRole('link', {name: 'contact.yml'})[0]);
+
+		window.history.replaceState({name: 'cv'}, '', '/cv');
+		act(() => window.dispatchEvent(new PopStateEvent('popstate', {state: {name: 'cv'}})));
+
+		expect(inFront()).toBe('Editor');
+		expect(container.querySelector('.editor-statusbar')).toHaveTextContent('Markdown');
+	});
+
+	it('loses the source view when going back to a history entry that had it', () => {
+		visit('/cv');
+		window.history.pushState({name: 'whoami/source'}, '', '/whoami/source');
+
+		act(() => window.dispatchEvent(new PopStateEvent('popstate', {state: {name: 'whoami/source'}})));
+
+		expect(inFront()).toBe('Editor');
+		expect(window.location.pathname).toBe('/whoami');
+	});
+
+	it('gives a source view the page\'s title when prerendered', () => {
+		expect(prerender('/cv/source').title).toBe('CV • Robin Jacobs');
+		expect(prerender('/').title).toBe('CV • Robin Jacobs');
 	});
 });
 

@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
-import {fakeSystem, plain, setup, stubStorage} from './test-helpers';
+import {fakeSystem, plain, setup, stubRepositories, stubStorage} from './test-helpers';
 
 afterEach(() => {
 	vi.useRealTimers();
@@ -7,6 +7,7 @@ afterEach(() => {
 
 beforeEach(() => {
 	stubStorage();
+	stubRepositories();
 });
 
 describe('shell', () => {
@@ -25,7 +26,7 @@ describe('shell', () => {
 
 		await run('cd ..');
 		expect(onCwd).toHaveBeenLastCalledWith('~');
-		expect(await run('ls -A')).toBe('.bash_history  .kube  .profile  portfolio');
+		expect(await run('ls -A')).toBe('.bash_history  .kube  .profile  Projects  portfolio');
 		expect(await run('cd nowhere')).toBe('bash: cd: nowhere: No such file or directory');
 		expect(await run('cd .profile')).toBe('bash: cd: .profile: Not a directory');
 		expect(await run('cd /root')).toBe('bash: cd: /root: Permission denied');
@@ -154,14 +155,14 @@ describe('shell', () => {
 		expect(onExit).toHaveBeenCalled();
 	});
 
-	it('completes commands and paths', () => {
+	it('completes commands and paths', async () => {
 		const {shell} = setup();
 
-		expect(shell.complete('whoa')).toEqual({completion: 'mi ', options: ['whoami']});
-		expect(shell.complete('cat c')).toEqual({completion: '', options: ['contact.yml', 'cv.md']});
-		expect(shell.complete('cat cv')).toEqual({completion: '.md ', options: ['cv.md']});
-		expect(shell.complete('cd ../p')).toEqual({completion: 'ortfolio/', options: ['portfolio']});
-		expect(shell.complete('ls | gre')).toEqual({completion: 'p ', options: ['grep']});
+		expect(await shell.complete('whoa')).toEqual({completion: 'mi ', options: ['whoami']});
+		expect(await shell.complete('cat c')).toEqual({completion: '', options: ['contact.yml', 'cv.md']});
+		expect(await shell.complete('cat cv')).toEqual({completion: '.md ', options: ['cv.md']});
+		expect(await shell.complete('cd ../p')).toEqual({completion: 'ortfolio/', options: ['portfolio']});
+		expect(await shell.complete('ls | gre')).toEqual({completion: 'p ', options: ['grep']});
 	});
 
 	it('knows about the system it runs on', async () => {
@@ -577,35 +578,36 @@ describe('the prompt', () => {
 });
 
 describe('completion', () => {
-	it('completes commands after operators and keywords', () => {
+	it('completes commands after operators and keywords', async () => {
 		const {shell} = setup();
 
-		expect(shell.complete('').options).toEqual(expect.arrayContaining(['whoami', 'cd', 'if', 'll']));
-		expect(shell.complete('').options).not.toContain('cowsay');
-		expect(shell.complete('true && who').completion).toBe('ami ');
-		expect(shell.complete('echo $(who').completion).toBe('ami ');
-		expect(shell.complete('if true; then who').completion).toBe('ami ');
-		expect(shell.complete('sudo dn').completion).toBe('f ');
-		expect(shell.complete('ll').options).toEqual(['ll']);
+		expect((await shell.complete('')).options).toEqual(expect.arrayContaining(['whoami', 'cd', 'if', 'll']));
+		expect((await shell.complete('')).options).not.toContain('cowsay');
+		expect((await shell.complete('true && who')).completion).toBe('ami ');
+		expect((await shell.complete('echo $(who')).completion).toBe('ami ');
+		expect((await shell.complete('if true; then who')).completion).toBe('ami ');
+		expect((await shell.complete('sudo dn')).completion).toBe('f ');
+		expect((await shell.complete('ll')).options).toEqual(['ll']);
 	});
 
-	it('completes paths, showing hidden files only when asked', () => {
+	it('completes paths, showing hidden files only when asked', async () => {
 		const {shell} = setup();
 
-		expect(shell.complete('cat ~/')).toEqual({completion: 'portfolio/', options: ['portfolio']});
-		expect(shell.complete('cat ~/.')).toEqual({completion: '', options: ['.bash_history', '.kube', '.profile']});
-		expect(shell.complete('cat ~/.k')).toEqual({completion: 'ube/', options: ['.kube']});
-		expect(shell.complete('ls /etc/h')).toEqual({completion: 'ostname ', options: ['hostname']});
-		expect(shell.complete('ls /root/')).toEqual({completion: '', options: []});
-		expect(shell.complete('./c')).toEqual({completion: '', options: ['contact.yml', 'cv.md']});
-		expect(shell.complete('echo nothing')).toEqual({completion: '', options: []});
+		expect(await shell.complete('cat ~/')).toEqual({completion: '', options: ['Projects', 'portfolio']});
+		expect(await shell.complete('cat ~/p')).toEqual({completion: 'ortfolio/', options: ['portfolio']});
+		expect(await shell.complete('cat ~/.')).toEqual({completion: '', options: ['.bash_history', '.kube', '.profile']});
+		expect(await shell.complete('cat ~/.k')).toEqual({completion: 'ube/', options: ['.kube']});
+		expect(await shell.complete('ls /etc/h')).toEqual({completion: 'ostname ', options: ['hostname']});
+		expect(await shell.complete('ls /root/')).toEqual({completion: '', options: []});
+		expect(await shell.complete('./c')).toEqual({completion: '', options: ['contact.yml', 'cv.md']});
+		expect(await shell.complete('echo nothing')).toEqual({completion: '', options: []});
 	});
 
 	it('includes functions and aliases', async () => {
 		const {shell, run} = setup();
 
 		await run('greet() { :; }; alias greetings=true');
-		expect(shell.complete('gree')).toEqual({completion: 't', options: ['greet', 'greetings']});
+		expect(await shell.complete('gree')).toEqual({completion: 't', options: ['greet', 'greetings']});
 	});
 });
 
@@ -615,6 +617,20 @@ describe('the system around the shell', () => {
 
 		expect(await run('web; editor; echo $?')).toBe('0');
 		expect(shell.pid).toBe(4000);
+	});
+
+	it('opens links to web pages in a tab of its own, unless the browser blocks it', async () => {
+		const tab = {opener: window};
+		vi.stubGlobal('open', vi.fn(() => tab));
+		stubRepositories(['dotfiles']);
+		const {run} = setup();
+
+		expect(await run('xdg-open ~/Projects/dotfiles; echo $?')).toBe('0');
+		expect(window.open).toHaveBeenCalledWith('https://github.com/RobinJ1995/dotfiles', '_blank');
+		expect(tab.opener).toBeNull();
+		window.open.mockReturnValue(null);
+		expect(await run('xdg-open ~/Projects/dotfiles; echo $?')).toBe("xdg-open: no method available for opening 'https://github.com/RobinJ1995/dotfiles'\n3");
+		vi.unstubAllGlobals();
 	});
 
 	it('shows apps it does not know by name', async () => {

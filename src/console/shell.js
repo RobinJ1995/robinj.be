@@ -2,13 +2,14 @@ import {parse, parseExpansions, ParseError} from './parse';
 import {expandWords, expandString, expandPattern, expandRegex, matchPattern, patternSource, hasGlob, ExpansionError} from './expand';
 import {evaluate, ArithError} from './arith';
 import {Abort, Killed, Pipe, Output, Input, textInput, pipeInput, nullOutput, bufferOutput, DESCRIPTIONS, HARMLESS} from './io';
-import {createFs, HOME, PORTFOLIO, normalize, displayPath} from './fs';
+import {createFs, HOME, PORTFOLIO, normalize, displayPath, parentOf} from './fs';
 import {FILES} from './files';
 import {BUILTINS, KEYWORDS, Exit, Break, Continue, Return, fileTest, binaryTest} from './builtins';
 import {COMMANDS, PACKAGED} from './commands';
 import {historyStore, packageStore} from './storage';
 import {DAEMONS, APPS, USER_MANAGER} from './processes';
 import {panicText, bootSequence, cancelShutdown} from './power';
+import {insideProjects, listRepositories} from './projects';
 
 export const USER = 'robin';
 export const HOST = 'robinj.be';
@@ -48,6 +49,14 @@ const standalone = () => {
 		},
 		caffeinate: on => {
 			awake = on;
+		},
+		// True if the browser let the tab open.
+		openUrl: url => {
+			const tab = window.open(url, '_blank');
+			if (tab) {
+				tab.opener = null;
+			}
+			return Boolean(tab);
 		},
 	};
 };
@@ -347,7 +356,7 @@ class Shell {
 				env.substituted = await this.subshell({...ctx, io: [ctx.io[0], output, ctx.io[2]]}, sub => this.run(program, sub));
 				return output.text();
 			},
-			glob: pattern => this.glob(pattern, state.cwd),
+			glob: pattern => this.glob(pattern, state.cwd, ctx.abort),
 			home: user => ({'': this.getVar(state, 'HOME') ?? HOME, robin: HOME, root: '/root', '+': state.cwd, '-': this.getVar(state, 'OLDPWD')})[user],
 			expandString: parts => expandString(parts, env),
 			expandPattern: parts => expandPattern(parts, env),
@@ -371,7 +380,7 @@ class Shell {
 		}
 	}
 
-	glob(pattern, cwd) {
+	async glob(pattern, cwd, abort) {
 		const absolute = pattern.startsWith('/');
 		const segments = pattern.split('/').slice(absolute ? 1 : 0);
 		const directoriesOnly = segments.length > 1 && segments[segments.length - 1] === '';
@@ -388,17 +397,21 @@ class Shell {
 
 			const regex = new RegExp(`^(?:${patternSource(segment, true)})$`);
 			const hidden = /^\\?\./.test(segment);
-			paths = paths.flatMap(path => {
-				const listing = this.fs.list(normalize(cwd, path || '.'));
+			const directories = paths.map(path => normalize(cwd, path || '.'));
+			await this.ready(directories, abort);
+			paths = paths.flatMap((path, i) => {
+				const listing = this.fs.list(directories[i]);
 				return listing.error ? [] : listing.names
 					.filter(name => (hidden || !name.startsWith('.')) && regex.test(name))
 					.map(name => joinPath(path, name));
 			});
 		}
 
+		await this.ready(paths.map(path => parentOf(normalize(cwd, path))), abort);
+		// Links that lead nowhere match too; with a slash, only what leads to a directory.
 		return paths
 			.filter(path => {
-				const found = this.fs.lookup(normalize(cwd, path));
+				const found = this.fs.lookup(normalize(cwd, path), {follow: directoriesOnly});
 				return !found.error && (!directoriesOnly || found.entry.type === 'dir');
 			})
 			.map(path => (directoriesOnly ? `${path}/` : path))
@@ -665,8 +678,11 @@ class Shell {
 			}
 			case 'string':
 				return (await expandString(expression.operand, env)) !== '';
-			case 'unary':
-				return fileTest(this, ctx, expression.test, await expandString(expression.operand, env));
+			case 'unary': {
+				const operand = await expandString(expression.operand, env);
+				await this.ready([parentOf(normalize(ctx.state.cwd, operand))], ctx.abort);
+				return fileTest(this, ctx, expression.test, operand);
+			}
 			default:
 				break;
 		}
@@ -752,6 +768,7 @@ class Shell {
 						return fail(`${redirect.text}: ambiguous redirect`);
 					}
 					[target] = words;
+					await this.ready([parentOf(normalize(ctx.state.cwd, target))], ctx.abort);
 				}
 
 				const {op} = redirect;
@@ -855,7 +872,11 @@ class Shell {
 		const [name, ...args] = argv;
 		if (functions && ctx.state.functions.has(name)) {
 			return this.callFunction(name, args, ctx, temporary);
-		} else if (BUILTINS[name] && temporary.size === 0) {
+		}
+
+		// Any argument may be a path, looked up in its directory.
+		await this.ready(argv.map(arg => parentOf(normalize(ctx.state.cwd, arg))), ctx.abort);
+		if (BUILTINS[name] && temporary.size === 0) {
 			return await BUILTINS[name](this, ctx, args) ?? 0;
 		} else if (BUILTINS[name]) {
 			ctx.state.scopes.push(temporary);
@@ -899,6 +920,14 @@ class Shell {
 	}
 
 	// --- Programs and processes ---
+
+	// Before looking in these directories: what's in ~/Projects comes from GitHub,
+	// the first time it's needed.
+	async ready(directories, abort = new Abort()) {
+		if (directories.some(insideProjects)) {
+			await abort.race(listRepositories());
+		}
+	}
 
 	available(name) {
 		return Object.hasOwn(COMMANDS, name) && (!PACKAGED[name] || this.packages.has(PACKAGED[name]));
@@ -981,6 +1010,8 @@ class Shell {
 			drain: () => abort.race(ctx.io[1].drain()),
 			// Counts as a command for the loop protection: crawls once there were many.
 			tick: () => this.tick(ctx),
+			// Before listing a directory: ~/Projects waits for GitHub.
+			ready: path => this.ready([path], abort),
 			openRead: path => this.openRead(path, ctx),
 			openWrite: path => this.openWrite(path, ctx),
 			cwd: ctx.state.cwd,
@@ -1319,7 +1350,7 @@ class Shell {
 
 	// Tab completion for the text before the cursor: what to insert, and the
 	// candidates when there's more than one.
-	complete(before) {
+	async complete(before) {
 		const word = before.match(/[^\s|;&<>()]*$/)[0];
 		const isCommand = /(?:^|[|;&(]|&&|\|\||\b(?:then|do|else|sudo))\s*$/.test(before.slice(0, before.length - word.length));
 		const slash = word.lastIndexOf('/');
@@ -1335,6 +1366,7 @@ class Shell {
 			const prefix = word.slice(0, slash + 1);
 			const path = /^~(?=\/|$)/.test(prefix) ? HOME + prefix.slice(1) : prefix;
 			directory = normalize(this.state.cwd, path || '.');
+			await this.ready([directory]);
 			const listing = this.fs.list(directory);
 			candidates = (listing.names ?? []).filter(name => base.startsWith('.') || !name.startsWith('.'));
 		}

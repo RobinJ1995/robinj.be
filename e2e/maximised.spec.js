@@ -128,9 +128,7 @@ test('starts the page below the browser bar, which lies over it', async ({page})
 	const content = await box(page.locator('.dt-window-content'));
 	const avatar = await box(page.locator('.ed-avatar'));
 
-	// The bar covers the top of the window's content, rather than pushing it down...
 	expect(bar.y).toBeCloseTo(content.y, 0);
-	// ...which leaves room for it.
 	expect(avatar.y).toBeGreaterThanOrEqual(bar.y + bar.height);
 });
 

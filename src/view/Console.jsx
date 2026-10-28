@@ -1,7 +1,7 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {CONTENT} from '../content';
 import EmailAddress from '../component/EmailAddress';
-import {CloseIcon} from './Desktop';
+import {TitleBar} from './Window';
 
 // The terminal app. xterm.js and the shell load the first time it's opened, so
 // they cost nothing until then.
@@ -48,13 +48,7 @@ const Console = ({focused, system, onClose, onOpenFile}) => {
 
 	return (
 		<div className="console">
-			<div className="dt-headerbar">
-				<span />
-				<div className="dt-headerbar-title"><EmailAddress asText>{CONTENT.email}</EmailAddress>: {cwd}</div>
-				<button type="button" className="dt-close" title="Close window" aria-label="Close the terminal" onClick={onClose}>
-					<CloseIcon />
-				</button>
-			</div>
+			<TitleBar title={<><EmailAddress asText>{CONTENT.email}</EmailAddress>: {cwd}</>} closeLabel="Close the terminal" onClose={onClose} />
 			<div ref={screenRef} className="console-screen" />
 			{failed && <p className="console-failed">The terminal couldn't be loaded.</p>}
 		</div>
