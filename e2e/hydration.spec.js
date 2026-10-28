@@ -16,12 +16,12 @@ test('hydrates and does client-side navigation without a full reload', async ({p
 		window.__sentinel = 'alive';
 	});
 
-	await page.getByRole('link', {name: 'Side Quests'}).click();
+	await page.getByRole('link', {name: 'Side Quests', exact: true}).click();
 	await expect(page).toHaveURL('/side-quests');
 	await expect(page.locator('#root')).toContainText('Sprint Retrospective');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 
-	await page.getByRole('link', {name: 'Contact'}).click();
+	await page.getByRole('link', {name: 'Contact', exact: true}).click();
 	await expect(page).toHaveURL('/contact');
 	expect(await page.evaluate(() => window.__sentinel)).toBe('alive');
 
