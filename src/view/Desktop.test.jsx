@@ -15,9 +15,9 @@ afterEach(() => {
 	delete document.documentElement.dataset.font;
 });
 
-// jsdom has no matchMedia, so by default the app behaves as on a phone.
-const wideScreen = () => vi.stubGlobal('matchMedia', query => ({
-	matches: query === '(min-width: 900px)',
+// jsdom has no matchMedia, so by default the screen is a large one.
+const smallScreen = () => vi.stubGlobal('matchMedia', query => ({
+	matches: query.includes('width < 900px'),
 	addEventListener() {},
 	removeEventListener() {},
 }));
@@ -37,7 +37,6 @@ const focused = container => container.querySelector('.dt-window.is-focused')?.g
 
 describe('desktop', () => {
 	it('keeps both windows on screen, with the website in front', () => {
-		wideScreen();
 		const {container} = render(<App initialPath="/contact" />);
 
 		expect(windows(container)).toEqual(['Website', 'Editor']);
@@ -46,7 +45,6 @@ describe('desktop', () => {
 	});
 
 	it('raises the editor when it is clicked, and the URL follows', () => {
-		wideScreen();
 		const pushSpy = vi.spyOn(window.history, 'pushState');
 		const {container} = render(<App initialPath="/contact" />);
 
@@ -79,12 +77,15 @@ describe('desktop', () => {
 	});
 
 	it('leaves an empty desktop when the last window closes, and the dock starts one again', () => {
+		vi.useFakeTimers();
 		const {container} = render(<App initialPath="/cv" />);
 
 		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		act(() => vi.advanceTimersByTime(250));
 		expect(windows(container)).toEqual(['Editor']);
 
 		fireEvent.click(screen.getByTitle('Close'));
+		act(() => vi.advanceTimersByTime(250));
 		expect(windows(container)).toEqual([]);
 		expect(container.querySelector('.desktop.is-overview')).toBeNull();
 		expect(screen.getByRole('button', {name: 'Activities'})).toHaveAttribute('aria-pressed', 'false');
@@ -96,7 +97,6 @@ describe('desktop', () => {
 	});
 
 	it('suggests a way back to the CV once the desktop has been empty for a while', () => {
-		wideScreen();
 		vi.useFakeTimers();
 		const pushSpy = vi.spyOn(window.history, 'pushState');
 		const {container} = render(<App initialPath="/side-quests" />);
@@ -119,8 +119,64 @@ describe('desktop', () => {
 		pushSpy.mockRestore();
 	});
 
+	it('suggests a way back sooner on a phone', () => {
+		smallScreen();
+		vi.useFakeTimers();
+		render(<App initialPath="/cv" />);
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
+		act(() => vi.advanceTimersByTime(2900));
+		expect(screen.queryByText('You look like you might be lost.')).toBeNull();
+		act(() => vi.advanceTimersByTime(100));
+		expect(screen.getByRole('status')).toHaveTextContent('You look like you might be lost.');
+	});
+
+	it('minimises a window closed on a phone into its dock icon, taking a moment longer', () => {
+		smallScreen();
+		vi.useFakeTimers();
+		const {container} = render(<App initialPath="/cv/source" />);
+
+		fireEvent.click(screen.getByTitle('Close'));
+		expect(focused(container)).toBe('Website');
+		act(() => vi.advanceTimersByTime(250));
+		expect(windows(container)).toEqual(['Website', 'Editor']);
+		act(() => vi.advanceTimersByTime(50));
+		expect(windows(container)).toEqual(['Website']);
+	});
+
+	it('slides the browser bar away as the page scrolls down on a phone, and back as it scrolls up', () => {
+		smallScreen();
+		const {container} = render(<App initialPath="/cv" />);
+		const bar = container.querySelector('[data-win="site"] .dt-headerbar');
+		const page = container.querySelector('[data-win="site"] .editorial');
+		Object.defineProperties(page, {scrollHeight: {value: 3000}, clientHeight: {value: 600}});
+		const scrollTo = top => {
+			page.scrollTop = top;
+			fireEvent.scroll(page);
+		};
+
+		scrollTo(4);
+		expect(bar).not.toHaveClass('is-hidden');
+		scrollTo(200);
+		expect(bar).toHaveClass('is-hidden');
+		scrollTo(196);
+		expect(bar).toHaveClass('is-hidden');
+		scrollTo(150);
+		expect(bar).not.toHaveClass('is-hidden');
+	});
+
+	it('starts a phone with just the website, unless the URL asks for the editor', () => {
+		smallScreen();
+		const {container, unmount} = render(<App initialPath="/cv" />);
+		expect(windows(container)).toEqual(['Website']);
+		unmount();
+
+		const {container: source} = render(<App initialPath="/cv/source" />);
+		expect(windows(source)).toEqual(['Website', 'Editor']);
+		expect(focused(source)).toBe('Editor');
+	});
+
 	it('keeps the notification away once dismissed, until a window or the system menu opens', () => {
-		wideScreen();
 		vi.useFakeTimers();
 		render(<App initialPath="/cv" />);
 		fireEvent.click(screen.getByRole('button', {name: 'Close the website window'}));
@@ -145,16 +201,17 @@ describe('desktop', () => {
 	});
 
 	it('leaves closed windows out of Activities', () => {
+		vi.useFakeTimers();
 		const {container} = render(<App initialPath="/side-quests/source" />);
 
 		fireEvent.click(screen.getByTitle('Close'));
+		act(() => vi.advanceTimersByTime(250));
 		fireEvent.click(screen.getByRole('button', {name: 'Activities'}));
 
 		expect(windows(container)).toEqual(['Website']);
 	});
 
 	it('lets a closing window animate out before removing it', () => {
-		wideScreen();
 		vi.useFakeTimers();
 		const {container} = render(<App initialPath="/cv" />);
 
@@ -214,7 +271,6 @@ describe('desktop', () => {
 	});
 
 	it('opens the terminal from the dock, in front, without changing the URL', async () => {
-		wideScreen();
 		const pushSpy = vi.spyOn(window.history, 'pushState');
 		const {container} = render(<App initialPath="/cv" />);
 
@@ -228,7 +284,6 @@ describe('desktop', () => {
 	});
 
 	it('brings the window behind back to the front when the terminal closes', async () => {
-		wideScreen();
 		const {container} = render(<App initialPath="/cv/source" />);
 
 		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
@@ -239,7 +294,6 @@ describe('desktop', () => {
 	});
 
 	it('raises the editor on a file the terminal opens', async () => {
-		wideScreen();
 		const pushSpy = vi.spyOn(window.history, 'pushState');
 		const {container} = render(<App initialPath="/cv" />);
 
@@ -253,7 +307,6 @@ describe('desktop', () => {
 	});
 
 	it('shows the terminal its windows as processes, which it can kill and start', async () => {
-		wideScreen();
 		const {container} = render(<App initialPath="/cv" />);
 
 		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
@@ -275,7 +328,6 @@ describe('desktop', () => {
 	});
 
 	it('powers off through the console, then boots to an empty desktop', async () => {
-		wideScreen();
 		const {container} = render(<App initialPath="/cv" />);
 		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
 		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
@@ -309,7 +361,6 @@ describe('desktop', () => {
 	});
 
 	it('panics when the desktop dies', async () => {
-		wideScreen();
 		const {container} = render(<App initialPath="/cv" />);
 		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
 		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
@@ -333,7 +384,6 @@ describe('desktop', () => {
 	});
 
 	it('switches the font, and remembers it', () => {
-		wideScreen();
 		const storage = memoryStorage();
 		vi.stubGlobal('localStorage', storage);
 		render(<App initialPath="/cv" />);
@@ -351,7 +401,6 @@ describe('desktop', () => {
 	});
 
 	it('shows the device\'s battery where the browser tells', async () => {
-		wideScreen();
 		vi.stubGlobal('navigator', {...navigator, getBattery: () => Promise.resolve({level: 0.62, charging: true, addEventListener() {}, removeEventListener() {}})});
 		render(<App initialPath="/cv" />);
 
@@ -359,7 +408,6 @@ describe('desktop', () => {
 	});
 
 	it('has no battery indicator where the browser doesn\'t tell', () => {
-		wideScreen();
 		render(<App initialPath="/cv" />);
 
 		expect(screen.queryByRole('img', {name: /^Battery/})).toBeNull();

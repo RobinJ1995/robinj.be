@@ -334,6 +334,17 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 	const resize = new ResizeObserver(fitScreen);
 	resize.observe(element);
 
+	// A tap brings up the on-screen keyboard. Phones only show it for a focus made by
+	// the tap itself, so any earlier focus is dropped first.
+	const coarse = window.matchMedia('(pointer: coarse)');
+	const tap = () => {
+		if (coarse.matches) {
+			term.blur();
+			term.focus();
+		}
+	};
+	element.addEventListener('click', tap);
+
 	// Style changes ease over a moment; follow along frame by frame.
 	let restyleUntil = 0;
 	const followTheme = () => {
@@ -372,6 +383,7 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 			stopped = true;
 			shell.dispose();
 			resize.disconnect();
+			element.removeEventListener('click', tap);
 			attributes.disconnect();
 			scheme.removeEventListener('change', restyle);
 			term.dispose();

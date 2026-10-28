@@ -7,25 +7,30 @@ import EmailAddress from '../component/EmailAddress';
 // See the font tokens in App.scss: the font setting swaps them.
 const MONO = 'var(--ed-mono)';
 const SERIF = 'var(--ed-serif)';
+// Room at the top for a bar lying over the page (the browser's, in _Desktop.scss).
+const INSET_TOP = 'var(--ed-inset-top, 0px)';
 
 const EditorialApp = ({page, onNavigate, onToggleView}) => {
 	const viewSource = <ViewSourceToggle page={page} onToggleView={onToggleView} />;
+	const rootRef = useRef(null);
 	const mainRef = useRef(null);
 
-	// Inside a desktop window <main> is the scroller, so a new page starts at its top.
+	// Inside a window <main> scrolls, or in a narrow one the whole page does: either
+	// way a new page starts at its top.
 	useEffect(() => {
+		rootRef.current?.scrollTo?.(0, 0);
 		mainRef.current?.scrollTo?.(0, 0);
 	}, [page]);
 
 	return (
-		<div className="editorial" style={{
+		<div ref={rootRef} className="editorial" style={{
 		background: 'var(--ed-bg)', color: 'var(--ed-text)',
 		fontFamily: 'var(--ed-sans)',
 		minHeight: '100%', width: '100%', display: 'flex',
 		fontFeatureSettings: '"ss01", "cv01"',
 	}}>
 		<EdSidebar page={page} onNavigate={onNavigate} />
-		<main ref={mainRef} className="ed-main" style={{flex: 1, padding: '64px 80px 80px', overflow: 'hidden', minWidth: 0}}>
+		<main ref={mainRef} className="ed-main" style={{flex: 1, padding: `calc(64px + ${INSET_TOP}) 80px 80px`, overflow: 'hidden', minWidth: 0}}>
 			{page === 'cv' && <EdCV toggle={viewSource} />}
 			{page === 'side-quests' && <EdProjects toggle={viewSource} />}
 			{page === 'contact' && <EdContact toggle={viewSource} />}
@@ -38,7 +43,7 @@ const EditorialApp = ({page, onNavigate, onToggleView}) => {
 
 const EdSidebar = ({page, onNavigate}) => (
 	<aside className="ed-sidebar" style={{
-		width: 320, flexShrink: 0, padding: '56px 36px 40px',
+		width: 320, flexShrink: 0, padding: `calc(56px + ${INSET_TOP}) 36px 40px`,
 		borderRight: '1px solid var(--ed-rule)',
 		position: 'sticky', top: 0, alignSelf: 'flex-start', height: '100vh',
 		display: 'flex', flexDirection: 'column', gap: 28,

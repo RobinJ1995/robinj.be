@@ -3,7 +3,8 @@ import React, {useState, useEffect, useLayoutEffect, useRef, useMemo} from 'reac
 const ORDER = ['site', 'source', 'console'];
 // The windows the URL can point at; the terminal has no URL of its own.
 const URL_WINDOWS = ['site', 'source'];
-const WIDE = '(min-width: 900px)';
+// Where windows are maximised, as in _Desktop.scss.
+const SMALL = '(width < 900px), (height < 600px)';
 const SITE = {title: 'Robin Jacobs', url: 'https://robinj.be/'};
 // Matches the dt-close animation in _Desktop.scss.
 const CLOSE_MS = 180;
@@ -15,8 +16,11 @@ const FIRST_PID = 2000;
 // How long the screen stays black after powering off, before the power button.
 const OFF_MS = 3000;
 const RESTART_MS = 1200;
-// How long an empty desktop waits before suggesting a way back.
+// How long an empty desktop waits before suggesting a way back; less on a phone.
 const LOST_MS = 5000;
+const LOST_SMALL_MS = 3000;
+// Minimising a window to its dock icon, or restoring it, on a small screen.
+const MINIMISE = {duration: 300, easing: 'cubic-bezier(.25, .46, .45, .94)'};
 // A panic stays on screen this long, then the machine is off as after a shutdown.
 const PANIC_MS = 4000;
 const PANIC_OFF_MS = 2000;
@@ -138,6 +142,34 @@ const useMedia = query => {
 	}, [query]);
 
 	return matches;
+};
+
+// iOS lays its on-screen keyboard over the page instead of shrinking it (as
+// interactive-widget in index.html does elsewhere), so the desktop fits itself
+// above it. Scale 1 rules out pinch-zoom, which also shrinks the viewport.
+const useKeyboardFit = () => {
+	const [fit, setFit] = useState(null);
+
+	useEffect(() => {
+		const viewport = window.visualViewport;
+		if (!viewport) {
+			return undefined;
+		}
+
+		const update = () => {
+			const covered = viewport.scale === 1 && viewport.height < document.documentElement.clientHeight - 1;
+			setFit(covered ? {height: viewport.height, top: viewport.offsetTop} : null);
+		};
+		viewport.addEventListener('resize', update);
+		viewport.addEventListener('scroll', update);
+
+		return () => {
+			viewport.removeEventListener('resize', update);
+			viewport.removeEventListener('scroll', update);
+		};
+	}, []);
+
+	return fit;
 };
 
 let restyleTimer = null;
@@ -320,7 +352,48 @@ const TopBar = ({overview, onActivities, menuOpen, setMenuOpen, inert}) => {
 	);
 };
 
-const BrowserBar = ({address, onClose}) => {
+// How far the page scrolls one way before the browser's header bar follows.
+const SCROLL_AWAY_PX = 8;
+
+// Hides the browser's header bar as the page scrolls down, shows it as it scrolls
+// up. It only reads the scroll position, so scrolling itself is left alone.
+const useScrollAway = (ref, enabled) => {
+	const [hidden, setHidden] = useState(false);
+
+	useEffect(() => {
+		setHidden(false);
+		const frame = ref.current?.parentElement;
+		if (!enabled || !frame) {
+			return undefined;
+		}
+
+		const positions = new WeakMap();
+		// How far the page has gone in the direction it's going.
+		let travel = 0;
+		const onScroll = ({target}) => {
+			// Rubber-banding past either end isn't scrolling.
+			const top = Math.min(Math.max(target.scrollTop, 0), target.scrollHeight - target.clientHeight);
+			const delta = top - (positions.get(target) ?? 0);
+			positions.set(target, top);
+			travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
+
+			if (top < ref.current.offsetHeight || travel < -SCROLL_AWAY_PX) {
+				setHidden(false);
+			} else if (travel > SCROLL_AWAY_PX) {
+				setHidden(true);
+			}
+		};
+		frame.addEventListener('scroll', onScroll, {capture: true, passive: true});
+
+		return () => frame.removeEventListener('scroll', onScroll, {capture: true});
+	}, [enabled]);
+
+	return hidden;
+};
+
+const BrowserBar = ({address, scrollAway, onClose}) => {
+	const ref = useRef(null);
+	const hidden = useScrollAway(ref, scrollAway);
 	// Decided after mount, so the prerendered HTML doesn't depend on the browser.
 	const [canShare, setCanShare] = useState(false);
 
@@ -332,7 +405,7 @@ const BrowserBar = ({address, onClose}) => {
 	});
 
 	return (
-		<div className="dt-headerbar">
+		<div ref={ref} className={`dt-headerbar${hidden ? ' is-hidden' : ''}`}>
 			<span />
 			<div className="dt-address-group">
 				<div className="dt-address">
@@ -384,6 +457,7 @@ const Dock = ({open, hrefs, onShow}) => (
 				className: `dt-dock-item${open[win] ? ' is-running' : ''}`,
 				'aria-label': name,
 				'data-label': name,
+				'data-win': win,
 				onClick: e => onShow(win, e),
 				// A click shouldn't pull keyboard focus away from the window being raised.
 				onMouseDown: e => e.preventDefault(),
@@ -529,7 +603,8 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 	const [power, setPower] = useState(null);
 	// Just booted: the desktop zooms in, as GNOME's does after logging in.
 	const [starting, setStarting] = useState(false);
-	const wide = useMedia(WIDE);
+	const keyboard = useKeyboardFit();
+	const small = useMedia(SMALL);
 	const reduceMotion = useMedia('(prefers-reduced-motion: reduce)');
 	const stageRef = useRef(null);
 	const windowEls = useRef({});
@@ -539,12 +614,18 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 	const nextPid = useRef(FIRST_PID);
 	const bootedAt = useRef(null);
 	const powerTimer = useRef(null);
-	const animate = wide && !reduceMotion;
-	const active = wide && front ? front : focused;
+	const animate = !reduceMotion;
+	const active = front ?? focused;
 
 	useEffect(() => {
 		setHydrated(true);
 		bootedAt.current = new Date();
+
+		// A phone starts with just the website, unless the URL asks for the editor.
+		if (window.matchMedia?.(SMALL).matches && focused !== 'source') {
+			delete pids.current.source;
+			setOpen(o => ({...o, source: false}));
+		}
 	}, []);
 
 	useEffect(() => {
@@ -603,15 +684,15 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		}
 	}, [anyUp, menuOpen]);
 
-	const idle = wide && !anyUp && !menuOpen && !power;
+	const idle = !anyUp && !menuOpen && !power;
 	useEffect(() => {
 		if (!idle || lost || dismissed) {
 			return undefined;
 		}
 
-		const timer = setTimeout(() => setLost(true), LOST_MS);
+		const timer = setTimeout(() => setLost(true), small ? LOST_SMALL_MS : LOST_MS);
 		return () => clearTimeout(timer);
-	}, [idle, lost, dismissed]);
+	}, [idle, lost, dismissed, small]);
 
 	const dismissLost = () => {
 		setLost(false);
@@ -620,16 +701,41 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 
 	// Measured ahead of time, so the zoom into Activities starts from where things are.
 	useLayoutEffect(() => {
-		if (!wide) {
-			return undefined;
-		}
-
 		const measure = () => setCard(workspaceCard(stageRef.current.parentElement));
 		measure();
 		window.addEventListener('resize', measure);
 
 		return () => window.removeEventListener('resize', measure);
-	}, [wide]);
+	}, []);
+
+	// Small screens: switching, or closing with another window open, minimises the
+	// window to its dock icon and restores the next from its own.
+	const visible = isUp(active) ? active : null;
+	const shown = useRef({visible, overview});
+	useLayoutEffect(() => {
+		const before = shown.current;
+		shown.current = {visible, overview};
+		if (!small || !animate || overview || before.overview || !visible || before.visible === visible) {
+			return;
+		}
+
+		const stage = stageRef.current.getBoundingClientRect();
+		const minimised = win => {
+			const el = windowEls.current[win];
+			const icon = stageRef.current.querySelector(`.dt-dock-item[data-win='${win}']`).getBoundingClientRect();
+			const x = icon.x + icon.width / 2 - (stage.x + el.offsetLeft + el.offsetWidth / 2);
+			const y = icon.y + icon.height / 2 - (stage.y + el.offsetTop + el.offsetHeight / 2);
+
+			return {visibility: 'visible', opacity: 0, transform: `translate(${x}px, ${y}px) scale(${icon.width / el.offsetWidth})`};
+		};
+		const restored = {visibility: 'visible', opacity: 1, transform: 'none'};
+
+		// The one minimising shrinks away over the one being restored.
+		if (before.visible && windowEls.current[before.visible]) {
+			windowEls.current[before.visible].animate?.([{...restored, zIndex: 10}, {...minimised(before.visible), zIndex: 10}], MINIMISE);
+		}
+		windowEls.current[visible].animate?.([minimised(visible), restored], MINIMISE);
+	}, [visible, overview]);
 
 	useLayoutEffect(() => {
 		if (overview) {
@@ -675,7 +781,9 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 
 		if (animate) {
 			setClosing(c => ({...c, [win]: true}));
-			closeTimers.current[win] = setTimeout(() => finishClosing(win), CLOSE_MS);
+			// Minimising (above) takes longer than closing in place.
+			const ms = small && win === active && next ? MINIMISE.duration : CLOSE_MS;
+			closeTimers.current[win] = setTimeout(() => finishClosing(win), ms);
 		} else {
 			finishClosing(win);
 		}
@@ -697,8 +805,8 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		}
 	};
 
-	// On a desktop the windows behind are visible too; on a phone only the focused one is.
-	const hasContent = win => win === active || overview || wide;
+	// The prerendered page holds the focused window's content; the rest follows on the client.
+	const hasContent = win => win === active || overview || hydrated;
 
 	// Everything closes when the machine goes down, out of sight behind the console.
 	const closeAll = () => {
@@ -782,9 +890,12 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 	}), []);
 
 	return (
-		<div className={`desktop${overview ? ' is-overview' : ''}`} style={card ? {
-			'--ov-x': `${card.x}px`, '--ov-y': `${card.y}px`, '--ov-scale': card.scale,
-			'--ov-peek-x': `${card.peekX}px`, '--ov-peek-y': `${card.peekY}px`, '--ov-peek-scale': card.peekScale,
+		<div className={`desktop${overview ? ' is-overview' : ''}`} style={card || keyboard ? {
+			...card && {
+				'--ov-x': `${card.x}px`, '--ov-y': `${card.y}px`, '--ov-scale': card.scale,
+				'--ov-peek-x': `${card.peekX}px`, '--ov-peek-y': `${card.peekY}px`, '--ov-peek-scale': card.peekScale,
+			},
+			...keyboard && {height: keyboard.height, transform: `translateY(${keyboard.top}px)`},
 		} : undefined}>
 			<div className={`dt-screen${starting ? ' is-starting' : ''}`} onAnimationEnd={e => e.target === e.currentTarget && setStarting(false)}>
 				<div className="dt-wallpaper" aria-hidden="true" />
@@ -797,7 +908,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 							windowEls.current[win] = el;
 						}} win={win} focused={win === active} closing={!!closing[win]} overview={overview}
 							layer={stack.indexOf(win) + 1} fit={fits[win]} animate={hydrated && animate}
-							header={win === 'site' && <BrowserBar address={address} onClose={() => close('site')} />}
+							header={win === 'site' && <BrowserBar address={address} scrollAway={small} onClose={() => close('site')} />}
 							onActivate={() => show(win)}>
 							{hasContent(win) && renderWindow(win, {close: () => close(win), raise, focused: win === active && !overview && !power, system})}
 						</Window>
