@@ -154,6 +154,7 @@ describe('curl', () => {
 	});
 
 	it('reports what the browser would not do as a connection failure', async () => {
+		vi.useFakeTimers();
 		vi.stubGlobal('fetch', failing());
 		const {shell, run} = setup();
 

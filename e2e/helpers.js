@@ -29,6 +29,18 @@ export const box = async locator => {
 // Settled once no animation or transition is running on it.
 export const settled = locator => expect.poll(() => locator.evaluate(el => el.getAnimations().length)).toBe(0);
 
+// Notes the windows animated from script (Element.animate) from now on, by name. The
+// animations are short, so looking for them on the elements afterwards is a race.
+export const recordAnimations = page => page.evaluate(() => {
+	const animate = Element.prototype.animate;
+	window.__animated = [];
+	Element.prototype.animate = function (...args) {
+		window.__animated.push(this.closest('.dt-window')?.getAttribute('aria-label'));
+		return animate.apply(this, args);
+	};
+});
+export const animated = page => page.evaluate(() => window.__animated);
+
 export const terminalText = page => page.locator('.console .xterm-rows').innerText();
 
 export const openTerminal = async page => {

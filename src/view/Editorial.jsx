@@ -302,12 +302,12 @@ const EdProjects = ({toggle}) => (
 						<img src={p.logo} alt={p.name} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block'}} />
 					</div>
 					<div style={{minWidth: 0}}>
-						<div className="ed-project-head" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
+						<div className="ed-project-head" style={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '4px 12px'}}>
 							<h3 style={{margin: 0, fontFamily: SERIF, fontSize: 28, fontWeight: 500, letterSpacing: '-0.01em'}}>{p.name}</h3>
 							<a href={`https://${p.url}`} className="ed-project-url" style={{
 								fontFamily: MONO, fontSize: 11, color: 'var(--ed-accent)',
-								textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-							}}>↗ {p.url}</a>
+								textDecoration: 'none', minWidth: 0, overflowWrap: 'anywhere',
+							}}>↗&nbsp;{p.url}</a>
 						</div>
 						<div style={{fontSize: 14, color: 'var(--ed-dim)', fontStyle: 'italic', marginTop: 4}}>{p.tagline}</div>
 						<Prose markdown={p.description} />

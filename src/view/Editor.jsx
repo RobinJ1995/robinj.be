@@ -219,10 +219,24 @@ const EditorSidebar = ({page, git, onOpen}) => {
 	useEffect(() => {
 		const files = filesRef.current;
 		const active = files?.querySelector('[aria-current]');
-		if (active && files.scrollWidth > files.clientWidth) {
-			const offset = active.getBoundingClientRect().left - files.getBoundingClientRect().left;
-			files.scrollLeft += offset - (files.clientWidth - active.offsetWidth) / 2;
+		if (!active) {
+			return undefined;
 		}
+		const reveal = () => {
+			if (files.scrollWidth > files.clientWidth) {
+				const offset = active.getBoundingClientRect().left - files.getBoundingClientRect().left;
+				files.scrollLeft += offset - (files.clientWidth - active.offsetWidth) / 2;
+			}
+		};
+		reveal();
+		// The editor's web font tends to land after hydration and widen the files,
+		// which would leave the open one hanging off the edge: follow it.
+		if (typeof ResizeObserver === 'undefined') {
+			return undefined;
+		}
+		const observer = new ResizeObserver(reveal);
+		observer.observe(active);
+		return () => observer.disconnect();
 	}, [page]);
 
 	return (

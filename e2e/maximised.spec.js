@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import {visit, box, windowOf, focusedWindow, dockItem, browserBar, settled, isSmall} from './helpers';
+import {visit, box, windowOf, focusedWindow, dockItem, browserBar, settled, isSmall, recordAnimations, animated} from './helpers';
 
 test.skip(({viewport}) => !isSmall(viewport), 'Windows only maximise on small screens');
 
@@ -50,10 +50,10 @@ test('minimises the window in front to its dock icon and restores the next from 
 	const editor = windowOf(page, 'Editor');
 	const site = windowOf(page, 'Website');
 
+	await recordAnimations(page);
 	await dockItem(page, 'site').click();
 	// Both are on their way: one shrinking into the dock, the other growing out of it.
-	expect(await editor.evaluate(el => el.getAnimations().some(a => a.constructor === Animation))).toBe(true);
-	expect(await site.evaluate(el => el.getAnimations().some(a => a.constructor === Animation))).toBe(true);
+	await expect.poll(() => animated(page)).toEqual(['Editor', 'Website']);
 
 	await settled(editor);
 	await settled(site);
@@ -66,9 +66,10 @@ test('minimises a closed window into its dock icon while restoring the next', as
 	await visit(page, '/cv/source');
 	const editor = windowOf(page, 'Editor');
 
+	await recordAnimations(page);
 	await page.getByTitle('Close', {exact: true}).click();
 	await expect(focusedWindow(page)).toHaveAttribute('aria-label', 'Website');
-	expect(await editor.evaluate(el => el.getAnimations().some(a => a.constructor === Animation))).toBe(true);
+	await expect.poll(() => animated(page)).toContain('Editor');
 
 	await expect(editor).toHaveCount(0);
 	await expect.poll(() => isShowing(windowOf(page, 'Website'))).toBe(true);
