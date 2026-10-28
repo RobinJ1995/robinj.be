@@ -1,28 +1,34 @@
 import {describe, it, expect, vi, afterEach} from 'vitest';
-import {render, screen, fireEvent, cleanup, act} from '@testing-library/react';
+import {render, screen, within, fireEvent, cleanup, act} from '@testing-library/react';
 import App from './App';
+import {routes, render as prerender} from './entry-server';
 
 afterEach(cleanup);
+
+// Every open window is on screen; these look at the one in front.
+const frontWindow = () => document.querySelector('.dt-window.is-focused');
+const front = () => within(frontWindow());
+const inFront = () => frontWindow()?.getAttribute('aria-label');
 
 describe('routing', () => {
 	it('renders the CV (home) page for "/"', () => {
 		render(<App initialPath="/" />);
-		expect(screen.getByText('Work Experience')).toBeInTheDocument();
+		expect(front().getByText('Work Experience')).toBeInTheDocument();
 	});
 
 	it('renders the CV page for "/cv"', () => {
 		render(<App initialPath="/cv" />);
-		expect(screen.getByText('Work Experience')).toBeInTheDocument();
+		expect(front().getByText('Work Experience')).toBeInTheDocument();
 	});
 
 	it('renders the Contact page for "/contact"', () => {
 		render(<App initialPath="/contact" />);
-		expect(screen.getByText(/on LinkedIn/)).toBeInTheDocument();
+		expect(front().getByText(/on LinkedIn/)).toBeInTheDocument();
 	});
 
 	it('renders the Side Quests page for "/side-quests"', () => {
 		render(<App initialPath="/side-quests" />);
-		expect(screen.getByText('Sprint Retrospective')).toBeInTheDocument();
+		expect(front().getByText('Sprint Retrospective')).toBeInTheDocument();
 	});
 
 	it('falls back to the 404 page for an unknown path', () => {
@@ -36,7 +42,7 @@ describe('routing', () => {
 
 		fireEvent.click(screen.getByRole('link', {name: 'Contact'}));
 
-		expect(screen.getByText(/on LinkedIn/)).toBeInTheDocument();
+		expect(front().getByText(/on LinkedIn/)).toBeInTheDocument();
 		expect(pushSpy).toHaveBeenCalledWith(
 			expect.objectContaining({name: 'contact'}),
 			expect.anything(),
@@ -53,51 +59,75 @@ describe('routing', () => {
 			window.dispatchEvent(e);
 		});
 
-		expect(screen.getByText('Sprint Retrospective')).toBeInTheDocument();
+		expect(front().getByText('Sprint Retrospective')).toBeInTheDocument();
 	});
 });
 
 describe('view source toggles between the two designs (requirement 3)', () => {
-	it('renders the terminal/source design for a "/source" route', () => {
-		const {container} = render(<App initialPath="/cv/source" />);
+	it('renders the editor/source design for a "/source" route', () => {
+		render(<App initialPath="/cv/source" />);
 
-		expect(container.querySelector('.terminal')).not.toBeNull();
-		expect(container.querySelector('.editorial')).toBeNull();
-		expect(screen.getAllByText('side-quests.yml').length).toBeGreaterThan(0);
+		expect(inFront()).toBe('Editor');
+		expect(front().getAllByText('side-quests.yml').length).toBeGreaterThan(0);
 	});
 
-	it('toggles between the editorial and terminal views via the toggle buttons', () => {
-		const {container} = render(<App initialPath="/cv" />);
-		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(container.querySelector('.terminal')).toBeNull();
+	it('toggles between the editorial and editor views via the toggle buttons', () => {
+		render(<App initialPath="/cv" />);
+		expect(inFront()).toBe('Website');
 
 		fireEvent.click(screen.getByTitle('View source'));
-		expect(container.querySelector('.terminal')).not.toBeNull();
-		expect(container.querySelector('.editorial')).toBeNull();
+		expect(inFront()).toBe('Editor');
 
-		fireEvent.click(screen.getByTitle('View rendered site'));
-		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(container.querySelector('.terminal')).toBeNull();
+		fireEvent.click(screen.getByRole('link', {name: 'Run'}));
+		expect(inFront()).toBe('Website');
 	});
 
 	it('closes back to the rendered view via the window close button', () => {
-		const {container} = render(<App initialPath="/side-quests/source" />);
-		expect(container.querySelector('.terminal')).not.toBeNull();
+		render(<App initialPath="/side-quests/source" />);
+		expect(inFront()).toBe('Editor');
 
 		fireEvent.click(screen.getByTitle('Close'));
 
-		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(container.querySelector('.terminal')).toBeNull();
-		expect(screen.getByText('Sprint Retrospective')).toBeInTheDocument();
+		expect(inFront()).toBe('Website');
+		expect(front().getByText('Sprint Retrospective')).toBeInTheDocument();
 	});
 
-	it('falls back to the CV when toggling to the rendered view from whoami', () => {
-		const {container} = render(<App initialPath="/whoami/source" />);
-		expect(container.querySelector('.terminal')).not.toBeNull();
+	it('opens an editor tab per file viewed, and closes them', () => {
+		const pushSpy = vi.spyOn(window.history, 'pushState');
+		const {container} = render(<App initialPath="/cv/source" />);
+		const tabs = () => [...container.querySelectorAll('.editor-tab a')].map(a => a.textContent.trim());
+		expect(tabs()).toEqual(['Mcv.md']);
 
-		fireEvent.click(screen.getByTitle('View rendered site'));
+		fireEvent.click(screen.getAllByRole('link', {name: 'contact.yml'})[0]);
+		expect(tabs()).toEqual(['Mcv.md', 'Ycontact.yml']);
+		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/contact/source');
 
-		expect(container.querySelector('.editorial')).not.toBeNull();
-		expect(screen.getByText('Work Experience')).toBeInTheDocument();
+		fireEvent.click(screen.getByRole('button', {name: 'Close contact.yml'}));
+		expect(tabs()).toEqual(['Mcv.md']);
+		expect(pushSpy).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), '/cv/source');
+
+		fireEvent.click(screen.getByRole('button', {name: 'Close cv.md'}));
+		expect(tabs()).toEqual([]);
+		expect(screen.getByText('No open files')).toBeInTheDocument();
+		pushSpy.mockRestore();
+	});
+
+	it('toggles from whoami\'s source to its rendered page', () => {
+		render(<App initialPath="/whoami/source" />);
+		expect(inFront()).toBe('Editor');
+
+		fireEvent.click(screen.getByRole('link', {name: 'Run'}));
+
+		expect(inFront()).toBe('Website');
+		expect(front().getByRole('heading', {level: 1, name: 'Robin Jacobs'})).toBeInTheDocument();
+	});
+});
+
+describe('e-mail obfuscation', () => {
+	it.each(routes)('keeps the address out of the prerendered HTML for %s', route => {
+		const {html} = prerender(route);
+
+		expect(html).not.toContain('robin@robinj.be');
+		expect(html).not.toContain('mailto:');
 	});
 });

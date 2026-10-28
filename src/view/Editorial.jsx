@@ -1,27 +1,40 @@
-import React from 'react';
+import React, {useRef, useEffect} from 'react';
 import {PAGES} from '../constants';
 import {CONTENT} from '../content';
 import {parseMarkdown} from '../markdown';
 import EmailAddress from '../component/EmailAddress';
 
-const MONO = '"IBM Plex Mono", ui-monospace, monospace';
-const SERIF = '"Newsreader", ui-serif, Georgia, serif';
+// See the font tokens in App.scss: the font setting swaps them.
+const MONO = 'var(--ed-mono)';
+const SERIF = 'var(--ed-serif)';
+// Room at the top for a bar lying over the page (the browser's, in _Desktop.scss).
+const INSET_TOP = 'var(--ed-inset-top, 0px)';
 
 const EditorialApp = ({page, onNavigate, onToggleView}) => {
 	const viewSource = <ViewSourceToggle page={page} onToggleView={onToggleView} />;
+	const rootRef = useRef(null);
+	const mainRef = useRef(null);
+
+	// Inside a window <main> scrolls, or in a narrow one the whole page does: either
+	// way a new page starts at its top.
+	useEffect(() => {
+		rootRef.current?.scrollTo?.(0, 0);
+		mainRef.current?.scrollTo?.(0, 0);
+	}, [page]);
 
 	return (
-		<div className="editorial" style={{
+		<div ref={rootRef} className="editorial" style={{
 		background: 'var(--ed-bg)', color: 'var(--ed-text)',
-		fontFamily: '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif',
+		fontFamily: 'var(--ed-sans)',
 		minHeight: '100%', width: '100%', display: 'flex',
 		fontFeatureSettings: '"ss01", "cv01"',
 	}}>
 		<EdSidebar page={page} onNavigate={onNavigate} />
-		<main style={{flex: 1, padding: '64px 80px 80px', overflow: 'hidden', minWidth: 0}}>
+		<main ref={mainRef} className="ed-main" style={{flex: 1, padding: `calc(64px + ${INSET_TOP}) 80px 80px`, overflow: 'hidden', minWidth: 0}}>
 			{page === 'cv' && <EdCV toggle={viewSource} />}
 			{page === 'side-quests' && <EdProjects toggle={viewSource} />}
 			{page === 'contact' && <EdContact toggle={viewSource} />}
+			{page === 'whoami' && <EdWhoami toggle={viewSource} />}
 			{page === '404' && <EdNotFound onNavigate={onNavigate} />}
 		</main>
 		</div>
@@ -30,21 +43,21 @@ const EditorialApp = ({page, onNavigate, onToggleView}) => {
 
 const EdSidebar = ({page, onNavigate}) => (
 	<aside className="ed-sidebar" style={{
-		width: 320, flexShrink: 0, padding: '56px 36px 40px',
+		width: 320, flexShrink: 0, padding: `calc(56px + ${INSET_TOP}) 36px 40px`,
 		borderRight: '1px solid var(--ed-rule)',
 		position: 'sticky', top: 0, alignSelf: 'flex-start', height: '100vh',
 		display: 'flex', flexDirection: 'column', gap: 28,
 	}}>
-		<div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 18}}>
-			<div style={{
-				width: 132, height: 132, borderRadius: '50%', overflow: 'hidden',
+		<div className="ed-profile" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 18}}>
+			<div className="ed-avatar" style={{
+				flexShrink: 0, width: 132, height: 132, borderRadius: '50%', overflow: 'hidden',
 				boxShadow: '0 1px 0 var(--ed-faint), 0 10px 30px rgba(0,0,0,.18)',
 				border: '1px solid var(--ed-rule)',
 			}}>
 				<img src="/img/me.webp" alt={CONTENT.name} style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}} />
 			</div>
 			<div>
-				<div style={{fontFamily: SERIF, fontSize: 30, lineHeight: 1.15, letterSpacing: '-0.01em', fontWeight: 500}}>
+				<div className="ed-name" style={{fontFamily: SERIF, fontSize: 30, lineHeight: 1.15, letterSpacing: '-0.01em', fontWeight: 500}}>
 					{CONTENT.name}
 				</div>
 				<div style={{marginTop: 8, fontSize: 13, color: 'var(--ed-dim)', fontStyle: 'italic', fontFamily: SERIF}}>
@@ -53,7 +66,7 @@ const EdSidebar = ({page, onNavigate}) => (
 			</div>
 		</div>
 
-		<nav style={{display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4}}>
+		<nav className="ed-nav" style={{display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4}}>
 			{Object.values(PAGES).filter(p => p.menu).map(p => {
 				const nums = {cv: '01', 'side-quests': '02', contact: '03'};
 				const active = page === p.name;
@@ -75,7 +88,7 @@ const EdSidebar = ({page, onNavigate}) => (
 							color: active ? 'var(--ed-accent)' : 'var(--ed-dim)', fontFamily: MONO,
 						}}>{nums[p.name]}</span>
 						<span style={{fontWeight: active ? 600 : 400}}>{p.title}</span>
-						{active && <span aria-hidden="true" style={{
+						{active && <span aria-hidden="true" className="ed-nav-marker" style={{
 							marginLeft: 'auto', width: 16, height: 1, background: 'var(--ed-accent)', alignSelf: 'center',
 						}} />}
 					</a>
@@ -83,7 +96,7 @@ const EdSidebar = ({page, onNavigate}) => (
 			})}
 		</nav>
 
-		<div style={{marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--ed-dim)'}}>
+		<div className="ed-sidebar-footer" style={{marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--ed-dim)'}}>
 			<div className="ed-contact-link">✉ <EmailAddress>{CONTENT.email}</EmailAddress></div>
 			<a className="ed-contact-link" href={`https://${CONTENT.linkedin}`} style={{color: 'inherit', textDecoration: 'none'}}>↗ {CONTENT.linkedin}</a>
 			<a className="ed-contact-link" href={`https://${CONTENT.github}`} style={{color: 'inherit', textDecoration: 'none'}}>↗ {CONTENT.github}</a>
@@ -117,7 +130,7 @@ const ViewSourceToggle = ({page, onToggleView}) => (
 );
 
 const EdDisplay = ({children, size = 64}) => (
-	<h1 style={{
+	<h1 className="ed-display" style={{
 		fontFamily: SERIF, fontWeight: 400, fontSize: size, lineHeight: 0.98,
 		letterSpacing: '-0.02em', margin: 0, color: 'var(--ed-text)',
 	}}>{children}</h1>
@@ -145,32 +158,32 @@ const TechChips = ({tech, label = null}) => (
 );
 
 const EdWorkRow = ({item, last}) => (
-	<div style={{
+	<div className="ed-work-row" style={{
 		display: 'grid', gridTemplateColumns: '110px 64px 1fr', gap: 24, padding: '22px 0',
 		borderTop: '1px solid var(--ed-rule)',
 		borderBottom: last ? '1px solid var(--ed-rule)' : 'none',
 	}}>
-		<div style={{fontFamily: MONO, fontSize: 11.5, color: 'var(--ed-dim)', fontVariantNumeric: 'tabular-nums', paddingTop: 4}}>
+		<div className="ed-dates" style={{fontFamily: MONO, fontSize: 11.5, color: 'var(--ed-dim)', fontVariantNumeric: 'tabular-nums', paddingTop: 4}}>
 			<div>{item.start}</div>
 			<div style={{color: item.end === 'Present' ? 'var(--ed-accent)' : 'var(--ed-dim)'}}>↓</div>
 			<div>{item.end}</div>
 		</div>
 		{/* Empty slot keeps the text aligned with rows that have a logo. */}
-		{item.logo ? <div style={{
+		{item.logo ? <div className="ed-work-logo" style={{
 			width: 56, height: 56, borderRadius: 10, overflow: 'hidden',
 			background: 'var(--ed-surface)', border: '1px solid var(--ed-rule)',
 			display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8,
 		}}>
 			<img src={item.logo} alt={item.company} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block'}} />
-		</div> : <div />}
-		<div>
-			<div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'}}>
+		</div> : <div className="ed-work-logo" />}
+		<div className="ed-work-body">
+			<div className="ed-work-title" style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'}}>
 				<div style={{fontFamily: SERIF, fontSize: 22, lineHeight: 1.2}}>
 					{item.title}
 				</div>
 				<div style={{fontSize: 12, color: 'var(--ed-dim)'}}>{item.location}</div>
 			</div>
-			<div style={{fontSize: 14, color: 'var(--ed-dim)', marginTop: 2, display: 'flex', gap: 10, alignItems: 'baseline'}}>
+			<div className="ed-work-company" style={{fontSize: 14, color: 'var(--ed-dim)', marginTop: 2, display: 'flex', gap: 10, alignItems: 'baseline'}}>
 				<span style={{color: 'var(--ed-text)'}}>{item.company}</span>
 				{item.type && <>
 					<span style={{width: 3, height: 3, borderRadius: '50%', background: 'var(--ed-dim)'}} />
@@ -193,7 +206,7 @@ const EdCV = ({toggle}) => (
 				platforms &amp; the hidden bits.
 			</EdDisplay>
 			<p style={{margin: 0, maxWidth: 620, fontSize: 16, lineHeight: 1.55, color: 'var(--ed-dim)'}}>{CONTENT.bio[1]}</p>
-			<div style={{display: 'flex', gap: 24, fontSize: 13, color: 'var(--ed-dim)', marginTop: 4}}>
+			<div className="ed-stats" style={{display: 'flex', gap: 24, fontSize: 13, color: 'var(--ed-dim)', marginTop: 4}}>
 				<span>years shipping software: <b style={{color: 'var(--ed-text)', fontWeight: 500}}>10+</b></span>
 				<span>current side-projects: <b style={{color: 'var(--ed-text)', fontWeight: 500}}>lost count</b></span>
 			</div>
@@ -209,13 +222,13 @@ const EdCV = ({toggle}) => (
 		<section>
 			<SectionHead title="Education" />
 			{CONTENT.education.map((e, i) => (
-				<div key={i} style={{
+				<div key={i} className="ed-education-row" style={{
 					display: 'grid', gridTemplateColumns: '90px 1fr auto', padding: '18px 0', gap: 24,
 					borderTop: '1px solid var(--ed-rule)',
 					borderBottom: i === CONTENT.education.length - 1 ? '1px solid var(--ed-rule)' : 'none',
 					alignItems: 'baseline',
 				}}>
-					<div style={{fontFamily: MONO, fontSize: 12, color: 'var(--ed-dim)', fontVariantNumeric: 'tabular-nums'}}>
+					<div className="ed-dates" style={{fontFamily: MONO, fontSize: 12, color: 'var(--ed-dim)', fontVariantNumeric: 'tabular-nums'}}>
 						<div>{e.start}</div>
 						<div>↓</div>
 						<div>{e.end}</div>
@@ -281,7 +294,7 @@ const EdProjects = ({toggle}) => (
 					display: 'grid', gridTemplateColumns: '140px 1fr', gap: 28, padding: 28,
 					background: 'var(--ed-surface)', border: '1px solid var(--ed-rule)', borderRadius: 16,
 				}}>
-					<div style={{
+					<div className="ed-project-logo" style={{
 						width: 140, height: 140, borderRadius: 12, overflow: 'hidden',
 						background: 'var(--ed-bg)', border: '1px solid var(--ed-rule)',
 						display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18,
@@ -289,7 +302,7 @@ const EdProjects = ({toggle}) => (
 						<img src={p.logo} alt={p.name} style={{maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block'}} />
 					</div>
 					<div style={{minWidth: 0}}>
-						<div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
+						<div className="ed-project-head" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
 							<h3 style={{margin: 0, fontFamily: SERIF, fontSize: 28, fontWeight: 500, letterSpacing: '-0.01em'}}>{p.name}</h3>
 							<a href={`https://${p.url}`} className="ed-project-url" style={{
 								fontFamily: MONO, fontSize: 11, color: 'var(--ed-accent)',
@@ -321,22 +334,57 @@ const EdContact = ({toggle}) => (
 		</header>
 
 		<div style={{display: 'flex', flexDirection: 'column', gap: 0}}>
-			{/* Not an <a>, so the address stays out of the static HTML. */}
-			<div className="ed-contact-row" style={contactRowStyle(false)}>
-				<div style={contactLabelStyle}>E-mail</div>
-				<div style={{fontFamily: SERIF, fontSize: 24}}><EmailAddress>{CONTENT.email}</EmailAddress></div>
-				<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+			<ContactLinks />
+		</div>
+	</div>
+);
+
+const ContactLinks = () => (
+	<>
+		{/* Not an <a>, so the address stays out of the static HTML. */}
+		<div className="ed-row ed-contact-row" style={contactRowStyle(false)}>
+			<div style={contactLabelStyle}>E-mail</div>
+			<div className="ed-row-value" style={{fontFamily: SERIF, fontSize: 24}}><EmailAddress>{CONTENT.email}</EmailAddress></div>
+			<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+		</div>
+		<a className="ed-row ed-contact-row" href={`https://${CONTENT.linkedin}`} style={contactRowStyle(false)}>
+			<div style={contactLabelStyle}>LinkedIn</div>
+			<div className="ed-row-value" style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.linkedin}</div>
+			<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+		</a>
+		<a className="ed-row ed-contact-row" href={`https://${CONTENT.github}`} style={contactRowStyle(true)}>
+			<div style={contactLabelStyle}>GitHub</div>
+			<div className="ed-row-value" style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.github}</div>
+			<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
+		</a>
+	</>
+);
+
+// The rendered side of whoami.txt: who, what and where, then how to reach me.
+const EdWhoami = ({toggle}) => (
+	<div style={{maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 40}}>
+		<header style={{display: 'flex', flexDirection: 'column', gap: 18}}>
+			<EdEyebrow toggle={toggle}>whoami</EdEyebrow>
+			<EdDisplay>{CONTENT.name}</EdDisplay>
+			<p style={{margin: 0, fontFamily: SERIF, fontSize: 20, fontStyle: 'italic', color: 'var(--ed-dim)'}}>{CONTENT.tagline}</p>
+		</header>
+
+		<div style={{display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 620, fontSize: 16, lineHeight: 1.6}}>
+			{CONTENT.bio.map((paragraph, i) => <p key={i} style={{margin: 0}}>{paragraph}</p>)}
+		</div>
+
+		<div style={{display: 'flex', flexDirection: 'column', gap: 0}}>
+			<div className="ed-row" style={contactRowStyle(false)}>
+				<div style={contactLabelStyle}>Role</div>
+				<div className="ed-row-value" style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.role}</div>
+				<div />
 			</div>
-			<a className="ed-contact-row" href={`https://${CONTENT.linkedin}`} style={contactRowStyle(false)}>
-				<div style={contactLabelStyle}>LinkedIn</div>
-				<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.linkedin}</div>
-				<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
-			</a>
-			<a className="ed-contact-row" href={`https://${CONTENT.github}`} style={contactRowStyle(true)}>
-				<div style={contactLabelStyle}>GitHub</div>
-				<div style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.github}</div>
-				<div style={{color: 'var(--ed-accent)', fontSize: 14}}>↗</div>
-			</a>
+			<div className="ed-row" style={contactRowStyle(false)}>
+				<div style={contactLabelStyle}>Based in</div>
+				<div className="ed-row-value" style={{fontFamily: SERIF, fontSize: 24}}>{CONTENT.location}</div>
+				<div />
+			</div>
+			<ContactLinks />
 		</div>
 	</div>
 );
@@ -355,7 +403,7 @@ const contactLabelStyle = {
 const EdNotFound = ({onNavigate}) => (
 	<div style={{maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 18}}>
 		<EdEyebrow>[404] Not Found</EdEyebrow>
-		<div aria-hidden="true" style={{fontSize: 250, lineHeight: 1}}>🤷‍♂️</div>
+		<div aria-hidden="true" className="ed-shrug" style={{fontSize: 250, lineHeight: 1}}>🤷‍♂️</div>
 		<p style={{margin: 0, maxWidth: 560, fontSize: 16, lineHeight: 1.55, color: 'var(--ed-dim)'}}>
 			The page you requested does not exist.
 		</p>

@@ -31,6 +31,10 @@ describe('parseMarkdown', () => {
 		expect(blocks[1]).toEqual({type: 'ul', items: [['first'], ['second']]});
 	});
 
+	it('has nothing to say about a missing description', () => {
+		expect(parseMarkdown(undefined)).toEqual([]);
+	});
+
 	it('ignores indentation, so stored content can be indented to suit its code', () => {
 		expect(parseMarkdown('\t\t\tone\n\t\t\ttwo')).toEqual([{type: 'p', inline: ['one two']}]);
 	});

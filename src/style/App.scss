@@ -1,6 +1,31 @@
+// OpenDyslexic, for the "Dyslexic" font setting, from jsDelivr; only downloaded when it's chosen.
+$open-dyslexic: 'https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3';
+
+@each $file, $weight, $style in ('Regular', 400, normal), ('Bold', 700, normal), ('Italic', 400, italic), ('BoldItalic', 700, italic) {
+	@font-face {
+		font-family: 'OpenDyslexic';
+		src: url('#{$open-dyslexic}/woff/OpenDyslexic-#{$file}.woff') format('woff');
+		font-weight: $weight;
+		font-style: $style;
+		font-display: swap;
+	}
+}
+
+@font-face {
+	font-family: 'OpenDyslexic Mono';
+	src: url('#{$open-dyslexic}/otf/OpenDyslexicMono-Regular.otf') format('opentype');
+	font-display: swap;
+}
+
 // Theme tokens. Swapped by prefers-color-scheme in CSS, so SSR and hydration render the same.
 :root {
 	color-scheme: light dark;
+
+	// The website's fonts, and the editor's (which the terminal shares).
+	--ed-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+	--ed-serif: 'Newsreader', ui-serif, Georgia, serif;
+	--ed-mono: 'IBM Plex Mono', ui-monospace, monospace;
+	--editor-font: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
 	// Editorial palette — light
 	--ed-bg: #f7f3eb;
@@ -12,59 +37,80 @@
 	--ed-accent-soft: rgba(61, 138, 82, .12);
 	--ed-rule: rgba(31, 28, 23, .10);
 
-	// Terminal palette — light
-	--tm-bg: #fbf8ee;
-	--tm-chrome: #f0ead8;
-	--tm-surface: #fefcf3;
-	--tm-sidebar: #f4eedb;
-	--tm-text: #3a3528;
-	--tm-dim: #7c7460;
-	--tm-faint: #e8e0c8;
-	--tm-rule: #e2d9bd;
-	--tm-accent: #3d8a52;
-	--tm-accent2: #3676a8;
-	--tm-kw: #b1442d;
-	--tm-str: #5a7d2f;
-	--tm-com: #9b9079;
-	--tm-num: #8459a6;
-	--tm-toggle-bg: rgba(0, 0, 0, .03);
-	--tm-close-bg: rgba(0, 0, 0, .08);
-	--tm-close-bg-hover: rgba(0, 0, 0, .16);
-	--tm-statusbar-bg: #ecdfb0;
+	// Editor palette — light
+	--editor-bg: #fbf8ee;
+	--editor-chrome: #f0ead8;
+	--editor-surface: #fefcf3;
+	--editor-sidebar: #f4eedb;
+	--editor-text: #3a3528;
+	--editor-dim: #7c7460;
+	--editor-faint: #e8e0c8;
+	--editor-rule: #e2d9bd;
+	--editor-accent: #3d8a52;
+	--editor-accent2: #3676a8;
+	--editor-kw: #b1442d;
+	--editor-str: #5a7d2f;
+	--editor-com: #9b9079;
+	--editor-num: #8459a6;
+	--editor-close-bg: rgba(0, 0, 0, .08);
+	--editor-close-bg-hover: rgba(0, 0, 0, .16);
+	--editor-statusbar-bg: #ecdfb0;
+}
+
+// Dark when the OS prefers it (unless the visitor picked light), or when the visitor picked it.
+@mixin dark-tokens {
+	// Editorial palette — dark
+	--ed-bg: #100f0d;
+	--ed-surface: #181612;
+	--ed-text: #ece8e0;
+	--ed-dim: rgba(236, 232, 224, .58);
+	--ed-faint: rgba(236, 232, 224, .12);
+	--ed-accent: #86c898;
+	--ed-accent-soft: rgba(134, 200, 152, .14);
+	--ed-rule: rgba(236, 232, 224, .10);
+
+	// Editor palette — dark
+	--editor-bg: #0d1117;
+	--editor-chrome: #161b22;
+	--editor-surface: #11161d;
+	--editor-sidebar: #0a0e14;
+	--editor-text: #cdd6e1;
+	--editor-dim: #7a8497;
+	--editor-faint: #272f3b;
+	--editor-rule: #1d242e;
+	--editor-accent: #7ee787;
+	--editor-accent2: #79c0ff;
+	--editor-kw: #ff7b72;
+	--editor-str: #a5d6ff;
+	--editor-com: #6e7681;
+	--editor-num: #d2a8ff;
+	--editor-close-bg: rgba(255, 255, 255, .10);
+	--editor-close-bg-hover: rgba(255, 255, 255, .20);
+	--editor-statusbar-bg: #0a0e14;
 }
 
 @media (prefers-color-scheme: dark) {
-	:root {
-		// Editorial palette — dark
-		--ed-bg: #100f0d;
-		--ed-surface: #181612;
-		--ed-text: #ece8e0;
-		--ed-dim: rgba(236, 232, 224, .58);
-		--ed-faint: rgba(236, 232, 224, .12);
-		--ed-accent: #86c898;
-		--ed-accent-soft: rgba(134, 200, 152, .14);
-		--ed-rule: rgba(236, 232, 224, .10);
-
-		// Terminal palette — dark
-		--tm-bg: #0d1117;
-		--tm-chrome: #161b22;
-		--tm-surface: #11161d;
-		--tm-sidebar: #0a0e14;
-		--tm-text: #cdd6e1;
-		--tm-dim: #7a8497;
-		--tm-faint: #272f3b;
-		--tm-rule: #1d242e;
-		--tm-accent: #7ee787;
-		--tm-accent2: #79c0ff;
-		--tm-kw: #ff7b72;
-		--tm-str: #a5d6ff;
-		--tm-com: #6e7681;
-		--tm-num: #d2a8ff;
-		--tm-toggle-bg: rgba(255, 255, 255, .05);
-		--tm-close-bg: rgba(255, 255, 255, .10);
-		--tm-close-bg-hover: rgba(255, 255, 255, .20);
-		--tm-statusbar-bg: #0a0e14;
+	:root:not([data-theme='light']) {
+		@include dark-tokens;
 	}
+}
+
+// The "Dyslexic" font setting: the website, editor and terminal read in OpenDyslexic.
+// The desktop and its title bars keep their own font.
+:root[data-font='dyslexic'] {
+	--ed-sans: 'OpenDyslexic', ui-sans-serif, sans-serif;
+	--ed-serif: 'OpenDyslexic', ui-sans-serif, sans-serif;
+	--ed-mono: 'OpenDyslexic Mono', 'IBM Plex Mono', ui-monospace, monospace;
+	--editor-font: 'OpenDyslexic Mono', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+:root[data-theme='dark'] {
+	@include dark-tokens;
+	color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
 }
 
 *, *::before, *::after {
@@ -89,12 +135,13 @@ body {
 	}
 }
 
-.tm-cursor {
-	border-right: 2px solid var(--tm-accent);
+.editor-cursor {
+	border-right: 2px solid var(--editor-accent);
 	margin-left: 2px;
 	padding-left: 2px;
 	animation: blink 1.1s steps(1) infinite;
 }
 
 @import 'Editorial';
-@import 'Terminal';
+@import 'Editor';
+@import 'Desktop';

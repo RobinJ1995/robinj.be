@@ -2,7 +2,9 @@ import React, {useState, useEffect} from 'react';
 import './style/App.scss';
 import {PAGES} from './constants';
 import EditorialApp from './view/Editorial';
-import TerminalApp from './view/Terminal';
+import EditorApp from './view/Editor';
+import Desktop from './view/Desktop';
+import Console from './view/Console';
 
 // Pure path parsers (no `window`), so they run identically on the server and client.
 const parseViewSource = path => String(path)
@@ -92,20 +94,42 @@ const App = ({initialPath}) => {
 		}
 
 		if (viewSource) {
-			return navigate(page.sourceOnly ? 'cv' : page.name);
+			return navigate(page.name);
 		}
 
 		return navigate(`${page.name}/source`);
 	};
 
 	const showSource = viewSource && !!page.source;
+	const sourcePage = page.source ? page.name : 'cv';
 
-	if (showSource) {
-		return <TerminalApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />;
-	}
+	const showWindow = win => navigate(win === 'source' ? `${sourcePage}/source` : page.name);
 
-	const editorialPage = page.sourceOnly ? 'cv' : page.name;
-	return <EditorialApp page={editorialPage} onNavigate={navigate} onToggleView={toggleViewSource} />;
+	const renderWindow = (win, {close, raise, focused, system}) => {
+		if (win === 'console') {
+			const openInEditor = name => {
+				raise('source');
+				navigate(`${name}/source`);
+			};
+
+			return <Console focused={focused} system={system} onClose={close} onOpenFile={openInEditor} />;
+		}
+
+		return win === 'source'
+			? <EditorApp page={sourcePage} onNavigate={navigate} onToggleView={toggleViewSource} onClose={close} />
+			: <EditorialApp page={page.name} onNavigate={navigate} onToggleView={toggleViewSource} />;
+	};
+
+	return (
+		<Desktop
+			focused={showSource ? 'source' : 'site'}
+			hrefs={{site: page.url, source: `/${sourcePage}/source`}}
+			address={page.url}
+			homeHref={findPage('cv').url}
+			onShow={showWindow}
+			onHome={e => navigate('cv', e)}
+			renderWindow={renderWindow} />
+	);
 };
 
 export default App;

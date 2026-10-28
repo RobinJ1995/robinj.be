@@ -10,6 +10,7 @@ const CONTENT = [
 	{path: '/cv', title: 'CV  • Robin Jacobs', text: ['Work Experience', 'Beeline']},
 	{path: '/contact', title: 'Contact  • Robin Jacobs', text: ['linkedin.com/in/robin-jacobs']},
 	{path: '/side-quests', title: 'Side Quests  • Robin Jacobs', text: ['Sprint Retrospective', 'DistroHopper']},
+	{path: '/whoami', title: 'whoami  • Robin Jacobs', text: ['Robin Jacobs', 'Senior Software Engineer']},
 ];
 
 test('redirects the old /projects URLs to /side-quests', async ({page}) => {
@@ -30,11 +31,11 @@ for (const {path, title, text} of CONTENT) {
 	});
 }
 
-test('prerenders the terminal/source design for /cv/source (requirement 3)', async ({page}) => {
+test('prerenders the editor/source design for /cv/source (requirement 3)', async ({page}) => {
 	await page.goto('/cv/source', {waitUntil: 'domcontentloaded'});
 
 	await expect(page).toHaveTitle('CV  (Source) • Robin Jacobs');
-	await expect(page.locator('.terminal')).toBeVisible();
+	await expect(page.locator('.editor')).toBeVisible();
 	await expect(page.locator('#root')).toContainText('side-quests.yml');
 	await expect(page.locator('#root')).toContainText('Work Experience');
 });
