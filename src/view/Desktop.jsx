@@ -71,6 +71,18 @@ const PowerIcon = () => (
 	</svg>
 );
 
+// GNOME's Caffeine extension shows a cup in the top bar; this one steams.
+const CaffeineIcon = () => (
+	<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+		<g className="dt-steam" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+			<path d="M5 4.5c-.8-.9.8-1.6 0-2.5" />
+			<path d="M8 4.5c-.8-.9.8-1.6 0-2.5" />
+		</g>
+		<path d="M2.5 6.5h8v4a3 3 0 0 1-3 3h-2a3 3 0 0 1-3-3z" fill="currentColor" />
+		<path d="M10.5 7.5h1a1.75 1.75 0 0 1 0 3.5h-1.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+	</svg>
+);
+
 const LightIcon = () => (
 	<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
 		<circle cx="8" cy="8" r="3" fill="currentColor" />
@@ -300,7 +312,7 @@ const QuickSettings = ({ref}) => {
 	);
 };
 
-const TopBar = ({overview, onActivities, menuOpen, setMenuOpen, inert}) => {
+const TopBar = ({overview, onActivities, menuOpen, setMenuOpen, caffeinated, inert}) => {
 	const battery = useBattery();
 	const menuRef = useRef(null);
 	const buttonRef = useRef(null);
@@ -338,6 +350,11 @@ const TopBar = ({overview, onActivities, menuOpen, setMenuOpen, inert}) => {
 			<Clock />
 			<button ref={buttonRef} type="button" className="dt-panel-button dt-status" aria-label="System menu" aria-expanded={menuOpen}
 				onClick={() => setMenuOpen(o => !o)}>
+				{caffeinated && (
+					<span role="img" title="Caffeine" aria-label="Caffeine loaded">
+						<CaffeineIcon />
+					</span>
+				)}
 				<WiredIcon />
 				{battery && (
 					<span role="img" title={`${Math.round(battery.level * 100)}%`}
@@ -610,6 +627,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 	const [power, setPower] = useState(null);
 	// Just booted: the desktop zooms in, as GNOME's does after logging in.
 	const [starting, setStarting] = useState(false);
+	const [caffeinated, setCaffeinated] = useState(false);
 	const keyboard = useKeyboardFit();
 	const small = useMedia(SMALL);
 	const reduceMotion = useMedia('(prefers-reduced-motion: reduce)');
@@ -733,9 +751,9 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 			const x = icon.x + icon.width / 2 - (stage.x + el.offsetLeft + el.offsetWidth / 2);
 			const y = icon.y + icon.height / 2 - (stage.y + el.offsetTop + el.offsetHeight / 2);
 
-			return {visibility: 'visible', opacity: 0, transform: `translate(${x}px, ${y}px) scale(${icon.width / el.offsetWidth})`};
+			return {'visibility': 'visible', '--dt-fade': 0, 'transform': `translate(${x}px, ${y}px) scale(${icon.width / el.offsetWidth})`};
 		};
-		const restored = {visibility: 'visible', opacity: 1, transform: 'none'};
+		const restored = {'visibility': 'visible', '--dt-fade': 1, 'transform': 'none'};
 
 		// The one minimising shrinks away over the one being restored.
 		if (before.visible && windowEls.current[before.visible]) {
@@ -817,6 +835,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 
 	// Everything closes when the machine goes down, out of sight behind the console.
 	const closeAll = () => {
+		setCaffeinated(false);
 		setLost(false);
 		setDismissed(false);
 		Object.values(closeTimers.current).forEach(clearTimeout);
@@ -870,7 +889,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 
 	// What the terminal sees of the system: the windows are its processes.
 	const latest = useRef(null);
-	latest.current = {open, closing, show, close, halt};
+	latest.current = {open, closing, show, close, halt, caffeinated};
 	const system = useMemo(() => ({
 		pid: () => nextPid.current++,
 		get terminalPid() {
@@ -894,10 +913,15 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 		},
 		launch: app => latest.current.show(WINDOWS[app]),
 		halt: sequence => latest.current.halt(sequence),
+		// The caffeine kernel module: the desktop gets the jitters while it's loaded.
+		get caffeinated() {
+			return latest.current.caffeinated;
+		},
+		caffeinate: setCaffeinated,
 	}), []);
 
 	return (
-		<div className={`desktop${overview ? ' is-overview' : ''}`} style={card || keyboard ? {
+		<div className={`desktop${overview ? ' is-overview' : ''}${caffeinated ? ' is-caffeinated' : ''}`} style={card || keyboard ? {
 			...card && {
 				'--ov-x': `${card.x}px`, '--ov-y': `${card.y}px`, '--ov-scale': card.scale,
 				'--ov-peek-x': `${card.peekX}px`, '--ov-peek-y': `${card.peekY}px`, '--ov-peek-scale': card.peekScale,
@@ -907,7 +931,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, renderWindo
 			<div className={`dt-screen${starting ? ' is-starting' : ''}`} onAnimationEnd={e => e.target === e.currentTarget && setStarting(false)}>
 				<div className="dt-wallpaper" aria-hidden="true" />
 				<div className="dt-workspace-peek" aria-hidden="true" />
-				<TopBar overview={overview} onActivities={() => setOverview(o => !o)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} inert={!!power} />
+				<TopBar overview={overview} onActivities={() => setOverview(o => !o)} menuOpen={menuOpen} setMenuOpen={setMenuOpen} caffeinated={caffeinated} inert={!!power} />
 
 				<div ref={stageRef} className="dt-stage" onClick={onDesktopClick} inert={!!power}>
 					{openWindows.map(win => (

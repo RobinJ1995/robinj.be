@@ -21,6 +21,7 @@ const THROTTLE_MS = 100;
 const MAX_PROCESSES = 128;
 const MAX_NESTING = 1000;
 const HISTORY_SIZE = 1000;
+const TTY_BACKLOG = 65536;
 
 const PS1 = '\\[\\e[1;36m\\]\\u@\\H\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]\\$ ';
 // Declaration builtins take `name=value` arguments without splitting them.
@@ -39,7 +40,16 @@ class ForkError extends Error {}
 // What the shell runs on outside the desktop (and in tests): no other processes.
 const standalone = () => {
 	let next = 4000;
-	return {pid: () => next++, terminalPid: 3999, bootedAt: new Date(), processes: () => [], kill: () => 'missing', launch: () => null, halt: () => {}};
+	let awake = false;
+	return {
+		pid: () => next++, terminalPid: 3999, bootedAt: new Date(), processes: () => [], kill: () => 'missing', launch: () => null, halt: () => {},
+		get caffeinated() {
+			return awake;
+		},
+		caffeinate: on => {
+			awake = on;
+		},
+	};
 };
 
 const profileExports = () => Object.fromEntries(FILES[`${HOME}/.profile`].text().split('\n')
@@ -182,6 +192,7 @@ class Shell {
 		this.pid = system.pid();
 		this.started = new Date();
 		this.exited = false;
+		this.backlog = 0;
 	}
 
 	// --- Variables ---
@@ -474,7 +485,7 @@ class Shell {
 
 		const pipes = node.commands.slice(1).map(() => new Pipe());
 		const stages = node.commands.map((command, i) => {
-			const output = i < pipes.length ? new Output(text => pipes[i].write(text)) : ctx.io[1];
+			const output = i < pipes.length ? new Output(text => pipes[i].write(text), {drain: () => pipes[i].drain()}) : ctx.io[1];
 			const io = [i ? pipeInput(pipes[i - 1]) : ctx.io[0], output, node.stderr[i] ? output : ctx.io[2]];
 
 			return this.subshell({...ctx, io}, sub => this.run(command, sub))
@@ -697,7 +708,9 @@ class Shell {
 			return {output: special[absolute]};
 		}
 
-		return {error: this.fs.writeError(absolute) ?? 'Read-only file system'};
+		// Other devices take whatever is written to them.
+		const error = this.fs.writeError(absolute);
+		return error ? {error} : {output: nullOutput()};
 	}
 
 	openRead(path, ctx) {
@@ -709,7 +722,16 @@ class Shell {
 		}
 
 		const result = this.fs.read(absolute);
-		return result.error ? result : {input: textInput(result.text)};
+		if (result.error) {
+			return result;
+		}
+
+		// Endless devices make a chunk at a time, throttled like a runaway loop.
+		const {stream} = this.fs.lookup(absolute).entry;
+		return {input: stream ? new Input({read: async () => {
+			await this.tick(ctx);
+			return stream();
+		}}) : textInput(result.text)};
 	}
 
 	// The io for a command, after its redirections; null when one failed.
@@ -946,7 +968,6 @@ class Shell {
 			err: text => ctx.io[2].write(text),
 			abort,
 			sleep: ms => abort.sleep(ms),
-			read: () => ctx.io[0].read(abort),
 			readLine: () => ctx.io[0].readLine(abort),
 			// From the terminal itself, not stdin, and without echo: as sudo and su do.
 			readPassword: async prompt => {
@@ -956,6 +977,12 @@ class Shell {
 				return line === null ? null : line.replace(/\n$/, '');
 			},
 			readAll: () => ctx.io[0].readAll(abort),
+			// Waits until the output can take more.
+			drain: () => abort.race(ctx.io[1].drain()),
+			// Counts as a command for the loop protection: crawls once there were many.
+			tick: () => this.tick(ctx),
+			openRead: path => this.openRead(path, ctx),
+			openWrite: path => this.openWrite(path, ctx),
 			cwd: ctx.state.cwd,
 			resolve: path => normalize(ctx.state.cwd, path),
 			env: environment,
@@ -1123,13 +1150,17 @@ class Shell {
 		} else if (HARMLESS.has(signal) || signal === 'EXIT') {
 			return 'ok';
 		} else if (app.name === 'desktop') {
-			const uptime = (Date.now() - this.system.bootedAt) / 1000;
-			cancelShutdown();
-			this.system.halt({mode: 'panic', lines: panicText({uptime, pid, signal}), boot: bootSequence()});
+			this.panic({pid, signal});
 			return 'ok';
 		}
 
 		return this.system.kill(pid, signal);
+	}
+
+	panic(details) {
+		const uptime = (Date.now() - this.system.bootedAt) / 1000;
+		cancelShutdown();
+		this.system.halt({mode: 'panic', lines: panicText({uptime, ...details}), boot: bootSequence()});
 	}
 
 	exit() {
@@ -1140,8 +1171,17 @@ class Shell {
 		}
 	}
 
+	// Output waits for the terminal to catch up once there's a backlog, not after every write.
 	ttyOutput() {
-		return new Output(text => this.tty.write(text), {tty: true});
+		return new Output(text => {
+			this.backlog += text.length;
+			this.tty.write(text);
+		}, {tty: true, drain: async () => {
+			if (this.backlog >= TTY_BACKLOG) {
+				this.backlog = 0;
+				await this.tty.drain?.();
+			}
+		}});
 	}
 
 	ttyInput() {

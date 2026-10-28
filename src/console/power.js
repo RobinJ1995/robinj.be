@@ -138,8 +138,8 @@ export const bootSequence = () => {
 
 const EXIT_CODES = {KILL: 0x9, TERM: 0xf, INT: 0x2, HUP: 0x1, QUIT: 0x3, ABRT: 0x6, SEGV: 0xb};
 
-export const panicText = ({uptime, pid, signal}) => {
-	const reason = `Critical system component died! exitcode=0x${(EXIT_CODES[signal] ?? 0xf).toString(16).padStart(8, '0')}`;
+export const panicText = ({uptime, pid, signal, comm = 'desktop', cause}) => {
+	const reason = cause ?? `Critical system component died! exitcode=0x${(EXIT_CODES[signal] ?? 0xf).toString(16).padStart(8, '0')}`;
 	let at = uptime;
 	const next = text => {
 		at += 0.000001 + Math.random() * 0.000002;
@@ -148,7 +148,7 @@ export const panicText = ({uptime, pid, signal}) => {
 
 	return [
 		next(`Kernel panic - not syncing: ${reason}`),
-		next(`CPU: 3 PID: ${pid} Comm: desktop Tainted: G           OE      ${OS_RELEASE.kernel} #1`),
+		next(`CPU: 3 PID: ${pid} Comm: ${comm} Tainted: G           OE      ${OS_RELEASE.kernel} #1`),
 		next(`Hardware name: ${HARDWARE}`),
 		next('Modules linked in: caffeine(OE) oxidize(OE) rubber_duck nf_tables nvme btrfs'),
 		next('Call Trace:'),

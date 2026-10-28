@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {createFs, displayPath, modeString, normalize, sizeOf} from './fs';
+import {CHUNK, createFs, displayPath, modeString, normalize, sizeOf} from './fs';
 
 const fs = createFs({history: () => ['ls', 'pwd'], binaries: () => ['ls']});
 
@@ -32,6 +32,7 @@ describe('the filesystem', () => {
 	it('reads files it may read, devices as empty', () => {
 		expect(fs.read('/home/robin/.bash_history')).toEqual({text: 'ls\npwd\n'});
 		expect(fs.read('/dev/null')).toEqual({text: ''});
+		expect(fs.read('/dev/urandom')).toEqual({text: ''});
 		expect(fs.read('/etc/shadow')).toEqual({error: 'Permission denied'});
 		expect(fs.read('/etc/shadow', 'root').text).toMatch(/^root:!locked:/);
 		expect(fs.read('/etc')).toEqual({error: 'Is a directory'});
@@ -39,6 +40,7 @@ describe('the filesystem', () => {
 
 	it('says why each write would fail, except to a device', () => {
 		expect(fs.writeError('/dev/null')).toBeNull();
+		expect(fs.writeError('/dev/zero')).toBeNull();
 		expect(fs.writeError('/etc')).toBe('Is a directory');
 		expect(fs.writeError('/etc/passwd/x')).toBe('Not a directory');
 		expect(fs.writeError('/root/x')).toBe('Permission denied');
@@ -70,5 +72,31 @@ describe('entries', () => {
 		expect(sizeOf(fs.lookup('/bin', {follow: false}).entry)).toBe(7);
 		expect(sizeOf(fs.lookup('/dev/null').entry)).toBe(0);
 		expect(sizeOf(fs.lookup('/etc/hostname').entry)).toBe(10);
+	});
+});
+
+describe('devices', () => {
+	it('have their own numbers, and the endless ones make a chunk at a time', () => {
+		const devices = ['null', 'random', 'urandom', 'zero'].map(name => fs.lookup(`/dev/${name}`).entry);
+
+		expect(devices.map(entry => entry.device)).toEqual([[1, 3], [1, 8], [1, 9], [1, 5]]);
+		expect(devices[0].stream).toBeUndefined();
+		expect(devices[3].stream()).toBe('\0'.repeat(CHUNK));
+		const random = devices[2].stream();
+		expect(random.length).toBeGreaterThan(CHUNK / 2);
+		expect(random).not.toBe(devices[1].stream());
+	});
+});
+
+describe('the repository', () => {
+	it('has a .git in ~/portfolio, owned by robin, with read-only packs and runnable hooks', () => {
+		expect(fs.list('/home/robin/portfolio/.git').names).toEqual(['HEAD', 'config', 'description', 'hooks', 'index', 'info', 'logs', 'objects', 'packed-refs', 'refs', 'shallow']);
+		expect(modeString(fs.lookup('/home/robin/portfolio/.git/hooks/update.sample').entry)).toBe('-rwxr-xr-x');
+		expect(fs.list('/home/robin/portfolio/.git/objects/pack').names.map(name => modeString(fs.lookup(`/home/robin/portfolio/.git/objects/pack/${name}`).entry))).toEqual(Array(3).fill('-r--r--r--'));
+		expect(fs.lookup('/home/robin/portfolio/.git/refs/tags').entry).toMatchObject({type: 'dir', owner: 'robin'});
+	});
+
+	it('is in /usr/sbin too, which is /usr/bin', () => {
+		expect(fs.lookup('/usr/sbin/ls').path).toBe('/usr/bin/ls');
 	});
 });

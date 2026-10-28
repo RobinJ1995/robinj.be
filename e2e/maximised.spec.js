@@ -6,7 +6,7 @@ test.skip(({viewport}) => !isSmall(viewport), 'Windows only maximise on small sc
 // The dock's gap to the screen edge, and to the window.
 const GAP = 6;
 
-const isShowing = locator => locator.evaluate(el => getComputedStyle(el).visibility === 'visible' && getComputedStyle(el).opacity === '1');
+const isShowing = locator => locator.evaluate(el => getComputedStyle(el).visibility === 'visible' && getComputedStyle(el).getPropertyValue('--dt-fade') === '1');
 
 test('maximises the window between the top bar and the dock, as far from the dock as the dock is from the edge', async ({page, viewport}) => {
 	await visit(page, '/cv');

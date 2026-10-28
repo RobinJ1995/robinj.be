@@ -36,11 +36,11 @@ describe('ls', () => {
 			`-rw-------\\. 1 robin robin +\\d+ ${STAMP} \\.bash_history`,
 			`drwx------\\. 2 robin robin 4096 ${STAMP} \\.kube`,
 			`-rw-r--r--\\. 1 robin robin +\\d+ ${STAMP} \\.profile`,
-			`drwxr-xr-x\\. 2 robin robin 4096 ${STAMP} portfolio$`,
+			`drwxr-xr-x\\. 3 robin robin 4096 ${STAMP} portfolio$`,
 		].join('\\n')));
 		expect(await run('ls -ld /tmp /dev/null')).toMatch(new RegExp(`^crw-rw-rw-\\. 1 root root 1, 3 ${STAMP} /dev/null\\ndrwxrwxrwt\\. 2 root root 4096 ${STAMP} /tmp$`));
 		expect(await run('ls -lh /usr/bin/ls /etc/passwd')).toMatch(new RegExp(`^-rw-r--r--\\. 1 root root 128 ${STAMP} /etc/passwd\\n-rwxr-xr-x\\. 1 root root  38 ${STAMP} /usr/bin/ls$`));
-		expect(await run('ls -l /bin/ | head -1')).toBe('total 228');
+		expect(await run('ls -l /bin/ | head -1')).toBe('total 276');
 		expect(await run('ls -lh /usr | head -1')).toBe('total 12K');
 		expect(await run('ls -l /tmp')).toBe('total 0');
 	});
@@ -58,12 +58,12 @@ describe('ls', () => {
 		const session = setup();
 
 		expect(await session.run('ls -F /')).toBe('bin@  boot/  dev/  etc/  home/  root/  tmp/  usr/  var/');
-		expect(await session.run('ls --classify /usr/bin | head -2')).toBe('bash*\ncat*');
+		expect(await session.run('ls --classify /usr/bin | head -2')).toBe('awk*\nbash*');
 		expect(await coloured(session, 'ls --color=always /')).toBe('\x1b[01;36mbin\x1b[0m  \x1b[01;34mboot\x1b[0m  \x1b[01;34mdev\x1b[0m  \x1b[01;34metc\x1b[0m  \x1b[01;34mhome\x1b[0m  \x1b[01;34mroot\x1b[0m  \x1b[30;42mtmp\x1b[0m  \x1b[01;34musr\x1b[0m  \x1b[01;34mvar\x1b[0m\n');
-		expect(await coloured(session, 'ls --color /dev /usr/bin | head -3')).toBe('/dev:\n\x1b[40;33;01mnull\x1b[0m\n\n');
-		expect(await coloured(session, 'ls --color=always /usr/bin | head -1')).toBe('\x1b[01;32mbash\x1b[0m\n');
-		expect(await coloured(session, 'ls --color=never /dev')).toBe('null\n');
-		expect(await coloured(session, 'ls --color=auto /dev | cat')).toBe('null\n');
+		expect(await coloured(session, 'ls --color /dev /usr/bin | head -3')).toBe('/dev:\n\x1b[40;33;01mnull\x1b[0m\n\x1b[40;33;01mrandom\x1b[0m\n');
+		expect(await coloured(session, 'ls --color=always /usr/bin | head -1')).toBe('\x1b[01;32mawk\x1b[0m\n');
+		expect(await coloured(session, 'ls --color=never /dev')).toBe('null  random  urandom  zero\n');
+		expect(await coloured(session, 'ls --color=auto /dev | cat')).toBe('null\nrandom\nurandom\nzero\n');
 	});
 
 	it('lays names out in columns on a terminal, or with -C', async () => {
@@ -97,8 +97,8 @@ describe('tree', () => {
 		const {run} = setup();
 
 		expect(await run('tree ~')).toBe('/home/robin\n└── portfolio\n    ├── contact.yml\n    ├── cv.md\n    ├── side-quests.yml\n    └── whoami.txt\n\n1 directory, 4 files');
-		expect(await run('tree -a ~')).toBe('/home/robin\n├── .bash_history\n├── .kube\n│   └── config\n├── .profile\n└── portfolio\n    ├── contact.yml\n    ├── cv.md\n    ├── side-quests.yml\n    └── whoami.txt\n\n2 directories, 7 files');
-		expect(await run('tree -L 1 /usr')).toBe('/usr\n├── bin\n├── lib\n└── share\n\n3 directories, 0 files');
+		expect(await run('tree -a -L 2 ~')).toBe('/home/robin\n├── .bash_history\n├── .kube\n│   └── config\n├── .profile\n└── portfolio\n    ├── .git\n    ├── contact.yml\n    ├── cv.md\n    ├── side-quests.yml\n    └── whoami.txt\n\n3 directories, 7 files');
+		expect(await run('tree -L 1 /usr')).toBe('/usr\n├── bin\n├── lib\n├── sbin -> bin\n└── share\n\n4 directories, 0 files');
 	});
 
 	it('shows only directories with -d, following links and marking the ones it cannot open', async () => {
@@ -106,8 +106,8 @@ describe('tree', () => {
 
 		expect(await run('tree -d /')).toBe([
 			'/', '├── bin -> usr/bin', '├── boot', '├── dev', '├── etc', '├── home', '│   └── robin', '│       └── portfolio',
-			'├── root  [error opening dir]', '├── tmp', '├── usr', '│   ├── bin', '│   ├── lib', '│   └── share', '└── var', '    └── log',
-			'', '15 directories',
+			'├── root  [error opening dir]', '├── tmp', '├── usr', '│   ├── bin', '│   ├── lib', '│   ├── sbin -> bin', '│   └── share', '└── var', '    └── log',
+			'', '16 directories',
 		].join('\n'));
 	});
 
@@ -149,6 +149,35 @@ describe('cat', () => {
 		expect(await run('cat nope /etc /etc/hostname /dev/null')).toBe('cat: nope: No such file or directory\ncat: /etc: Is a directory\nrobinj.be');
 		expect(shell.state.status).toBe(1);
 		expect(await run('cat --bogus')).toBe("cat: unrecognized option '--bogus'\nTry 'cat --help' for more information.");
+	});
+
+	it('reads endless devices a chunk at a time, crawling, until ^C', async () => {
+		vi.useFakeTimers();
+		const {shell, tty} = setup();
+
+		const running = shell.execute('cat /dev/urandom');
+		await vi.advanceTimersByTimeAsync(0);
+		const burst = tty.take();
+		await vi.advanceTimersByTimeAsync(1000);
+		const second = tty.take();
+		shell.interrupt();
+		await running;
+
+		// Ten chunks for free, as for the commands of a loop, then ten a second.
+		expect(burst.length).toBeGreaterThan(4 * 8192);
+		expect(second.length).toBeLessThanOrEqual(11 * 8192);
+		expect(shell.state.status).toBe(130);
+		expect(shell.procs.size).toBe(0);
+	});
+
+	it('stops reading a device once its reader is done', async () => {
+		vi.useFakeTimers();
+		const {shell, run} = setup();
+
+		expect(await run('cat /dev/zero | head -c 8 | wc -c')).toBe('8');
+		expect(await run('cat /dev/urandom /etc/hostname | head -c 16 | wc -m')).toBe('16');
+		expect(await run('cat < /dev/zero | head -c 3 | wc -c; echo hi > /dev/urandom; echo $?')).toBe('3\n0');
+		expect(shell.procs.size).toBe(0);
 	});
 
 	it('shows who robin is', async () => {
@@ -207,6 +236,16 @@ describe('head and tail', () => {
 		expect(await run('head -n 5')).toBe('only');
 	});
 
+	it('head takes what it needs from an endless device and stops', async () => {
+		vi.useFakeTimers();
+		const {run} = setup();
+
+		expect(await run('head -c 8 /dev/zero | wc -c')).toBe('8');
+		expect(await run('head -c 16 /dev/urandom | wc -m')).toBe('16');
+		expect(await run('head -c 20000 /dev/zero | wc -c')).toBe('20000');
+		expect(await run('head -c 2 /dev/null; head -c 0 /dev/zero; echo $?')).toBe('0');
+	});
+
 	it('tail -f waits for more until interrupted', async () => {
 		const {shell, tty} = setup();
 
@@ -215,6 +254,99 @@ describe('head and tail', () => {
 		shell.interrupt();
 		await running;
 		expect(shell.state.status).toBe(130);
+	});
+});
+
+describe('yes', () => {
+	it('says y, or what it is told, for as long as anyone reads it', async () => {
+		vi.useFakeTimers();
+		const session = setup();
+
+		// At once, the first few buffers being free.
+		expect(await session.run('yes | head -3')).toBe('y\ny\ny');
+		expect(await session.run('yes no thanks | head -2')).toBe('no thanks\nno thanks');
+		// Past those, it waits its turn.
+		expect(await timed(session, 'yes -- -x | head -1; yes - | head -1')).toBe('-x\n-');
+		expect(await timed(session, 'yes | head -100000 | wc -l')).toBe('100000');
+		expect(session.shell.procs.size).toBe(0);
+	});
+
+	it('crawls on a terminal until ^C', async () => {
+		vi.useFakeTimers();
+		const {shell, tty} = setup();
+
+		const running = shell.execute('yes');
+		await vi.advanceTimersByTimeAsync(0);
+		expect(tty.take()).toMatch(/^(y\n)+$/);
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(tty.take().length).toBeLessThanOrEqual(11 * 8192);
+		shell.interrupt();
+		await running;
+		expect(shell.state.status).toBe(130);
+	});
+
+	it('knows no options', async () => {
+		const {shell, run} = setup();
+
+		expect(await run('yes -x')).toBe("yes: invalid option -- 'x'\nTry 'yes --help' for more information.");
+		expect(await run('yes --foo')).toBe("yes: unrecognized option '--foo'\nTry 'yes --help' for more information.");
+		expect(shell.state.status).toBe(1);
+	});
+});
+
+describe('cut', () => {
+	it('cuts fields, by tab or another delimiter', async () => {
+		const {run} = setup();
+
+		expect(await run("printf 'a:b:c\\nd:e:f\\n' | cut -d: -f2")).toBe('b\ne');
+		expect(await run("printf 'a:b:c\\n' | cut -d: -f1,3; printf 'a:b:c\\n' | cut -d : -f2-; printf 'a:b:c\\n' | cut -d: -f-2")).toBe('a:c\nb:c\na:b');
+		expect(await run("printf 'a:b:c\\n' | cut -d: --complement -f2; printf 'a:b:c\\n' | cut -d: -f1,3 --output-delimiter=' | '")).toBe('a:c\na | c');
+		expect(await run("printf 'no delim\\na\\tb\\n' | cut -f2; printf 'no delim\\na\\tb\\n' | cut -s -f2")).toBe('no delim\nb\nb');
+		expect(await run("printf 'a:b\\n' | cut -d: -f5; printf 'a:b\\n' | cut -d: -f '1 2' --only-delimited")).toBe('\na:b');
+		expect(await run('cut -d: -f1 /etc/passwd - < /etc/hostname')).toBe('root\nbin\nrobin\nrobinj.be');
+	});
+
+	it('cuts characters, and bytes, which can cut a character in half', async () => {
+		const {run} = setup();
+
+		expect(await run("printf 'abcdef\\n' | cut -c2-4; printf 'abcdef\\n' | cut -c1,3,5-; printf 'abcdef\\n' | cut -c-2,5- --output-delimiter=.")).toBe('bcd\nacef\nab.ef');
+		expect(await run("printf 'abcdef' | cut --characters=6,1-2,2-3; printf 'abcdef\\n' | cut -c 3-3,4")).toBe('abcf\ncd');
+		expect(await run("printf 'héllo\\n' | cut -c2; printf 'héllo\\n' | cut -b2; printf 'héllo\\n' | cut -b1-3 -n")).toBe('é\n\uFFFD\nhé');
+	});
+
+	it('streams, so it can cut what never ends', async () => {
+		vi.useFakeTimers();
+
+		expect(await timed(setup(), 'yes abc | cut -c2 | head -2')).toBe('b\nb');
+	});
+
+	it('complains about lists and options as coreutils does', async () => {
+		const {shell, run} = setup();
+		const errors = {
+			'cut': 'you must specify a list of bytes, characters, or fields',
+			'cut -f1 -c1': 'only one list may be specified',
+			'cut -d: -c1': 'an input delimiter may be specified only when operating on fields',
+			'cut -s -c1': 'suppressing non-delimited lines makes sense\n\tonly when operating on fields',
+			'cut -d ab -f1': 'the delimiter must be a single character',
+			'cut -f0': 'fields are numbered from 1',
+			'cut -c 0': 'byte/character positions are numbered from 1',
+			'cut -f 0-2': 'fields are numbered from 1',
+			'cut -b 0-2': 'byte/character positions are numbered from 1',
+			'cut -f 3-1': 'invalid decreasing range',
+			'cut -f x': "invalid field value 'x'",
+			'cut -c 1,y2': "invalid byte/character position 'y2'",
+			'cut -f -': 'invalid range with no endpoint: -',
+			'cut -f 1,,2': 'fields are numbered from 1',
+			'cut -f 1--2': 'invalid field range',
+			'cut -c 1--2': 'invalid byte or character range',
+		};
+		for (const [line, message] of Object.entries(errors)) {
+			expect(await run(line)).toBe(`cut: ${message}\nTry 'cut --help' for more information.`);
+		}
+		expect(shell.state.status).toBe(1);
+		expect(await run('cut -f2 --bogus')).toBe("cut: unrecognized option '--bogus'\nTry 'cut --help' for more information.");
+		expect(await run('cut -c1-3 /etc/hostname /nope /etc')).toBe('rob\ncut: /nope: No such file or directory\ncut: /etc: Is a directory');
+		expect(shell.state.status).toBe(1);
 	});
 });
 
@@ -399,7 +531,7 @@ describe('rm', () => {
 	it('works through a directory with -r, failing at every file', async () => {
 		const {shell, run} = setup();
 
-		expect(await run('cd ~; rm -r portfolio')).toBe([
+		expect(await run('cd ~; rm -r portfolio 2>&1 | grep -v /.git')).toBe([
 			"rm: cannot remove 'portfolio/contact.yml': Read-only file system",
 			"rm: cannot remove 'portfolio/cv.md': Read-only file system",
 			"rm: cannot remove 'portfolio/side-quests.yml': Read-only file system",
@@ -690,7 +822,7 @@ describe('sudo', () => {
 		const {shell, run} = setup();
 
 		expect(await run('sudo -V')).toBe('Sudo version 1.9.15p5');
-		expect(await run('sudo -l')).toBe('User robin may run the following commands on robinj.be:\n    (ALL) ALL\n    (root) NOPASSWD: /usr/bin/dnf');
+		expect(await run('sudo -l')).toBe('User robin may run the following commands on robinj.be:\n    (ALL) ALL\n    (root) NOPASSWD: /usr/bin/dnf, /usr/sbin/modprobe, /usr/sbin/rmmod');
 		expect(await run('sudo --help')).toMatch(/^usage: sudo -h \| -K \| -k \| -V\n/);
 		expect(await run('sudo -k')).toBe('');
 		expect(shell.state.status).toBe(0);

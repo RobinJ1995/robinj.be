@@ -16,6 +16,17 @@ test('runs what is typed at the prompt', async ({page}) => {
 	await expect(screen(page)).toContainText('whoami.txt');
 });
 
+test('keeps output that didn\'t end its line, with the prompt after it', async ({page}) => {
+	await visit(page, '/cv');
+	await openTerminal(page);
+
+	await run(page, 'printf unended');
+	await expect(screen(page)).toContainText('unendedrobin@robinj.be:~/portfolio$');
+	await run(page, 'echo ran-$((6 * 7))');
+	await expect(screen(page)).toContainText('ran-42');
+	await expect(screen(page)).toContainText('unendedrobin@robinj.be:~/portfolio$ echo ran-');
+});
+
 test('recalls earlier commands with the up arrow', async ({page}) => {
 	await visit(page, '/cv');
 	await openTerminal(page);
@@ -78,6 +89,35 @@ test('focuses the terminal for the on-screen keyboard when tapped', async ({page
 	await page.locator('.console-screen').tap();
 
 	await expect.poll(() => page.evaluate(() => document.activeElement?.className)).toContain('xterm-helper-textarea');
+});
+
+test('fades in with its background blur growing, never switched off', async ({page}) => {
+	await visit(page, '/cv');
+
+	const frames = await page.evaluate(() => new Promise(resolve => {
+		const seen = [];
+		const sample = () => {
+			const terminal = document.querySelector('.console');
+			if (terminal) {
+				let seeThrough = false;
+				for (let el = terminal; el; el = el.parentElement) {
+					seeThrough ||= getComputedStyle(el).opacity !== '1';
+				}
+				seen.push({seeThrough, blur: parseFloat(getComputedStyle(terminal).backdropFilter.match(/blur\(([\d.]+)px\)/)[1])});
+			}
+			if (seen.length < 30) {
+				requestAnimationFrame(sample);
+			} else {
+				resolve(seen);
+			}
+		};
+		document.querySelector('.dt-dock-item[data-win="console"]').click();
+		requestAnimationFrame(sample);
+	}));
+
+	expect(frames.filter(frame => frame.seeThrough)).toEqual([]);
+	expect(frames.some(frame => frame.blur > 0 && frame.blur < 20)).toBe(true);
+	await expect.poll(() => page.locator('.console').evaluate(el => getComputedStyle(el).backdropFilter)).toContain('blur(20px)');
 });
 
 test('fits its screen to the window', async ({page}) => {

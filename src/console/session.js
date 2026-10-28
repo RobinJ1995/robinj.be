@@ -77,6 +77,8 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 
 	const tty = {
 		write,
+		// Once xterm has caught up with what was written.
+		drain: () => new Promise(resolve => term.write('', resolve)),
 		columns: () => term.cols,
 		rows: () => term.rows,
 		read: ({echo = true} = {}) => {
@@ -104,20 +106,24 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 
 	const shell = createShell({tty, system, onExit, onOpenFile, onCwd});
 
-	// The line being edited at the prompt.
+	// The line being edited at the prompt, which starts at `column`: where the
+	// output before it left off, as that needn't have ended its line.
 	let prompt = '';
 	let buffer = '';
 	let cursor = 0;
+	let column = 0;
 	let row = 0;
 	let recall = 0;
 	let continued = [];
 	let running = false;
 	// Lines pasted or typed ahead, to run once the prompt is back.
 	let pending = [];
+	// Keys that come before xterm has caught up enough to tell where the prompt goes.
+	let held = null;
 
 	const place = () => {
 		const width = term.cols;
-		const start = visibleLength(prompt);
+		const start = column + visibleLength(prompt);
 		const end = start + buffer.length;
 		// At the end of a full row the cursor waits at the edge; start the next row.
 		if (end > 0 && end % width === 0) {
@@ -137,7 +143,7 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 		if (stopped) {
 			return;
 		}
-		term.write(`${row ? `\x1b[${row}A` : ''}\r\x1b[J${prompt}${buffer}`);
+		term.write(`${row ? `\x1b[${row}A` : ''}\r${column ? `\x1b[${column}C` : ''}\x1b[J${prompt}${buffer}`);
 		place();
 	};
 
@@ -147,13 +153,26 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 		redraw();
 	};
 
-	const showPrompt = text => {
+	// `then` runs once the prompt is shown, before any keys that were held for it.
+	const showPrompt = (text, then) => {
 		prompt = text;
 		buffer = '';
 		cursor = 0;
 		row = 0;
 		recall = shell.history.length;
-		write(prompt);
+		held ??= [];
+		term.write('', () => {
+			if (stopped) {
+				return;
+			}
+			// Right at the edge, the next character goes on the next row.
+			column = term.buffer.active.cursorX % term.cols;
+			write(prompt);
+			const keys = held;
+			held = null;
+			then?.();
+			keys.forEach(receive);
+		});
 	};
 
 	// Leaves the cursor below the line, as Enter does.
@@ -180,8 +199,7 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 		continued.push(buffer);
 		const source = continued.join('\n');
 		if (!shell.isComplete(source)) {
-			showPrompt(shell.prompt('PS2'));
-			runPending();
+			showPrompt(shell.prompt('PS2'), runPending);
 			return;
 		}
 
@@ -200,8 +218,7 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 
 		if (!stopped && !shell.exited) {
 			write(shell.notifications());
-			showPrompt(shell.prompt());
-			runPending();
+			showPrompt(shell.prompt(), runPending);
 		}
 	}
 
@@ -224,6 +241,7 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 		if (!completion && options.length > 1) {
 			finishLine();
 			write(`${options.join('  ')}\n`);
+			column = 0;
 			write(prompt);
 		}
 		edit(buffer.slice(0, cursor) + completion + buffer.slice(cursor), cursor + completion.length);
@@ -258,6 +276,7 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 		'\x0c': () => {
 			term.write('\x1b[H\x1b[2J');
 			row = 0;
+			column = 0;
 			redraw();
 		},
 		'\x04': () => {
@@ -319,15 +338,18 @@ export const startSession = ({element, system, onExit, onOpenFile, onCwd}) => {
 		}
 	};
 
-	term.onData(data => {
-		if (running) {
+	function receive(data) {
+		if (held) {
+			held.push(data);
+		} else if (running) {
 			whileRunning(data);
 		} else if (keys[data]) {
 			keys[data]();
 		} else if (!data.startsWith('\x1b')) {
 			insert(data);
 		}
-	});
+	}
+	term.onData(receive);
 
 	showPrompt(shell.prompt());
 

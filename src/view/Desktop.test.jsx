@@ -153,8 +153,8 @@ describe('desktop', () => {
 
 		fireEvent.click(screen.getByTitle('Close'));
 		expect(focused(container)).toBe('Website');
-		expect(animations(container.querySelector('[data-win="source"]'))[0].at(-1)).toMatchObject({opacity: 0, zIndex: 10});
-		expect(animations(container.querySelector('[data-win="site"]'))[0].at(-1)).toMatchObject({opacity: 1, transform: 'none'});
+		expect(animations(container.querySelector('[data-win="source"]'))[0].at(-1)).toMatchObject({'--dt-fade': 0, 'zIndex': 10});
+		expect(animations(container.querySelector('[data-win="site"]'))[0].at(-1)).toMatchObject({'--dt-fade': 1, 'transform': 'none'});
 		act(() => vi.advanceTimersByTime(250));
 		expect(windows(container)).toEqual(['Website', 'Editor']);
 		act(() => vi.advanceTimersByTime(50));
@@ -197,11 +197,11 @@ describe('desktop', () => {
 		fireEvent.click(container.querySelector('.dt-dock-item[data-win="site"]'));
 
 		const [minimise] = animations(container.querySelector('[data-win="source"]'));
-		expect(minimise[0]).toMatchObject({opacity: 1, transform: 'none'});
-		expect(minimise[1]).toMatchObject({opacity: 0, zIndex: 10, transform: expect.stringMatching(/^translate\(.+\) scale\(.+\)$/)});
+		expect(minimise[0]).toMatchObject({'--dt-fade': 1, 'transform': 'none'});
+		expect(minimise[1]).toMatchObject({'--dt-fade': 0, 'zIndex': 10, 'transform': expect.stringMatching(/^translate\(.+\) scale\(.+\)$/)});
 		const [restore] = animations(container.querySelector('[data-win="site"]'));
-		expect(restore[0]).toMatchObject({opacity: 0, visibility: 'visible'});
-		expect(restore[1]).toMatchObject({opacity: 1, transform: 'none'});
+		expect(restore[0]).toMatchObject({'--dt-fade': 0, 'visibility': 'visible'});
+		expect(restore[1]).toMatchObject({'--dt-fade': 1, 'transform': 'none'});
 	});
 
 	it('moves windows into and out of Activities without minimising them', () => {
@@ -378,6 +378,38 @@ describe('desktop', () => {
 		expect(console()).toBeNull();
 		expect(container.querySelector('.desktop')).toHaveClass('is-overview');
 		expect(container.querySelector('.dt-screen')).toHaveClass('is-starting');
+	});
+
+	it('gets the jitters while the caffeine module is loaded, and a cup in the top bar', async () => {
+		const {container} = render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		expect(system.caffeinated).toBe(false);
+
+		act(() => system.caffeinate(true));
+		expect(system.caffeinated).toBe(true);
+		expect(container.querySelector('.desktop')).toHaveClass('is-caffeinated');
+		expect(screen.getByRole('img', {name: 'Caffeine loaded'})).toBeInTheDocument();
+
+		act(() => system.caffeinate(false));
+		expect(system.caffeinated).toBe(false);
+		expect(container.querySelector('.desktop')).not.toHaveClass('is-caffeinated');
+		expect(screen.queryByRole('img', {name: 'Caffeine loaded'})).toBeNull();
+	});
+
+	it('sobers up when the machine goes down', async () => {
+		const {container} = render(<App initialPath="/cv" />);
+		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));
+		await waitFor(() => expect(session.startSession).toHaveBeenCalled());
+		const {system} = session.startSession.mock.calls.at(-1)[0];
+		act(() => system.caffeinate(true));
+
+		vi.useFakeTimers();
+		act(() => system.halt({mode: 'reboot', shutdown: [{text: 'Rebooting.', delay: 0}], boot: [{text: 'Welcome to RobinOS!', delay: 0}]}));
+
+		expect(container.querySelector('.desktop')).not.toHaveClass('is-caffeinated');
+		expect(system.caffeinated).toBe(false);
 	});
 
 	it('starts a phone with just the website, unless the URL asks for the editor', () => {

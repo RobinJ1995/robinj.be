@@ -137,23 +137,31 @@ $restyle-transitions: ();
 	}
 }
 
+// How far a window has faded in. Windows fade with this rather than opacity, which
+// on the terminal or anything around it switches its background blur off.
+@property --dt-fade {
+	syntax: '<number>';
+	inherits: true;
+	initial-value: 1;
+}
+
 @keyframes dt-open {
 	from {
-		opacity: 0;
+		--dt-fade: 0;
 		transform: scale(.94);
 	}
 }
 
 @keyframes dt-close {
 	to {
-		opacity: 0;
+		--dt-fade: 0;
 		transform: scale(.9);
 	}
 }
 
 @keyframes dt-fade-out {
 	to {
-		opacity: 0;
+		--dt-fade: 0;
 	}
 }
 
@@ -436,12 +444,27 @@ $restyle-transitions: ();
 	flex-direction: column;
 	border-radius: 12px;
 	overflow: clip;
+	opacity: var(--dt-fade);
 	box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), 0 3px 12px rgba(0, 0, 0, .35);
 	transition: box-shadow .2s;
 
 	.is-focused &,
 	.is-closing & {
 		box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), 0 10px 36px rgba(0, 0, 0, .55);
+	}
+}
+
+// The terminal fades its parts instead: its frame's shadow here, its background,
+// blur and contents in .console.
+.dt-window[data-win='console'] {
+	.dt-window-frame {
+		opacity: 1;
+		box-shadow: 0 0 0 1px rgb(0 0 0 / calc(.3 * var(--dt-fade))), 0 3px 12px rgb(0 0 0 / calc(.35 * var(--dt-fade)));
+	}
+
+	&.is-focused .dt-window-frame,
+	&.is-closing .dt-window-frame {
+		box-shadow: 0 0 0 1px rgb(0 0 0 / calc(.3 * var(--dt-fade))), 0 10px 36px rgb(0 0 0 / calc(.55 * var(--dt-fade)));
 	}
 }
 
@@ -606,8 +629,12 @@ $restyle-transitions: ();
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: color-mix(in srgb, var(--editor-surface) 84%, transparent);
-	backdrop-filter: blur(20px) saturate(1.3);
+	background: color-mix(in srgb, var(--editor-surface) calc(84% * var(--dt-fade)), transparent);
+	backdrop-filter: blur(calc(20px * var(--dt-fade))) saturate(calc(1 + .3 * var(--dt-fade)));
+
+	> * {
+		opacity: var(--dt-fade);
+	}
 }
 
 // The scrollbar hugs the window's edges: no padding right or below, and up
@@ -990,23 +1017,23 @@ $restyle-transitions: ();
 	}
 
 	.dt-window:not(.is-focused) {
+		--dt-fade: 0;
 		visibility: hidden;
-		opacity: 0;
 	}
 
 	.is-overview .dt-window:not(.is-focused) {
+		--dt-fade: 1;
 		visibility: visible;
-		opacity: 1;
 	}
 
 	// Fades in and out of Activities. As long as MINIMISE, which plays over it.
 	@media (prefers-reduced-motion: no-preference) {
 		.dt-window:not(.is-focused) {
-			transition: transform .35s cubic-bezier(.25, .46, .45, .94), opacity .3s, visibility 0s .3s;
+			transition: transform .35s cubic-bezier(.25, .46, .45, .94), --dt-fade .3s, visibility 0s .3s;
 		}
 
 		.is-overview .dt-window:not(.is-focused) {
-			transition: transform .35s cubic-bezier(.25, .46, .45, .94), opacity .3s;
+			transition: transform .35s cubic-bezier(.25, .46, .45, .94), --dt-fade .3s;
 		}
 	}
 
@@ -1061,6 +1088,111 @@ $restyle-transitions: ();
 		> span:first-child {
 			display: none;
 		}
+	}
+}
+
+// The caffeine kernel module: windows twitch in short bursts, each to its own
+// rhythm, the dock's icons fidget and the clock can't sit still. Only a moment
+// in every few seconds, so it all stays usable.
+@keyframes dt-jitter {
+	0%,
+	82%,
+	100% {
+		translate: 0 0;
+	}
+
+	84% {
+		translate: 2px -1px;
+	}
+
+	86% {
+		translate: -1px 2px;
+	}
+
+	88% {
+		translate: 1px -2px;
+	}
+
+	90% {
+		translate: -2px 0;
+	}
+
+	92% {
+		translate: 0 1px;
+	}
+
+	94% {
+		translate: 2px 1px;
+	}
+
+	96% {
+		translate: -1px -1px;
+	}
+}
+
+@keyframes dt-fidget {
+	0%,
+	90%,
+	100% {
+		rotate: 0deg;
+	}
+
+	92% {
+		rotate: -9deg;
+	}
+
+	94% {
+		rotate: 7deg;
+	}
+
+	96% {
+		rotate: -5deg;
+	}
+
+	98% {
+		rotate: 3deg;
+	}
+}
+
+@keyframes dt-steam {
+	50% {
+		opacity: .35;
+		translate: 0 -.5px;
+	}
+}
+
+.is-caffeinated {
+	.dt-window-frame,
+	.dt-clock {
+		animation: dt-jitter 2.3s steps(1, end) infinite;
+	}
+
+	.dt-window[data-win='source'] .dt-window-frame {
+		animation-duration: 3.1s;
+	}
+
+	.dt-window[data-win='console'] .dt-window-frame {
+		animation-duration: 1.7s;
+	}
+
+	.dt-clock {
+		animation-duration: 2.9s;
+	}
+
+	.dt-dock-item img {
+		animation: dt-fidget 4s ease-in-out infinite;
+	}
+
+	.dt-dock-item:nth-child(2) img {
+		animation-duration: 5.3s;
+	}
+
+	.dt-dock-item:nth-child(3) img {
+		animation-duration: 3.4s;
+	}
+
+	.dt-steam {
+		animation: dt-steam 1.6s ease-in-out infinite;
 	}
 }
 

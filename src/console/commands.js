@@ -1,10 +1,15 @@
 import {FILES} from './files';
-import {OS_RELEASE, MTIME, modeString, sizeOf, nameOf, parentOf} from './fs';
+import {OS_RELEASE, MTIME, CHUNK, modeString, sizeOf, nameOf, parentOf} from './fs';
 import {ansi, options, colour, readOperand, splitLines, strftime, shortDate, humanSize, columns, plural} from './util';
 import {PROGRAMS} from './programs';
 import {POWER} from './power';
 import {PACKAGE_COMMANDS, PACKAGED as PACKAGE_OF} from './dnf';
 import {kubectl} from './kubectl';
+import {git} from './git';
+import {awk} from './awk';
+import {NETWORK} from './net';
+import {FORTUNE} from './fortune';
+import {MODULE_COMMANDS} from './modules';
 
 export const PACKAGED = PACKAGE_OF;
 
@@ -83,7 +88,7 @@ const ls = async api => {
 				mode: `${modeString(entry)}.`,
 				links: String(links(item.path, entry)),
 				owner: entry.owner,
-				size: entry.type === 'char' ? '1, 3' : opts.has('h') ? humanSize(sizeOf(entry)) : String(sizeOf(entry)),
+				size: entry.type === 'char' ? entry.device.join(', ') : opts.has('h') ? humanSize(sizeOf(entry)) : String(sizeOf(entry)),
 				name: paint(item.name, entry) + (entry.type === 'link' ? ` -> ${entry.target}` : classify(entry)),
 			};
 		});
@@ -246,23 +251,41 @@ const cat = async api => {
 	const number = opts.has('n') ? numberer() : text => text;
 	let status = 0;
 	for (const operand of opts.operands.length ? opts.operands : ['-']) {
-		if (operand === '-') {
-			for (let text = await api.read(); text !== null; text = await api.read()) {
-				api.out(number(text));
-			}
+		const opened = operand === '-' ? {input: api.stdin} : api.openRead(operand);
+		if (opened.error) {
+			api.err(`cat: ${operand}: ${opened.error}\n`);
+			status = 1;
 			continue;
 		}
-
-		const result = api.fs.read(api.resolve(operand));
-		if (result.error) {
-			api.err(`cat: ${operand}: ${result.error}\n`);
-			status = 1;
-		} else {
-			api.out(number(result.text));
+		for (let text = await opened.input.read(api.abort); text !== null; text = await opened.input.read(api.abort)) {
+			api.out(number(text));
+			await api.drain();
 		}
 	}
 
 	return status;
+};
+
+const headLines = async (api, input, count) => {
+	for (let n = 0; n < count; n++) {
+		const line = await input.readLine(api.abort);
+		if (!line) {
+			return;
+		}
+		api.out(line.line + (line.complete ? '\n' : ''));
+	}
+};
+
+const headBytes = async (api, input, count) => {
+	for (let left = count; left > 0;) {
+		const text = await input.read(api.abort);
+		if (text === null) {
+			return;
+		}
+		const taken = [...text].slice(0, left);
+		api.out(taken.join(''));
+		left -= taken.length;
+	}
 };
 
 const headOrTail = head => async api => {
@@ -296,32 +319,178 @@ const headOrTail = head => async api => {
 			api.out(`${i ? '\n' : ''}==> ${operand === '-' ? 'standard input' : operand} <==\n`);
 		}
 
-		// Reading a terminal line by line, head stops as soon as it has enough.
-		if (operand === '-' && head && !bytes && !spec.startsWith('-')) {
-			for (let n = 0; n < count; n++) {
-				const line = await api.readLine();
-				if (!line) {
-					break;
-				}
-				api.out(line.line + (line.complete ? '\n' : ''));
-			}
-			continue;
-		}
-
-		const result = await readOperand(api, operand);
-		if (result.error === 'Is a directory') {
+		const opened = operand === '-' ? {input: api.stdin} : api.openRead(operand);
+		if (opened.error === 'Is a directory') {
 			api.err(`${api.name}: error reading '${operand}': Is a directory\n`);
 			status = 1;
-		} else if (result.error) {
-			api.err(`${api.name}: cannot open '${operand}' for reading: ${result.error}\n`);
+		} else if (opened.error) {
+			api.err(`${api.name}: cannot open '${operand}' for reading: ${opened.error}\n`);
 			status = 1;
+		} else if (head && !spec.startsWith('-')) {
+			// Stops reading as soon as it has enough: a terminal, or an endless device.
+			await (bytes ? headBytes : headLines)(api, opened.input, count);
 		} else {
-			api.out(pick(result.text));
+			api.out(pick(await opened.input.readAll(api.abort)));
 		}
 	}
 
 	if (!head && opts.has('f')) {
 		await api.abort.race(new Promise(() => {}));
+	}
+
+	return status;
+};
+
+// Endless, a buffer at a time, crawling once the loop protection kicks in.
+const yes = async api => {
+	const [first] = api.args;
+	if (first?.startsWith('-') && first !== '-' && first !== '--') {
+		return usage(api, first.startsWith('--') ? `unrecognized option '${first}'` : `invalid option -- '${first[1]}'`);
+	}
+
+	const words = first === '--' ? api.args.slice(1) : api.args;
+	const line = `${words.length ? words.join(' ') : 'y'}\n`;
+	const buffer = line.repeat(Math.ceil(CHUNK / line.length));
+	for (;;) {
+		await api.tick();
+		api.out(buffer);
+		await api.drain();
+	}
+};
+
+// cut's LIST, as [from, to] pairs sorted and merged; null after reporting what's wrong.
+const cutList = (api, list, positions) => {
+	const fail = message => {
+		usage(api, message);
+		return null;
+	};
+	const pairs = [];
+	let value = 0;
+	let initial = 1;
+	let dash = false;
+	let left = false;
+	let right = false;
+	for (let i = 0; i <= list.length; i++) {
+		const c = list[i] ?? '';
+		if (c === '-') {
+			if (dash) {
+				return fail(positions ? 'invalid byte or character range' : 'invalid field range');
+			} else if (left && value === 0) {
+				return fail(positions ? 'byte/character positions are numbered from 1' : 'fields are numbered from 1');
+			}
+			dash = true;
+			initial = left ? value : 1;
+			value = 0;
+		} else if (c === ',' || c === '' || /\s/.test(c)) {
+			if (dash && !left && !right) {
+				return fail('invalid range with no endpoint: -');
+			} else if (dash && right && value < initial) {
+				return fail('invalid decreasing range');
+			} else if (!dash && value === 0) {
+				return fail(positions ? 'byte/character positions are numbered from 1' : 'fields are numbered from 1');
+			}
+			pairs.push(dash ? [initial, right ? value : Infinity] : [value, value]);
+			value = 0;
+			dash = false;
+			left = false;
+			right = false;
+		} else if (/\d/.test(c)) {
+			left ||= !dash;
+			right ||= dash;
+			value = value * 10 + Number(c);
+		} else {
+			return fail(`${positions ? 'invalid byte/character position' : 'invalid field value'} '${list.slice(i)}'`);
+		}
+	}
+
+	pairs.sort((a, b) => a[0] - b[0]);
+	return pairs.reduce((merged, pair) => {
+		const last = merged[merged.length - 1];
+		if (last && pair[0] <= last[1] + 1) {
+			last[1] = Math.max(last[1], pair[1]);
+		} else {
+			merged.push([...pair]);
+		}
+		return merged;
+	}, []);
+};
+
+const cut = async api => {
+	const opts = options(api, api.args, {
+		flags: 'snz',
+		values: 'bcfd',
+		long: {bytes: 'b', characters: 'c', fields: 'f', delimiter: 'd', 'only-delimited': 's', complement: 'complement', 'output-delimiter': 'output', 'zero-terminated': 'z'},
+	});
+	if (!opts) {
+		return 1;
+	}
+
+	const modes = ['b', 'c', 'f'].filter(flag => opts.has(flag));
+	if (modes.length === 0) {
+		return usage(api, 'you must specify a list of bytes, characters, or fields');
+	} else if (modes.length > 1) {
+		return usage(api, 'only one list may be specified');
+	}
+	const [mode] = modes;
+	const fields = mode === 'f';
+	const delimiter = opts.get('d') ?? '\t';
+	if (!fields && opts.has('d')) {
+		return usage(api, 'an input delimiter may be specified only when operating on fields');
+	} else if (!fields && opts.has('s')) {
+		return usage(api, 'suppressing non-delimited lines makes sense\n\tonly when operating on fields');
+	} else if ([...delimiter].length !== 1) {
+		return usage(api, 'the delimiter must be a single character');
+	}
+
+	const ranges = cutList(api, opts.get(mode), !fields);
+	if (!ranges) {
+		return 1;
+	}
+	const wanted = n => ranges.some(([from, to]) => n >= from && n <= to) !== opts.has('complement');
+	const output = opts.get('output') === true ? '' : opts.get('output');
+
+	// Bytes go through UTF-8 and back: a character cut in half is a U+FFFD.
+	const units = text => (mode === 'b' ? [...new TextEncoder().encode(text)] : [...text]);
+	const join = picked => (mode === 'b' ? new TextDecoder().decode(new Uint8Array(picked)) : picked.join(''));
+	const select = line => {
+		if (fields) {
+			const parts = line.split(delimiter);
+			if (parts.length === 1) {
+				return opts.has('s') ? null : line;
+			}
+			return parts.filter((_, i) => wanted(i + 1)).join(output ?? delimiter);
+		}
+
+		// Runs of positions, with the output delimiter between them.
+		const runs = [];
+		units(line).forEach((unit, i) => {
+			if (!wanted(i + 1)) {
+				return;
+			} else if (runs.length && runs[runs.length - 1].end === i) {
+				runs[runs.length - 1].units.push(unit);
+			} else {
+				runs.push({units: [unit]});
+			}
+			runs[runs.length - 1].end = i + 1;
+		});
+		return runs.map(run => join(run.units)).join(output ?? '');
+	};
+
+	let status = 0;
+	for (const operand of opts.operands.length ? opts.operands : ['-']) {
+		const opened = operand === '-' ? {input: api.stdin} : api.openRead(operand);
+		if (opened.error) {
+			api.err(`cut: ${operand}: ${opened.error}\n`);
+			status = 1;
+			continue;
+		}
+		for (let line = await opened.input.readLine(api.abort); line; line = await opened.input.readLine(api.abort)) {
+			const selected = select(line.line);
+			if (selected !== null) {
+				api.out(`${selected}\n`);
+				await api.drain();
+			}
+		}
 	}
 
 	return status;
@@ -982,7 +1151,10 @@ const authenticate = async (api, {fromStdin, prompt}) => {
 	return 1;
 };
 
-// Everything needs Robin's password, except dnf: so that cowsay can be installed.
+// Everything needs Robin's password, except dnf, so that cowsay can be installed,
+// and taking caffeine.
+const NOPASSWD = ['/usr/bin/dnf', '/usr/sbin/modprobe', '/usr/sbin/rmmod'];
+
 const sudo = async api => {
 	const args = [...api.args];
 	let fromStdin = false;
@@ -1000,7 +1172,7 @@ const sudo = async api => {
 			api.out('Sudo version 1.9.15p5\n');
 			return 0;
 		} else if (flag === '-l' || flag === '--list') {
-			api.out('User robin may run the following commands on robinj.be:\n    (ALL) ALL\n    (root) NOPASSWD: /usr/bin/dnf\n');
+			api.out(`User robin may run the following commands on robinj.be:\n    (ALL) ALL\n    (root) NOPASSWD: ${NOPASSWD.join(', ')}\n`);
 			return 0;
 		} else if (flag === '-k' || flag === '-K') {
 			return 0;
@@ -1023,14 +1195,15 @@ const sudo = async api => {
 	}
 
 	const [name] = args;
+	const passwordless = NOPASSWD.find(path => [nameOf(path), path, path.replace('/sbin/', '/bin/')].includes(name));
 	if (!shell && name === undefined) {
 		api.err(SUDO_USAGE);
 		return 1;
 	} else if (!shell && !name.startsWith('/') && !api.shell.available(name)) {
 		api.err(`sudo: ${name}: command not found\n`);
 		return 1;
-	} else if (!shell && (name === 'dnf' || name === '/usr/bin/dnf')) {
-		return api.run(['dnf', ...args.slice(1)], undefined, {user: 'root'});
+	} else if (!shell && passwordless) {
+		return api.run([nameOf(passwordless), ...args.slice(1)], undefined, {user: 'root'});
 	} else if (nonInteractive) {
 		api.err('sudo: a password is required\n');
 		return 1;
@@ -1112,6 +1285,8 @@ export const COMMANDS = {
 	tail: headOrTail(false),
 	grep,
 	wc,
+	cut,
+	yes,
 	cp: copyOrMove(false),
 	mv: copyOrMove(true),
 	rm,
@@ -1176,7 +1351,13 @@ export const COMMANDS = {
 		return 1;
 	},
 	kubectl,
+	git,
+	awk,
+	gawk: awk,
 	...PROGRAMS,
 	...POWER,
 	...PACKAGE_COMMANDS,
+	...NETWORK,
+	...FORTUNE,
+	...MODULE_COMMANDS,
 };

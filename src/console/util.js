@@ -68,11 +68,8 @@ export const colour = (opts, api) => {
 
 // A file operand's text, or stdin for `-`. {text} or {error}.
 export const readOperand = async (api, operand) => {
-	if (operand === '-') {
-		return {text: await api.readAll()};
-	}
-
-	return api.fs.read(api.resolve(operand));
+	const opened = operand === '-' ? {input: api.stdin} : api.openRead(operand);
+	return opened.error ? opened : {text: await opened.input.readAll(api.abort)};
 };
 
 // Lines of text, with whether the last one ended in a newline.

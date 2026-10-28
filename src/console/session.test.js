@@ -19,8 +19,27 @@ vi.mock('@xterm/xterm', () => ({
 			terminals.push(this);
 		}
 
-		write(text) {
+		// Caught up at once, unless lagging behind until catchUp().
+		write(text, done) {
 			this.written += text;
+			if (done) {
+				this.drains = (this.drains ?? 0) + 1;
+				if (this.lagging) {
+					this.lagging.push(done);
+				} else {
+					done();
+				}
+			}
+		}
+
+		catchUp() {
+			for (const done of this.lagging.splice(0)) {
+				done();
+			}
+		}
+
+		get buffer() {
+			return {active: {cursorX: screen(this).x}};
 		}
 
 		onData(handler) {
@@ -85,7 +104,8 @@ const screen = term => {
 		}
 	}
 
-	return {lines, row, col: Math.min(col, term.cols - 1), line: lines[row]};
+	// x is where xterm has it: one past the edge after the last column, until the next character wraps.
+	return {lines, row, col: Math.min(col, term.cols - 1), x: col, line: lines[row]};
 };
 
 // Until the shell is back at its prompt.
@@ -344,6 +364,61 @@ describe('the line editor', () => {
 		expect(screen(term).lines.slice(-2)).toEqual(['c', PROMPT]);
 	});
 
+	it('starts the prompt where output that didn\'t end its line left off, and keeps that output', async () => {
+		const {term} = start();
+
+		await enter(term, 'printf foo');
+		expect(screen(term)).toMatchObject({line: `foo${PROMPT}`, col: 3 + PROMPT.length});
+		term.type('echo bar');
+		expect(screen(term).line).toBe(`foo${PROMPT}echo bar`);
+		await enter(term, '');
+		expect(screen(term).lines.slice(-3)).toEqual([`foo${PROMPT}echo bar`, 'bar', PROMPT]);
+
+		await enter(term, 'printf foo');
+		term.type('echo kept');
+		term.type('\x0c');
+		expect(screen(term)).toMatchObject({row: 0, line: `${PROMPT}echo kept`});
+	});
+
+	it('wraps a line that starts partway along a row', async () => {
+		const {term} = start();
+		term.cols = 40;
+
+		await enter(term, 'printf abcde');
+		term.type('echo 12');
+		expect(screen(term)).toMatchObject({lines: [`${PROMPT}printf abcd`, 'e', `abcde${PROMPT}echo 1`, '2'], row: 3, col: 1});
+		term.type('\x01');
+		expect(screen(term)).toMatchObject({row: 2, col: 5 + PROMPT.length});
+		term.type('\x7f');
+		term.type('\x05');
+		term.type('\x7f');
+		expect(screen(term)).toMatchObject({lines: [`${PROMPT}printf abcd`, 'e', `abcde${PROMPT}echo 1`, ' '], row: 3, col: 0});
+	});
+
+	it('starts the prompt on the next row after output that filled one', async () => {
+		const {term} = start();
+		term.cols = 40;
+
+		await enter(term, `printf ${'x'.repeat(40)}`);
+		term.type('echo');
+		expect(screen(term).lines.slice(-2)).toEqual(['x'.repeat(40), `${PROMPT}echo`]);
+	});
+
+	it('holds keys until the terminal has caught up enough to place the prompt', async () => {
+		const {term} = start();
+		term.lagging = [];
+
+		term.type('printf foo\r');
+		await vi.waitFor(() => expect(term.lagging).toHaveLength(1));
+		term.type('echo bar\r');
+		expect(screen(term).line).toBe('foo');
+
+		term.catchUp();
+		term.lagging = null;
+		await prompted(term);
+		expect(screen(term).lines.slice(-3)).toEqual([`foo${PROMPT}echo bar`, 'bar', PROMPT]);
+	});
+
 	it('does nothing for an empty line but show the prompt again', async () => {
 		const {term} = start();
 
@@ -397,7 +472,18 @@ describe('while a command runs', () => {
 		term.type('\x04');
 		term.type('echo partial');
 		await vi.advanceTimersByTimeAsync(1000);
-		await vi.waitFor(() => expect(screen(term).lines.slice(-3)).toEqual([`${PROMPT}echo typed ahead`, 'typed ahead', `${PROMPT}echo partial`]));
+		// As in bash, the partial line stays where it was echoed, and the prompt follows it.
+		await vi.waitFor(() => expect(screen(term).lines.slice(-3)).toEqual([`echo partial${PROMPT}echo typed ahead`, 'typed ahead', `${PROMPT}echo partial`]));
+	});
+
+	it('lets output catch up with the terminal once there is a backlog', async () => {
+		const {term} = start();
+
+		term.type('yes | head -c 70000 | cat; echo done\r');
+		await prompted(term);
+		expect(screen(term).lines.slice(-2)).toEqual(['done', PROMPT]);
+		// Once for the backlog, and once for each prompt to find its place.
+		expect(term.drains).toBe(3);
 	});
 
 	it('reads ahead-typed lines and ends when it asks', async () => {
@@ -596,6 +682,17 @@ describe('stopping', () => {
 		expect(term.options.fontFamily).not.toBe('serif');
 		expect(term.written).toBe(written);
 		expect(onExit).not.toHaveBeenCalled();
+	});
+
+	it('shows no prompt when the terminal catches up afterwards', () => {
+		const {session, term} = start();
+		term.lagging = [];
+		term.type('\x03');
+		const written = term.written;
+
+		session.stop();
+		term.catchUp();
+		expect(term.written).toBe(written);
 	});
 
 	it('ignores fonts that finish loading afterwards', async () => {

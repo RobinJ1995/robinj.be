@@ -216,7 +216,7 @@ describe('pathname expansion', () => {
 	it('matches directories only with a trailing slash, across several levels', async () => {
 		const {run} = setup();
 
-		expect(await run('echo /e*/ /usr/*/ /*/b*')).toBe('/etc/ /usr/bin/ /usr/lib/ /usr/share/ /bin/bash /usr/bin');
+		expect(await run('echo /e*/ /usr/*/ /*/b*')).toBe('/etc/ /usr/bin/ /usr/lib/ /usr/sbin/ /usr/share/ /bin/bash /usr/bin');
 		expect(await run('echo ~/*/*.md')).toBe('/home/robin/portfolio/cv.md');
 		expect(await run('echo */')).toBe('*/');
 	});

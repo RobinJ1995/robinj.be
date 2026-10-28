@@ -1,6 +1,6 @@
 import {OS_RELEASE} from './fs';
 
-// dnf, and the one package it has to offer.
+// dnf, and the few packages it has to offer.
 
 const REPOSITORY = {id: 'robinj', name: `${OS_RELEASE.name} ${OS_RELEASE.version} - riscv64`};
 
@@ -21,13 +21,29 @@ const PACKAGES = {
 		],
 		commands: ['cowsay', 'cowthink'],
 	},
+	wget: {
+		version: '1.25.0',
+		release: '1.rj1',
+		arch: 'riscv64',
+		download: 795.3,
+		installed: 3364.0,
+		summary: 'A utility for retrieving files using the HTTP or FTP protocols',
+		url: 'https://www.gnu.org/software/wget/',
+		license: 'GPL-3.0-or-later',
+		description: [
+			'GNU Wget fetches files from the web without anyone at the keyboard:',
+			'it can carry on in the background, retry over flaky connections and',
+			'pick up where an interrupted download left off.',
+		],
+		commands: ['wget'],
+	},
 };
 
 // Command name -> the package that provides it.
 export const PACKAGED = Object.fromEntries(Object.entries(PACKAGES).flatMap(([name, pkg]) => pkg.commands.map(command => [command, name])));
 
 const nevra = (name, pkg) => `${name}-0:${pkg.version}-${pkg.release}.${pkg.arch}`;
-const kib = size => `${size.toFixed(1)} KiB`;
+const kib = (size, digits = 1) => (size >= 1024 ? `${(size / 1024).toFixed(digits)} MiB` : `${size.toFixed(digits)} KiB`);
 
 const progress = async (api, label, size, steps = 6) => {
 	for (let step = 1; step <= steps; step++) {
@@ -82,8 +98,8 @@ const transaction = async (api, {names, remove, assumeYes}) => {
 	const installed = names.reduce((sum, name) => sum + PACKAGES[name].installed, 0);
 	api.out(`${table(remove ? 'Removing' : 'Installing', names)}\n`);
 	api.out(remove
-		? `After this operation, ${installed.toFixed(0)} KiB will be freed (install 0 B, remove ${installed.toFixed(0)} KiB).\n`
-		: `Total size of inbound packages is ${size.toFixed(0)} KiB. Need to download ${size.toFixed(0)} KiB.\nAfter this operation, ${installed.toFixed(0)} KiB extra will be used (install ${installed.toFixed(0)} KiB, remove 0 B).\n`);
+		? `After this operation, ${kib(installed, 0)} will be freed (install 0 B, remove ${kib(installed, 0)}).\n`
+		: `Total size of inbound packages is ${kib(size, 0)}. Need to download ${kib(size, 0)}.\nAfter this operation, ${kib(installed, 0)} extra will be used (install ${kib(installed, 0)}, remove 0 B).\n`);
 	if (!(await confirm(api, assumeYes))) {
 		return 1;
 	}

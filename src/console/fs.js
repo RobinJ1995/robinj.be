@@ -1,4 +1,5 @@
 import {FILES, HOME, PORTFOLIO} from './files';
+import {repositoryFiles} from './git';
 
 export {HOME, PORTFOLIO};
 
@@ -65,12 +66,21 @@ export const MTIME = new Date();
 const dir = (owner = 'root', mode = 0o755) => ({type: 'dir', owner, mode});
 const file = (text, owner = 'root', mode = 0o644) => ({type: 'file', owner, mode, text: typeof text === 'function' ? text : () => text});
 
+// How much an endless device gives per read.
+export const CHUNK = 8192;
+// Random bytes as a terminal shows them: decoded as UTF-8, mostly U+FFFD.
+const randomText = () => new TextDecoder().decode(crypto.getRandomValues(new Uint8Array(CHUNK)));
+const device = (minor, stream) => ({type: 'char', owner: 'root', mode: 0o666, device: [1, minor], stream});
+
 const SYSTEM = {
 	'/': dir(),
 	'/bin': {type: 'link', owner: 'root', mode: 0o777, target: 'usr/bin'},
 	'/boot': dir(),
 	'/dev': dir(),
-	'/dev/null': {type: 'char', owner: 'root', mode: 0o666},
+	'/dev/null': device(3),
+	'/dev/random': device(8, randomText),
+	'/dev/urandom': device(9, randomText),
+	'/dev/zero': device(5, () => '\0'.repeat(CHUNK)),
 	'/etc': dir(),
 	'/etc/hostname': file('robinj.be\n'),
 	'/etc/os-release': file(osRelease),
@@ -87,6 +97,7 @@ const SYSTEM = {
 	'/usr': dir(),
 	'/usr/bin': dir(),
 	'/usr/lib': dir(),
+	'/usr/sbin': {type: 'link', owner: 'root', mode: 0o777, target: 'bin'},
 	'/usr/share': dir(),
 	'/var': dir(),
 	'/var/log': dir(),
@@ -121,6 +132,9 @@ export const createFs = ({history, binaries}) => {
 		const all = {...SYSTEM};
 		for (const [path, {text}] of Object.entries(FILES)) {
 			all[path] = file(text, 'robin');
+		}
+		for (const [path, {text, mode}] of Object.entries(repositoryFiles())) {
+			all[path] = text ? file(text, 'robin', mode) : dir('robin');
 		}
 		all[`${HOME}/.bash_history`] = file(() => history().map(line => `${line}\n`).join(''), 'robin', 0o600);
 		for (const name of binaries()) {

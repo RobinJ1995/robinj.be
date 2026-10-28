@@ -97,12 +97,17 @@ export class Abort {
 	}
 }
 
+// As much as a pipe holds before its writer has to wait, as on Linux.
+const PIPE_SIZE = 65536;
+
 export class Pipe {
 	constructor() {
 		this.chunks = [];
+		this.size = 0;
 		this.closed = false;
 		this.broken = false;
 		this.waiting = null;
+		this.draining = [];
 	}
 
 	write(text) {
@@ -110,6 +115,7 @@ export class Pipe {
 			throw new Killed('PIPE');
 		} else if (text) {
 			this.chunks.push(text);
+			this.size += text.length;
 			this.wake();
 		}
 	}
@@ -123,11 +129,28 @@ export class Pipe {
 	hangUp() {
 		this.broken = true;
 		this.chunks = [];
+		this.drained();
 	}
 
 	wake() {
 		this.waiting?.();
 		this.waiting = null;
+	}
+
+	drained() {
+		this.size = 0;
+		for (const resolve of this.draining.splice(0)) {
+			resolve();
+		}
+	}
+
+	// Resolves once there's room for more.
+	drain() {
+		if (this.size < PIPE_SIZE || this.broken) {
+			return Promise.resolve();
+		}
+
+		return new Promise(resolve => this.draining.push(resolve));
 	}
 
 	async read() {
@@ -137,13 +160,17 @@ export class Pipe {
 			});
 		}
 
-		return this.chunks.length ? this.chunks.splice(0).join('') : null;
+		const text = this.chunks.length ? this.chunks.splice(0).join('') : null;
+		this.drained();
+		return text;
 	}
 }
 
+// `drain()` resolves once the reader has caught up enough to write more.
 export class Output {
-	constructor(write, {tty = false} = {}) {
+	constructor(write, {tty = false, drain = () => Promise.resolve()} = {}) {
 		this.write = write;
+		this.drain = drain;
 		this.isTTY = tty;
 	}
 }

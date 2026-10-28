@@ -63,6 +63,7 @@ export const setup = (options = {}) => {
 // The desktop around the shell: pids from 2000, the terminal app's pid 1999.
 export const fakeSystem = (overrides = {}) => {
 	let next = 2000;
+	let awake = false;
 	return {
 		pid: () => next++,
 		terminalPid: 1999,
@@ -71,6 +72,12 @@ export const fakeSystem = (overrides = {}) => {
 		kill: vi.fn(() => 'ok'),
 		launch: vi.fn(),
 		halt: vi.fn(),
+		get caffeinated() {
+			return awake;
+		},
+		caffeinate: vi.fn(on => {
+			awake = on;
+		}),
 		...overrides,
 	};
 };

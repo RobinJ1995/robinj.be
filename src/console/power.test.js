@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {fakeSystem, setup, stubStorage} from './test-helpers';
-import {bootSequence, cancelShutdown, shutdownSequence} from './power';
+import {bootSequence, cancelShutdown, panicText, shutdownSequence} from './power';
 
 const desktop = () => fakeSystem({processes: () => [{pid: 1337, name: 'desktop', started: new Date()}]});
 
@@ -95,6 +95,14 @@ describe('killing the desktop', () => {
 		await vi.advanceTimersByTimeAsync(600_000);
 		expect(system.halt).toHaveBeenCalledTimes(1);
 		expect(system.halt.mock.calls[0][0].lines[0]).toMatch(/exitcode=0x0000000b$/);
+	});
+
+	it('names what brought it down, and why, when told', () => {
+		const lines = panicText({uptime: 12, pid: 4242, comm: 'rmmod', cause: 'Fatal exception'});
+
+		expect(lines[0]).toMatch(/^\[ +12\.\d{6}\] Kernel panic - not syncing: Fatal exception$/);
+		expect(lines[1]).toMatch(/CPU: 3 PID: 4242 Comm: rmmod /);
+		expect(lines.at(-1)).toMatch(/---\[ end Kernel panic - not syncing: Fatal exception \]---$/);
 	});
 
 	it('is fine with harmless signals', async () => {

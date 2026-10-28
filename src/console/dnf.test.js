@@ -66,7 +66,7 @@ describe('dnf', () => {
 	it('lists and describes packages', async () => {
 		const session = setup();
 
-		expect(await timed(session, 'dnf list')).toBe('Available packages\ncowsay.noarch           3.8.4-2.rj1         robinj');
+		expect(await timed(session, 'dnf list')).toBe('Available packages\ncowsay.noarch           3.8.4-2.rj1         robinj\nwget.riscv64            1.25.0-1.rj1        robinj');
 		expect(await timed(session, 'dnf list available cowsay')).toBe('Available packages\ncowsay.noarch           3.8.4-2.rj1         robinj');
 		expect(await timed(session, 'dnf list --installed')).toBe('No matching packages to list');
 		expect(await timed(session, 'dnf list nope')).toBe('No matching packages to list');
@@ -123,6 +123,20 @@ describe('dnf', () => {
 		expect(await timed(session, 'dnf list installed')).toBe('Installed packages\ncowsay.noarch           3.8.4-2.rj1         robinj');
 		expect(await timed(session, 'dnf info cowsay | head -1')).toBe('Installed packages');
 		expect(settled(await timed(session, 'sudo dnf install cowsay')).slice(-3)).toEqual(['Package "cowsay-3.8.4-2.rj1.noarch" is already installed.', '', 'Nothing to do.']);
+	});
+
+	it('has wget too, its sizes in MiB', async () => {
+		const session = setup();
+
+		expect(await timed(session, 'dnf info wget | grep -E "^(Name|Architecture|Download size|Installed size|License)"')).toBe([
+			'Name            : wget', 'Architecture    : riscv64', 'Download size   : 795.3 KiB', 'Installed size  : 3.3 MiB', 'License         : GPL-3.0-or-later',
+		].join('\n'));
+		const lines = settled(await timed(session, 'sudo dnf install -y wget'));
+		expect(lines).toContain(' wget                    riscv64 1.25.0-1.rj1             robinj         3.3 MiB');
+		expect(lines).toContain('After this operation, 3 MiB extra will be used (install 3 MiB, remove 0 B).');
+		expect(lines).toContain('[3/3] Installing wget-0:1.25.0-1.rj1.ris 100% |   32.9 MiB/s |    3.3 MiB |  00m00s');
+		expect(settled(await timed(session, 'sudo dnf remove -y wget'))).toContain('After this operation, 3 MiB will be freed (install 0 B, remove 3 MiB).');
+		expect(await timed(session, 'wget')).toBe('bash: wget: command not found');
 	});
 
 	it('reads the answer from a pipe, echoing it', async () => {

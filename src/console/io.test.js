@@ -1,5 +1,5 @@
 import {describe, it, expect, vi} from 'vitest';
-import {Abort, Input, Killed, Pipe, parseSignal, signalNumber, textInput} from './io';
+import {Abort, Input, Killed, Output, Pipe, parseSignal, signalNumber, textInput} from './io';
 
 describe('signals', () => {
 	it('are named or numbered, with or without SIG', () => {
@@ -101,6 +101,35 @@ describe('Pipe', () => {
 
 		expect(pipe.chunks).toEqual([]);
 		expect(() => pipe.write('more')).toThrow(Killed);
+	});
+
+	it('makes writers wait once it holds 64 KiB, until read or hung up', async () => {
+		const pipe = new Pipe();
+		const drained = vi.fn();
+
+		pipe.write('x'.repeat(65535));
+		await pipe.drain();
+		pipe.write('x');
+		pipe.drain().then(drained);
+		await Promise.resolve();
+		expect(drained).not.toHaveBeenCalled();
+		expect(await pipe.read()).toHaveLength(65536);
+		await vi.waitFor(() => expect(drained).toHaveBeenCalled());
+
+		pipe.write('y'.repeat(65536));
+		const waiting = pipe.drain();
+		pipe.hangUp();
+		await waiting;
+		await pipe.drain();
+	});
+});
+
+describe('Output', () => {
+	it('takes more straight away unless told how to wait', async () => {
+		const output = new Output(() => {});
+
+		await expect(output.drain()).resolves.toBeUndefined();
+		expect(output.isTTY).toBe(false);
 	});
 });
 
