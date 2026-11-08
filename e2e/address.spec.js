@@ -44,7 +44,7 @@ test.describe('the URL', () => {
 });
 
 test.describe('printing', () => {
-	test('gives the website\'s page alone, all of it', async ({page}) => {
+	test('gives the website\'s pages alone, all of them', async ({page}) => {
 		await visit(page, '/cv/source');
 		// As the browser does before it prints.
 		await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
@@ -53,12 +53,19 @@ test.describe('printing', () => {
 		for (const selector of ['.dt-topbar', '.dt-dock', '.dt-window[data-win="source"]', '.dt-window[data-win="site"]']) {
 			expect(await shows(page.locator(selector)), selector).toBe(false);
 		}
-		const copy = page.locator('.dt-print .editorial');
+		const copy = page.locator('.dt-print');
 		expect(await shows(copy)).toBe(true);
 		await expect(copy).toContainText('Work Experience');
-		// Not cut off at a window's height: the page runs on for as long as it is.
+		await expect(copy).toContainText('Sprint Retrospective');
+		await expect(copy).toContainText('on LinkedIn');
+		// The avatar and name only above the first page, and no pointing to a menu on paper.
+		await expect(page.locator('.dt-print .ed-profile:visible')).toHaveCount(1);
+		const printed = await copy.innerText();
+		expect(printed).not.toContain('accessed from the menu');
+		expect(printed).toContain('If you wish to contact me');
+		// Not cut off at a window's height: the pages run on for as long as they are.
 		const {content, document} = await page.evaluate(() => ({
-			content: window.document.querySelector('.dt-print .editorial').scrollHeight,
+			content: window.document.querySelector('.dt-print').scrollHeight,
 			document: window.document.documentElement.scrollHeight,
 		}));
 		expect(document).toBeGreaterThanOrEqual(content);
@@ -81,5 +88,16 @@ test.describe('printing', () => {
 		await page.pdf();
 		expect(await page.evaluate(() => window.copied)).toContain('Sprint Retrospective');
 		await expect(page.locator('.dt-print')).toHaveCount(0);
+	});
+
+	test('has its nav jump within the PDF, not to the website', async ({page, browserName}) => {
+		test.skip(browserName !== 'chromium', 'Only Chromium prints to PDF here');
+		await visit(page, '/side-quests');
+		const pdf = (await page.pdf()).toString('latin1');
+
+		// Three navs, each linking to the three pages' sections of the printout.
+		const jumps = [...pdf.matchAll(/\/Subtype \/Link[^>]*\/Dest \/print-([\w-]+)/g)].map(m => m[1]);
+		expect(jumps.toSorted()).toEqual(['contact', 'contact', 'contact', 'cv', 'cv', 'cv', 'side-quests', 'side-quests', 'side-quests']);
+		expect(pdf).not.toMatch(/\/URI \(https?:\/\/[^/)]+\/(cv|side-quests|contact)\)/);
 	});
 });
