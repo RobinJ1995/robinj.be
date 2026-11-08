@@ -124,7 +124,7 @@ const EdSidebar = ({page, onNavigate, print}) => (
 );
 
 const EdEyebrow = ({children, toggle = null}) => (
-	<div style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18}}>
+	<div className="hide-for-print" style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18}}>
 		<div style={{
 			fontFamily: MONO, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
 			color: 'var(--ed-accent)',
