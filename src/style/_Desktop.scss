@@ -1395,6 +1395,21 @@ $restyle-transitions: ();
 // copy Desktop.jsx lays out for the occasion, whatever windows are open.
 .dt-print {
 	display: none;
+
+	// Each page under the nav; the avatar and name only above the first.
+	.ed-print-section + .ed-print-section {
+		.ed-profile {
+			display: none !important;
+		}
+
+		.ed-sidebar {
+			border-top: 1px solid var(--ed-rule) !important;
+		}
+	}
+
+	.hide-for-print {
+		display: none;
+	}
 }
 
 @media print {

@@ -10,7 +10,7 @@ const SERIF = 'var(--ed-serif)';
 // Room at the top for a bar lying over the page (the browser's, in _Desktop.scss).
 const INSET_TOP = 'var(--ed-inset-top, 0px)';
 
-const EditorialApp = ({page, onNavigate, onToggleView}) => {
+const EditorialApp = ({page, onNavigate, onToggleView, print = false}) => {
 	const viewSource = <ViewSourceToggle page={page} onToggleView={onToggleView} />;
 	const rootRef = useRef(null);
 	const mainRef = useRef(null);
@@ -29,7 +29,7 @@ const EditorialApp = ({page, onNavigate, onToggleView}) => {
 		minHeight: '100%', width: '100%', display: 'flex',
 		fontFeatureSettings: '"ss01", "cv01"',
 	}}>
-		<EdSidebar page={page} onNavigate={onNavigate} />
+		<EdSidebar page={page} onNavigate={onNavigate} print={print} />
 		<main ref={mainRef} className="ed-main" style={{flex: 1, padding: `calc(64px + ${INSET_TOP}) 80px 80px`, overflow: 'hidden', minWidth: 0}}>
 			{page === 'cv' && <EdCV toggle={viewSource} />}
 			{page === 'side-quests' && <EdProjects toggle={viewSource} />}
@@ -41,7 +41,51 @@ const EditorialApp = ({page, onNavigate, onToggleView}) => {
 	);
 };
 
-const EdSidebar = ({page, onNavigate}) => (
+const MENU = Object.values(PAGES).filter(p => p.menu);
+// Printed, the nav jumps to that page's section of the printout instead.
+const printAnchor = name => `print-${name}`;
+
+// Printed: every page in the menu, in its order, each one the website's own.
+// _Desktop.scss leaves the avatar and name to the first.
+export const EditorialPrint = ({onNavigate, onToggleView}) => MENU.map(p => (
+	<div key={p.name} id={printAnchor(p.name)} className="ed-print-section">
+		<EditorialApp page={p.name} onNavigate={onNavigate} onToggleView={onToggleView} print />
+	</div>
+));
+
+const EdNav = ({page, onNavigate, print}) => (
+	<nav className="ed-nav" style={{display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4}}>
+		{MENU.map(p => {
+			const nums = {cv: '01', 'side-quests': '02', contact: '03'};
+			const active = page === p.name;
+			return (
+				<a key={p.name} href={print ? `#${printAnchor(p.name)}` : p.url} aria-label={p.title}
+					aria-current={active ? 'page' : undefined}
+					onClick={print ? undefined : e => onNavigate(p.name, e)}
+					className="ed-nav-item"
+					style={{
+						textDecoration: 'none', textAlign: 'left', padding: '10px 0',
+						display: 'flex', alignItems: 'baseline', gap: 14,
+						color: active ? 'var(--ed-text)' : 'var(--ed-dim)',
+						borderBottom: '1px solid var(--ed-rule)',
+						fontSize: 16, letterSpacing: '-0.005em',
+						transition: 'color .2s, padding .2s',
+					}}>
+					<span aria-hidden="true" style={{
+						fontSize: 11, fontVariantNumeric: 'tabular-nums',
+						color: active ? 'var(--ed-accent)' : 'var(--ed-dim)', fontFamily: MONO,
+					}}>{nums[p.name]}</span>
+					<span style={{fontWeight: active ? 600 : 400}}>{p.title}</span>
+					{active && <span aria-hidden="true" className="ed-nav-marker" style={{
+						marginLeft: 'auto', width: 16, height: 1, background: 'var(--ed-accent)', alignSelf: 'center',
+					}} />}
+				</a>
+			);
+		})}
+	</nav>
+);
+
+const EdSidebar = ({page, onNavigate, print}) => (
 	<aside className="ed-sidebar" style={{
 		width: 320, flexShrink: 0, padding: `calc(56px + ${INSET_TOP}) 36px 40px`,
 		borderRight: '1px solid var(--ed-rule)',
@@ -66,35 +110,7 @@ const EdSidebar = ({page, onNavigate}) => (
 			</div>
 		</div>
 
-		<nav className="ed-nav" style={{display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4}}>
-			{Object.values(PAGES).filter(p => p.menu).map(p => {
-				const nums = {cv: '01', 'side-quests': '02', contact: '03'};
-				const active = page === p.name;
-				return (
-					<a key={p.name} href={p.url} aria-label={p.title}
-						aria-current={active ? 'page' : undefined}
-						onClick={e => onNavigate(p.name, e)}
-						className="ed-nav-item"
-						style={{
-							textDecoration: 'none', textAlign: 'left', padding: '10px 0',
-							display: 'flex', alignItems: 'baseline', gap: 14,
-							color: active ? 'var(--ed-text)' : 'var(--ed-dim)',
-							borderBottom: '1px solid var(--ed-rule)',
-							fontSize: 16, letterSpacing: '-0.005em',
-							transition: 'color .2s, padding .2s',
-						}}>
-						<span aria-hidden="true" style={{
-							fontSize: 11, fontVariantNumeric: 'tabular-nums',
-							color: active ? 'var(--ed-accent)' : 'var(--ed-dim)', fontFamily: MONO,
-						}}>{nums[p.name]}</span>
-						<span style={{fontWeight: active ? 600 : 400}}>{p.title}</span>
-						{active && <span aria-hidden="true" className="ed-nav-marker" style={{
-							marginLeft: 'auto', width: 16, height: 1, background: 'var(--ed-accent)', alignSelf: 'center',
-						}} />}
-					</a>
-				);
-			})}
-		</nav>
+		<EdNav page={page} onNavigate={onNavigate} print={print} />
 
 		<div className="ed-sidebar-footer" style={{marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--ed-dim)'}}>
 			<div className="ed-contact-link">✉ <EmailAddress>{CONTENT.email}</EmailAddress></div>
@@ -202,7 +218,7 @@ const EdCV = ({toggle}) => (
 			<EdEyebrow toggle={toggle}>CV</EdEyebrow>
 			<EdDisplay>
 				Senior Software Engineer<br />
-				<em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>working on authorisation,</em><br />
+				<em style={{fontStyle: 'italic', color: 'var(--ed-dim)'}}>building distributed systems,</em><br />
 				platforms &amp; the hidden bits.
 			</EdDisplay>
 			<p style={{margin: 0, maxWidth: 620, fontSize: 16, lineHeight: 1.55, color: 'var(--ed-dim)'}}>{CONTENT.bio[1]}</p>
@@ -328,7 +344,7 @@ const EdContact = ({toggle}) => (
 				Where to <em style={{fontStyle: 'italic', color: 'var(--ed-accent)'}}>find me</em>.
 			</EdDisplay>
 			<p style={{margin: 0, maxWidth: 580, fontSize: 16, lineHeight: 1.55, color: 'var(--ed-dim)'}}>
-				My CV and a page describing some of the projects I have worked on can be accessed from the menu.
+				<span className="hide-for-print">My CV and a page describing some of the projects I have worked on can be accessed from the menu. </span>
 				If you wish to contact me, you can do so either via e&#8209;mail or on LinkedIn.
 			</p>
 		</header>

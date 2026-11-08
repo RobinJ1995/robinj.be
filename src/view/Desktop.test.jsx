@@ -733,6 +733,23 @@ describe('desktop', () => {
 		expect(copy()).toHaveTextContent(/on LinkedIn/);
 	});
 
+	it('prints every page in the menu in its order, each after the first under the nav with that page selected', () => {
+		const {container} = render(<App initialPath="/side-quests" />);
+		act(() => window.dispatchEvent(new Event('beforeprint')));
+		const copy = container.querySelector('.dt-print');
+
+		expect(copy.textContent).toMatch(/Work Experience[\s\S]*Sprint Retrospective[\s\S]*on LinkedIn/);
+		expect([...copy.querySelectorAll('nav [aria-current="page"]')].map(a => a.textContent)).toEqual(['01CV', '02Side Quests', '03Contact']);
+
+		// Its nav jumps within the printout, rather than to the website's pages.
+		const anchors = [...copy.querySelectorAll('nav a')].map(a => a.getAttribute('href'));
+		expect(anchors).toHaveLength(9);
+		for (const href of anchors) {
+			expect(href).toMatch(/^#/);
+			expect(copy.querySelector(href)).not.toBeNull();
+		}
+	});
+
 	it('powers off through the console, then boots to an empty desktop', async () => {
 		const {container} = render(<App initialPath="/cv" />);
 		fireEvent.click(screen.getByRole('button', {name: 'Terminal'}));

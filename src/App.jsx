@@ -1,7 +1,7 @@
 import React, {useState, useEffect, useRef} from 'react';
 import './style/App.scss';
 import {PAGES} from './constants';
-import EditorialApp from './view/Editorial';
+import EditorialApp, {EditorialPrint} from './view/Editorial';
 import EditorApp, {BlankEditor} from './view/Editor';
 import Desktop from './view/Desktop';
 import Console from './view/Console';
@@ -143,6 +143,8 @@ const App = ({initialPath, controls}) => {
 			return content.portfolio
 				? <EditorApp page={sourcePage} onNavigate={navigate} onToggleView={toggleViewSource} onClose={close} />
 				: <BlankEditor file={content.file} onClose={close} />;
+		} else if (content.print) {
+			return <EditorialPrint onNavigate={navigate} onToggleView={toggleViewSource} />;
 		}
 
 		return content.portfolio

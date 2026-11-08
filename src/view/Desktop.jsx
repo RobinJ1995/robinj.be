@@ -10,6 +10,8 @@ const FAVOURITES = ['site', 'source', 'console'];
 const URL_WINDOWS = ['site', 'source'];
 // What the website and the editor show unless told otherwise: the portfolio.
 const PORTFOLIO = {portfolio: true};
+// What's printed: every page of the portfolio.
+const PRINTOUT = {portfolio: true, print: true};
 // As small as each app can be and still work comfortably.
 const MIN_SIZES = {
 	site: {width: 360, height: 360},
@@ -835,7 +837,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onNavigate,
 		onPageOpen?.(pageOpen);
 	}, [pageOpen]);
 
-	// Printing gives just the website's page (see @media print in _Desktop.scss), from
+	// Printing gives just the website's pages (see @media print in _Desktop.scss), from
 	// a copy laid out for the occasion. It has to be in place before the browser lays
 	// out the printout, hence flushSync.
 	useEffect(() => {
@@ -1238,7 +1240,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onNavigate,
 					})}
 					<Dock docked={docked} running={running} hrefs={hrefs} onPick={pick} />
 				</div>
-				{printing && <div className="dt-print">{renderWindow({app: 'site', content: PORTFOLIO}, {focused: false, system})}</div>}
+				{printing && <div className="dt-print">{renderWindow({app: 'site', content: PRINTOUT}, {focused: false, system})}</div>}
 				{lost && (
 					<div className="dt-notification" role="status">
 						<div className="dt-notification-header">
