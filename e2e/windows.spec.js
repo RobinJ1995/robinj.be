@@ -131,7 +131,8 @@ test.describe('on a large screen', () => {
 		expect(grabbed).toEqual(['e', 's', 'w']);
 
 		await page.setViewportSize({width: 800, height: 640});
-		await expect.poll(async () => (await box(site)).width).toBeCloseTo(800 - 88, 0);
+		// Beside the dock, flush against the screen's edge: 76px, and 6px from the window.
+		await expect.poll(async () => (await box(site)).width).toBeCloseTo(800 - 76 - 6, 0);
 		expect(await site.locator('[data-resize]').count()).toBe(0);
 	});
 });
