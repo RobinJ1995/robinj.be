@@ -6,7 +6,7 @@ $small-height: 600px;
 $headerbar-height: 46px;
 // 64px icons plus 6px padding either side.
 $dock-thickness: 76px;
-// The dock's gap to the screen edge, and to maximised windows.
+// The dock's gap to maximised windows.
 $dock-margin-small: 6px;
 
 // GNOME's accent colours. Green, the site's own accent, is the default; picking
@@ -1234,23 +1234,28 @@ $restyle-transitions: ();
 		}
 	}
 
+	// The dock sits flush against the screen's edge, square on that side.
 	@media (orientation: landscape) {
 		.desktop {
-			--dt-dock-left: #{$dock-thickness + 2 * $dock-margin-small};
+			--dt-dock-left: #{$dock-thickness + $dock-margin-small};
 		}
 
 		.dt-dock {
-			left: $dock-margin-small;
+			left: 0;
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
 		}
 	}
 
 	@media (orientation: portrait) {
 		.desktop {
-			--dt-dock-bottom: #{$dock-thickness + 2 * $dock-margin-small};
+			--dt-dock-bottom: #{$dock-thickness + $dock-margin-small};
 		}
 
 		.dt-dock {
-			bottom: $dock-margin-small;
+			bottom: 0;
+			border-bottom-left-radius: 0;
+			border-bottom-right-radius: 0;
 		}
 	}
 }

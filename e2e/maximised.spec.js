@@ -3,7 +3,7 @@ import {visit, box, windowOf, focusedWindow, dockItem, browserBar, settled, isSm
 
 test.skip(({viewport}) => !isSmall(viewport), 'Windows only maximise on small screens');
 
-// The dock's gap to the screen edge, and to the window.
+// The dock's gap to the window.
 const GAP = 6;
 
 // Which windows have been minimised or restored since `since()`, however quickly
@@ -24,7 +24,14 @@ test.beforeEach(({page}) => page.addInitScript(() => {
 
 const isShowing = locator => locator.evaluate(el => getComputedStyle(el).visibility === 'visible' && getComputedStyle(el).getPropertyValue('--dt-fade') === '1');
 
-test('maximises the window between the top bar and the dock, as far from the dock as the dock is from the edge', async ({page, viewport}) => {
+// Which of its corners are rounded.
+const corners = locator => locator.evaluate(el => {
+	const style = getComputedStyle(el);
+	const round = corner => parseFloat(style[`border${corner}Radius`]) > 0;
+	return {topLeft: round('TopLeft'), topRight: round('TopRight'), bottomLeft: round('BottomLeft'), bottomRight: round('BottomRight')};
+});
+
+test('maximises the window between the top bar and the dock, which sits flush against the screen\'s edge', async ({page, viewport}) => {
 	await visit(page, '/cv');
 	const topBar = await box(page.locator('.dt-topbar'));
 	const window = await box(focusedWindow(page));
@@ -35,11 +42,13 @@ test('maximises the window between the top bar and the dock, as far from the doc
 		expect(window.x).toBeCloseTo(0, 0);
 		expect(window.width).toBeCloseTo(viewport.width, 0);
 		expect(dock.y - (window.y + window.height)).toBeCloseTo(GAP, 0);
-		expect(viewport.height - (dock.y + dock.height)).toBeCloseTo(GAP, 0);
+		expect(viewport.height - (dock.y + dock.height)).toBeCloseTo(0, 0);
+		expect(await corners(page.locator('.dt-dock'))).toEqual({topLeft: true, topRight: true, bottomLeft: false, bottomRight: false});
 	} else {
 		expect(window.x + window.width).toBeCloseTo(viewport.width, 0);
 		expect(window.y + window.height).toBeCloseTo(viewport.height, 0);
-		expect(dock.x).toBeCloseTo(GAP, 0);
+		expect(dock.x).toBeCloseTo(0, 0);
+		expect(await corners(page.locator('.dt-dock'))).toEqual({topLeft: false, topRight: true, bottomLeft: false, bottomRight: true});
 		expect(window.x - (dock.x + dock.width)).toBeCloseTo(GAP, 0);
 	}
 });
