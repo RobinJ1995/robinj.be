@@ -401,7 +401,13 @@ const useScrollAway = (ref, enabled) => {
 			return undefined;
 		}
 
+		// Start from where the page is.
 		const positions = new WeakMap();
+		for (const el of frame.querySelectorAll('*')) {
+			if (el.scrollTop > 0) {
+				positions.set(el, {top: el.scrollTop, height: el.scrollHeight});
+			}
+		}
 		// How far the page has gone in the direction it's going.
 		let travel = 0;
 		const onScroll = ({target}) => {
@@ -432,11 +438,36 @@ const useScrollAway = (ref, enabled) => {
 	return hidden;
 };
 
+// How far into the page from either end, up to the dock's height.
+const useUnderDock = (ref, enabled) => {
+	useEffect(() => {
+		const win = ref.current?.closest('.dt-window');
+		const desktop = win?.closest('.desktop');
+		if (!enabled || !desktop) {
+			return undefined;
+		}
+
+		const onScroll = ({target}) => {
+			const dock = parseFloat(getComputedStyle(desktop).getPropertyValue('--dt-dock-bottom')) || 0;
+			const end = target.scrollHeight - target.clientHeight;
+			const top = Math.min(Math.max(target.scrollTop, 0), end);
+			win.style.setProperty('--dt-under-dock', `${Math.max(0, Math.min(dock, top, end - top))}px`);
+		};
+		win.addEventListener('scroll', onScroll, {capture: true, passive: true});
+
+		return () => {
+			win.removeEventListener('scroll', onScroll, {capture: true});
+			win.style.removeProperty('--dt-under-dock');
+		};
+	}, [enabled]);
+};
+
 // The address bar shows `url`; only the website itself can be shared from it.
-const BrowserBar = ({url, shareable, scrollAway, onClose}) => {
+const BrowserBar = ({url, shareable, scrollAway, overview, onClose}) => {
 	const {host, pathname, search, hash} = new URL(url);
 	const ref = useRef(null);
-	const hidden = useScrollAway(ref, scrollAway);
+	const hidden = useScrollAway(ref, scrollAway && !overview);
+	useUnderDock(ref, scrollAway && shareable);
 	// Decided after mount, so the prerendered HTML doesn't depend on the browser.
 	const [canShare, setCanShare] = useState(false);
 
@@ -495,8 +526,9 @@ const Dock = ({docked, running, hrefs, onPick}) => (
 
 // Activities, as in GNOME Shell: the workspace, wallpaper and all, shrinks into a
 // card clear of the top bar and dock, with the next workspace peeking in beside it.
-const TOP_BAR = 32;
 const INACTIVE_WORKSPACE_SCALE = 0.94;
+
+const topBarHeight = desktop => parseFloat(getComputedStyle(desktop).getPropertyValue('--dt-topbar')) || 32;
 
 // The room the dock takes along the screen's left or bottom edge.
 const dockSize = desktop => {
@@ -508,11 +540,12 @@ const workspaceCard = desktop => {
 	const width = desktop.clientWidth;
 	const height = desktop.clientHeight;
 	const dock = dockSize(desktop);
+	const topBar = topBarHeight(desktop);
 	const area = {
 		x: dock.left + width * 0.06,
-		y: TOP_BAR + height * 0.05,
+		y: topBar + height * 0.05,
 		width: width - dock.left - width * 0.12,
-		height: height - TOP_BAR - dock.bottom - height * 0.1,
+		height: height - topBar - dock.bottom - height * 0.1,
 	};
 	const scale = Math.min(area.width / width, area.height / height);
 	const x = area.x + (area.width - width * scale) / 2;
@@ -520,7 +553,7 @@ const workspaceCard = desktop => {
 	const peekScale = scale * INACTIVE_WORKSPACE_SCALE;
 
 	return {
-		x, y, scale, width: width * scale, height: height * scale,
+		x, y, scale, width: width * scale, height: height * scale, topBar,
 		peekX: x + width * scale + width * 0.03,
 		peekY: y + (height * scale - height * peekScale) / 2,
 		peekScale,
@@ -536,7 +569,7 @@ const fitWindows = (windows, card) => {
 	const padX = card.width * 0.05;
 	const padY = card.height * 0.08;
 	const gap = card.width * 0.03;
-	const top = card.y - TOP_BAR + padY;
+	const top = card.y - card.topBar + padY;
 	const left = card.x + padX;
 	const slotHeight = card.height - padY * 2;
 	const slotWidth = (card.width - padX * 2 - gap * (windows.length - 1)) / windows.length;
@@ -1229,7 +1262,7 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onNavigate,
 								}}
 								header={app === 'site' && (
 									<BrowserBar url={content.portfolio ? `${SITE.url.slice(0, -1)}${address}` : content.url} shareable={!!content.portfolio}
-										scrollAway={small} onClose={() => close(win)} />
+										scrollAway={small} overview={!!overview} onClose={() => close(win)} />
 								)}
 								onActivate={() => show(win)}>
 								{hasContent(win) && renderWindow({app, content}, {

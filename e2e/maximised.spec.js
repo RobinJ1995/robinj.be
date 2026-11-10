@@ -32,7 +32,8 @@ const corners = locator => locator.evaluate(el => {
 });
 
 test('maximises the window between the top bar and the dock, which sits flush against the screen\'s edge', async ({page, viewport}) => {
-	await visit(page, '/cv');
+	// The editor; the website's own pages are tested below.
+	await visit(page, '/cv/source');
 	const topBar = await box(page.locator('.dt-topbar'));
 	const window = await box(focusedWindow(page));
 	const dock = await box(page.locator('.dt-dock'));
@@ -108,11 +109,16 @@ test('shows every open window in Activities, and only the one picked afterwards'
 	await expect(page.locator('.desktop')).toHaveClass(/is-overview/);
 	await expect.poll(() => isShowing(windowOf(page, 'Website'))).toBe(true);
 	expect(await isShowing(windowOf(page, 'Editor'))).toBe(true);
+	const frame = windowOf(page, 'Website').locator('.dt-window-frame');
+	await expect.poll(() => corners(frame)).toEqual({topLeft: true, topRight: true, bottomLeft: true, bottomRight: true});
+	await settled(windowOf(page, 'Website'));
+	expect((await box(browserBar(page))).y).toBeCloseTo((await box(windowOf(page, 'Website'))).y, 0);
 
 	await page.getByRole('button', {name: 'Switch to Website'}).click();
 	await expect(page.locator('.desktop')).not.toHaveClass(/is-overview/);
 	await expect(windowOf(page, 'Editor')).toBeHidden();
 	await expect.poll(() => isShowing(windowOf(page, 'Website'))).toBe(true);
+	await expect.poll(() => corners(frame)).toEqual({topLeft: false, topRight: false, bottomLeft: false, bottomRight: false});
 });
 
 test('suggests a way back after 3 seconds on an empty desktop', async ({page}) => {
@@ -127,9 +133,44 @@ test('suggests a way back after 3 seconds on an empty desktop', async ({page}) =
 	await expect(page.getByRole('status')).toContainText('You look like you might be lost.');
 });
 
+test('runs the website\'s own pages on behind the top bar, the browser bar just below it', async ({page}) => {
+	await visit(page, '/cv');
+	const topBar = await box(page.locator('.dt-topbar'));
+
+	expect((await box(windowOf(page, 'Website'))).y).toBeCloseTo(topBar.y, 0);
+	expect((await box(browserBar(page))).y).toBeCloseTo(topBar.y + topBar.height, 0);
+});
+
+test('runs the website\'s own pages on behind the dock as far as they\'re scrolled in from either end, upright', async ({page, viewport}) => {
+	test.skip(viewport.height <= viewport.width, 'The dock is beside the window in landscape');
+	await visit(page, '/cv');
+	await page.evaluate(() => Promise.all([...document.fonts].map(font => font.load().catch(() => {}))));
+	const site = windowOf(page, 'Website');
+	const dock = await box(page.locator('.dt-dock'));
+	const reserved = viewport.height - dock.y + GAP;
+	const hidden = () => site.evaluate(el => parseFloat(getComputedStyle(el).clipPath.split(' ')[2] ?? 0) || 0);
+	const scroller = page.locator('.dt-window[data-win="site"] .editorial');
+	const scrollTo = top => scroller.evaluate((el, to) => {
+		el.scrollTop = to === 'end' ? el.scrollHeight : to;
+	}, top);
+
+	expect((await box(site)).y + (await box(site)).height).toBeCloseTo(viewport.height, 0);
+	await expect.poll(hidden).toBeCloseTo(reserved, 0);
+	await scrollTo(20);
+	await expect.poll(hidden).toBeCloseTo(reserved - 20, 0);
+	await scrollTo(600);
+	await expect.poll(hidden).toBeCloseTo(0, 0);
+	await scrollTo('end');
+	await expect.poll(hidden).toBeCloseTo(reserved, 0);
+	const last = await box(page.locator('.dt-window[data-win="site"] .ed-main > *').last());
+	expect(last.y + last.height).toBeLessThanOrEqual(dock.y - GAP);
+});
+
 test('slides the browser bar away as the page scrolls down, and back as it scrolls up', async ({page}) => {
 	await visit(page, '/cv');
 	const bar = browserBar(page);
+	const topBar = page.locator('.dt-topbar');
+	const below = (await box(topBar)).height;
 	const content = await box(page.locator('.dt-window-content'));
 	await page.mouse.move(content.x + content.width / 2, content.y + content.height / 2);
 
@@ -139,22 +180,43 @@ test('slides the browser bar away as the page scrolls down, and back as it scrol
 		const rect = await box(bar);
 		return rect.y + rect.height;
 	}).toBeLessThanOrEqual(content.y + 1);
+	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
 
 	// A few steps, as a finger would: a scroll that lands as the page reflows counts for nothing.
 	for (let i = 0; i < 4; i++) {
 		await page.mouse.wheel(0, -40);
 	}
 	await expect(bar).not.toHaveClass(/is-hidden/);
-	await expect.poll(async () => (await box(bar)).y).toBeCloseTo(content.y, 0);
+	await expect.poll(async () => (await box(bar)).y).toBeCloseTo(below, 0);
+	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
+});
+
+test('brings the browser bar back in Activities, keeping it until the page scrolls again', async ({page}) => {
+	await visit(page, '/cv');
+	const bar = browserBar(page);
+	const content = await box(page.locator('.dt-window-content'));
+	await page.mouse.move(content.x + content.width / 2, content.y + content.height / 2);
+	await page.mouse.wheel(0, 600);
+	await expect(bar).toHaveClass(/is-hidden/);
+
+	await page.getByRole('button', {name: 'Activities'}).click();
+	await expect(bar).not.toHaveClass(/is-hidden/);
+	await page.getByRole('button', {name: 'Switch to Website'}).click();
+	await expect(page.locator('.desktop')).not.toHaveClass(/is-overview/);
+	await expect(bar).not.toHaveClass(/is-hidden/);
+
+	await page.mouse.move(content.x + content.width / 2, content.y + content.height / 2);
+	await page.mouse.wheel(0, 100);
+	await expect(bar).toHaveClass(/is-hidden/);
 });
 
 test('starts the page below the browser bar, which lies over it', async ({page}) => {
 	await visit(page, '/cv');
 	const bar = await box(browserBar(page));
-	const content = await box(page.locator('.dt-window-content'));
+	const topBar = await box(page.locator('.dt-topbar'));
 	const avatar = await box(page.locator('.ed-avatar'));
 
-	expect(bar.y).toBeCloseTo(content.y, 0);
+	expect(bar.y).toBeCloseTo(topBar.y + topBar.height, 0);
 	expect(avatar.y).toBeGreaterThanOrEqual(bar.y + bar.height);
 });
 
