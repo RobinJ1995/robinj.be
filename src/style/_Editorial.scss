@@ -32,14 +32,13 @@
 	}
 }
 
-// Headlines as big as fits the page's column, up to 64px: "building distributed
-// systems," on the CV, the longest line kept whole, is 10.9 times the font size wide.
+// Headlines as big as keeps the CV's lines whole, up to 64px; 780px is the CV's width.
 .ed-main {
 	container-type: inline-size;
 }
 
 .ed-display {
-	font-size: clamp(24px, 100cqi / 11, 64px) !important;
+	font-size: min(clamp(264px, 100cqi, 780px) / var(--ed-display-fit, 11), 64px) !important;
 }
 
 // Narrower windows: less room around the content.

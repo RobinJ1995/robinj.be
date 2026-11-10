@@ -102,6 +102,8 @@ $open-dyslexic: 'https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3';
 	--ed-serif: 'OpenDyslexic', ui-sans-serif, sans-serif;
 	--ed-mono: 'OpenDyslexic Mono', 'IBM Plex Mono', ui-monospace, monospace;
 	--editor-font: 'OpenDyslexic Mono', 'JetBrains Mono', ui-monospace, monospace;
+	// Its wider headlines, in _Editorial.scss.
+	--ed-display-fit: 15.4;
 }
 
 :root[data-theme='dark'] {
