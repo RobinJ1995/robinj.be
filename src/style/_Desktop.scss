@@ -6,8 +6,8 @@ $small-height: 600px;
 $headerbar-height: 46px;
 // 64px icons plus 6px padding either side.
 $dock-thickness: 76px;
-// Phones: 48px icons plus 4px padding.
-$dock-thickness-compact: 56px;
+// Phones: 56px icons plus 5px padding.
+$dock-thickness-compact: 66px;
 // The dock's gap to maximised windows.
 $dock-margin-small: 6px;
 
@@ -1340,28 +1340,28 @@ $restyle-transitions: ();
 	// Phones.
 	@media (width < 600px), (height < 600px) and (width < 1000px) {
 		.desktop {
-			--dt-topbar: 24px;
+			--dt-topbar: 28px;
 		}
 
 		.dt-topbar {
-			padding: 0 3px;
+			padding: 0 3.5px;
 
 			> .dt-panel-button,
 			> .dt-clock {
-				zoom: .75;
+				zoom: .875;
 			}
 		}
 
 		.dt-dock {
-			gap: 3px;
-			padding: 4px;
+			gap: 3.5px;
+			padding: 5px;
 		}
 
 		.dt-dock-item {
-			width: 48px;
-			height: 48px;
-			padding: 6px;
-			border-radius: 12px;
+			width: 56px;
+			height: 56px;
+			padding: 7px;
+			border-radius: 14px;
 		}
 
 		@media (orientation: landscape) {
@@ -1370,13 +1370,8 @@ $restyle-transitions: ();
 			}
 
 			.dt-dock {
-				border-top-right-radius: 16px;
-				border-bottom-right-radius: 16px;
-			}
-
-			// Clear of the icon.
-			.dt-dock-item.is-running::before {
-				left: 0;
+				border-top-right-radius: 19px;
+				border-bottom-right-radius: 19px;
 			}
 		}
 
@@ -1386,12 +1381,13 @@ $restyle-transitions: ();
 			}
 
 			.dt-dock {
-				border-top-left-radius: 16px;
-				border-top-right-radius: 16px;
+				border-top-left-radius: 19px;
+				border-top-right-radius: 19px;
 			}
 
+			// Clear of the icon.
 			.dt-dock-item.is-running::before {
-				bottom: 0;
+				bottom: 1px;
 			}
 		}
 	}
