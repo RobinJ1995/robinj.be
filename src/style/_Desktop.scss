@@ -6,6 +6,8 @@ $small-height: 600px;
 $headerbar-height: 46px;
 // 64px icons plus 6px padding either side.
 $dock-thickness: 76px;
+// Phones: 48px icons plus 4px padding.
+$dock-thickness-compact: 56px;
 // The dock's gap to maximised windows.
 $dock-margin-small: 6px;
 
@@ -183,6 +185,8 @@ $restyle-transitions: ();
 .desktop {
 	--dt-dock-left: 0px;
 	--dt-dock-bottom: 0px;
+	// Read by Desktop.jsx.
+	--dt-topbar: 32px;
 
 	position: relative;
 	// Clip rather than hide: a hidden overflow can still be scrolled, e.g. by
@@ -248,7 +252,7 @@ $restyle-transitions: ();
 	position: absolute;
 	inset: 0 0 auto;
 	z-index: 20;
-	height: 32px;
+	height: var(--dt-topbar);
 	display: grid;
 	grid-template-columns: 1fr auto 1fr;
 	align-items: center;
@@ -306,8 +310,11 @@ $restyle-transitions: ();
 
 .dt-clock {
 	display: flex;
+	align-items: center;
 	gap: 10px;
+	height: 26px;
 	padding: 0 12px;
+	border-radius: 999px;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -394,7 +401,7 @@ $restyle-transitions: ();
 
 .dt-stage {
 	position: absolute;
-	inset: 32px 0 0;
+	inset: var(--dt-topbar) 0 0;
 	height: auto;
 }
 
@@ -1189,6 +1196,17 @@ $restyle-transitions: ();
 	.dt-window-frame,
 	.dt-window-activate {
 		border-radius: 0;
+
+		@media (prefers-reduced-motion: no-preference) {
+			transition: box-shadow .2s, border-radius .35s cubic-bezier(.25, .46, .45, .94);
+		}
+	}
+
+	.is-overview {
+		.dt-window-frame,
+		.dt-window-activate {
+			border-radius: 12px;
+		}
 	}
 
 	.dt-window:not(.is-focused) {
@@ -1215,6 +1233,10 @@ $restyle-transitions: ();
 	// The browser's header bar lies over the page, so hiding it (BrowserBar) doesn't
 	// move the page.
 	.dt-window[data-win='site'] {
+		.dt-window-frame {
+			position: relative;
+		}
+
 		.dt-headerbar {
 			position: absolute;
 			inset: 0 0 auto;
@@ -1231,6 +1253,62 @@ $restyle-transitions: ();
 
 		.dt-window-content {
 			--ed-inset-top: #{$headerbar-height};
+		}
+	}
+
+	// Own pages run on behind the top bar.
+	.desktop:not(.is-overview) .dt-window[data-win='site']:has(.editorial) {
+		top: calc(-1 * var(--dt-topbar));
+
+		.dt-headerbar {
+			top: var(--dt-topbar);
+
+			&.is-hidden:not(:focus-within) {
+				transform: translateY(calc(-100% - var(--dt-topbar)));
+			}
+		}
+
+		.dt-window-content {
+			--ed-inset-top: calc(var(--dt-topbar) + #{$headerbar-height});
+		}
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.dt-topbar > .dt-panel-button,
+		.dt-topbar > .dt-clock {
+			transition: background .35s, backdrop-filter .35s;
+		}
+	}
+
+	// While the browser bar is scrolled away.
+	.desktop:not(.is-overview):has(.dt-window.is-focused[data-win='site'] .dt-headerbar.is-hidden:not(:focus-within)) .dt-topbar {
+		background: transparent;
+
+		> .dt-panel-button,
+		> .dt-clock {
+			background: rgba(0, 0, 0, .6);
+			backdrop-filter: blur(20px) saturate(1.4);
+		}
+
+		> .dt-panel-button:hover {
+			background: linear-gradient(rgba(255, 255, 255, .17), rgba(255, 255, 255, .17)) rgba(0, 0, 0, .6);
+		}
+
+		> .dt-panel-button[aria-pressed='true'],
+		> .dt-panel-button[aria-expanded='true'] {
+			background: linear-gradient(rgba(255, 255, 255, .25), rgba(255, 255, 255, .25)) rgba(0, 0, 0, .6);
+		}
+	}
+
+	// Upright: own pages run on behind the dock as far as scrolled in.
+	@media (orientation: portrait) {
+		.desktop:not(.is-overview) .dt-window[data-win='site']:has(.editorial) {
+			bottom: 0;
+			clip-path: inset(0 0 calc(var(--dt-dock-bottom) - var(--dt-under-dock, 0px)) 0);
+
+			.dt-window-content {
+				--ed-inset-bottom: var(--dt-dock-bottom);
+			}
 		}
 	}
 
@@ -1256,6 +1334,65 @@ $restyle-transitions: ();
 			bottom: 0;
 			border-bottom-left-radius: 0;
 			border-bottom-right-radius: 0;
+		}
+	}
+
+	// Phones.
+	@media (width < 600px), (height < 600px) and (width < 1000px) {
+		.desktop {
+			--dt-topbar: 24px;
+		}
+
+		.dt-topbar {
+			padding: 0 3px;
+
+			> .dt-panel-button,
+			> .dt-clock {
+				zoom: .75;
+			}
+		}
+
+		.dt-dock {
+			gap: 3px;
+			padding: 4px;
+		}
+
+		.dt-dock-item {
+			width: 48px;
+			height: 48px;
+			padding: 6px;
+			border-radius: 12px;
+		}
+
+		@media (orientation: landscape) {
+			.desktop {
+				--dt-dock-left: #{$dock-thickness-compact + $dock-margin-small};
+			}
+
+			.dt-dock {
+				border-top-right-radius: 16px;
+				border-bottom-right-radius: 16px;
+			}
+
+			// Clear of the icon.
+			.dt-dock-item.is-running::before {
+				left: 0;
+			}
+		}
+
+		@media (orientation: portrait) {
+			.desktop {
+				--dt-dock-bottom: #{$dock-thickness-compact + $dock-margin-small};
+			}
+
+			.dt-dock {
+				border-top-left-radius: 16px;
+				border-top-right-radius: 16px;
+			}
+
+			.dt-dock-item.is-running::before {
+				bottom: 0;
+			}
 		}
 	}
 }
