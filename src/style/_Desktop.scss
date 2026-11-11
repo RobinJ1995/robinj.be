@@ -310,11 +310,8 @@ $restyle-transitions: ();
 
 .dt-clock {
 	display: flex;
-	align-items: center;
 	gap: 10px;
-	height: 26px;
 	padding: 0 12px;
-	border-radius: 999px;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -1274,9 +1271,12 @@ $restyle-transitions: ();
 	}
 
 	@media (prefers-reduced-motion: no-preference) {
-		.dt-topbar > .dt-panel-button,
-		.dt-topbar > .dt-clock {
+		.dt-topbar > .dt-panel-button {
 			transition: background .35s, backdrop-filter .35s;
+		}
+
+		.dt-topbar > .dt-clock {
+			transition: opacity .35s;
 		}
 	}
 
@@ -1284,10 +1284,13 @@ $restyle-transitions: ();
 	.desktop:not(.is-overview):has(.dt-window.is-focused[data-win='site'] .dt-headerbar.is-hidden:not(:focus-within)) .dt-topbar {
 		background: transparent;
 
-		> .dt-panel-button,
-		> .dt-clock {
+		> .dt-panel-button {
 			background: rgba(0, 0, 0, .6);
 			backdrop-filter: blur(20px) saturate(1.4);
+		}
+
+		> .dt-clock {
+			opacity: 0;
 		}
 
 		> .dt-panel-button:hover {

@@ -181,6 +181,7 @@ test('slides the browser bar away as the page scrolls down, and back as it scrol
 		return rect.y + rect.height;
 	}).toBeLessThanOrEqual(content.y + 1);
 	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+	await expect(page.locator('.dt-clock')).toHaveCSS('opacity', '0');
 
 	// A few steps, as a finger would: a scroll that lands as the page reflows counts for nothing.
 	for (let i = 0; i < 4; i++) {
@@ -189,10 +190,13 @@ test('slides the browser bar away as the page scrolls down, and back as it scrol
 	await expect(bar).not.toHaveClass(/is-hidden/);
 	await expect.poll(async () => (await box(bar)).y).toBeCloseTo(below, 0);
 	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
+	await expect(page.locator('.dt-clock')).toHaveCSS('opacity', '1');
 });
 
 test('brings the browser bar back in Activities, keeping it until the page scrolls again', async ({page}) => {
 	await visit(page, '/cv');
+	// A font arriving changes the page's height, and the scroll with it counts for nothing.
+	await page.evaluate(() => Promise.all([...document.fonts].map(font => font.load().catch(() => {}))));
 	const bar = browserBar(page);
 	const content = await box(page.locator('.dt-window-content'));
 	await page.mouse.move(content.x + content.width / 2, content.y + content.height / 2);
