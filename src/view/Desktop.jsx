@@ -2,6 +2,7 @@ import React, {useState, useEffect, useLayoutEffect, useRef, useMemo} from 'reac
 import {flushSync} from 'react-dom';
 import Window, {CloseIcon, fitGeometry, refitGeometry, dockOverlap} from './Window';
 import {runAdhd} from './adhd';
+import {useScrollAway, useUnderDock, useDocumentScroll} from './pageScroll';
 
 const ORDER = ['site', 'source', 'console', 'video'];
 // Always in the dock; other apps only while they run.
@@ -384,85 +385,6 @@ const TopBar = ({overview, onActivities, menuOpen, setMenuOpen, caffeinated, ine
 			{menuOpen && <QuickSettings ref={menuRef} />}
 		</div>
 	);
-};
-
-// How far the page scrolls one way before the browser's header bar follows.
-const SCROLL_AWAY_PX = 8;
-
-// Hides the browser's header bar as the page scrolls down, shows it as it scrolls
-// up. It only reads the scroll position, so scrolling itself is left alone.
-const useScrollAway = (ref, enabled) => {
-	const [hidden, setHidden] = useState(false);
-
-	useEffect(() => {
-		setHidden(false);
-		const frame = ref.current?.parentElement;
-		if (!enabled || !frame) {
-			return undefined;
-		}
-
-		// Start from where the page is.
-		const positions = new WeakMap();
-		for (const el of frame.querySelectorAll('*')) {
-			if (el.scrollTop > 0) {
-				positions.set(el, {top: el.scrollTop, height: el.scrollHeight});
-			}
-		}
-		// How far the page has gone in the direction it's going.
-		let travel = 0;
-		const onScroll = ({target}) => {
-			// Rubber-banding past either end isn't scrolling.
-			const top = Math.min(Math.max(target.scrollTop, 0), target.scrollHeight - target.clientHeight);
-			const before = positions.get(target) ?? {top: 0, height: target.scrollHeight};
-			positions.set(target, {top, height: target.scrollHeight});
-
-			// At the top it shows, however it got there: to another page, say.
-			if (top < ref.current.offsetHeight) {
-				travel = 0;
-				setHidden(false);
-			// When the page changes height (as fonts load, say), the browser moves it to
-			// keep what's in view in place. That isn't the reader scrolling.
-			} else if (target.scrollHeight === before.height) {
-				const delta = top - before.top;
-				travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
-
-				if (travel < -SCROLL_AWAY_PX) {
-					setHidden(false);
-				} else if (travel > SCROLL_AWAY_PX) {
-					setHidden(true);
-				}
-			}
-		};
-		frame.addEventListener('scroll', onScroll, {capture: true, passive: true});
-
-		return () => frame.removeEventListener('scroll', onScroll, {capture: true});
-	}, [enabled]);
-
-	return hidden;
-};
-
-// How far into the page from either end, up to the dock's height.
-const useUnderDock = (ref, enabled) => {
-	useEffect(() => {
-		const win = ref.current?.closest('.dt-window');
-		const desktop = win?.closest('.desktop');
-		if (!enabled || !desktop) {
-			return undefined;
-		}
-
-		const onScroll = ({target}) => {
-			const dock = parseFloat(getComputedStyle(desktop).getPropertyValue('--dt-dock-bottom')) || 0;
-			const end = target.scrollHeight - target.clientHeight;
-			const top = Math.min(Math.max(target.scrollTop, 0), end);
-			win.style.setProperty('--dt-under-dock', `${Math.max(0, Math.min(dock, top, end - top))}px`);
-		};
-		win.addEventListener('scroll', onScroll, {capture: true, passive: true});
-
-		return () => {
-			win.removeEventListener('scroll', onScroll, {capture: true});
-			win.style.removeProperty('--dt-under-dock');
-		};
-	}, [enabled]);
 };
 
 // The address bar shows `url`; only the website itself can be shared from it.
@@ -956,6 +878,11 @@ const Desktop = ({focused, hrefs, address, homeHref, onShow, onHome, onNavigate,
 		}
 		windowEls.current[visible].animate?.([minimised(visible), restored], MINIMISE);
 	}, [visible, overview]);
+
+	// On a small screen the website's own page, in front, scrolls as the document.
+	const scrollsDocument = hydrated && small && !!visible && !overview && !power && !keyboard && !printing
+		&& open[visible].app === 'site' && !!open[visible].content.portfolio;
+	useDocumentScroll(scrollsDocument ? visible : null, windowEls, stageRef, address);
 
 	// In Activities for one app, the others' windows stand aside.
 	const leftOut = win => typeof overview === 'string' && open[win].app !== overview;

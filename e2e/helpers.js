@@ -13,7 +13,21 @@ export const waitForHydration = page => page.waitForFunction(() => {
 export const visit = async (page, path) => {
 	await page.goto(path, {waitUntil: 'domcontentloaded'});
 	await waitForHydration(page);
+	// And the render after it.
+	await page.evaluate(() => new Promise(resolve => {
+		const {port1, port2} = new MessageChannel();
+		port1.onmessage = resolve;
+		port2.postMessage(null);
+	}));
 };
+
+// Whichever scrolls: the document on a phone.
+export const scrollPage = (page, top) => page.evaluate(to => {
+	const el = document.documentElement.scrollHeight > window.innerHeight ? document.documentElement : document.querySelector('.dt-window[data-win="site"] .editorial');
+	el.scrollTop = to === 'end' ? el.scrollHeight : to;
+}, top);
+
+export const overScreen = (page, {width, height} = page.viewportSize()) => page.mouse.move(width / 2, height / 2);
 
 export const windowOf = (page, name) => page.locator(`.dt-window[aria-label="${name}"]`);
 export const focusedWindow = page => page.locator('.dt-window.is-focused');
@@ -58,8 +72,16 @@ export const worksAsUsual = async page => {
 // Once the fonts the page is waiting for have loaded.
 export const fontsLoaded = page => page.evaluate(() => document.fonts.ready.then(() => {}));
 
-// Settled once no animation or transition is running on it.
-export const settled = locator => expect.poll(() => locator.evaluate(el => el.getAnimations().length)).toBe(0);
+// Including those not used yet: one arriving later re-wraps the page.
+export const allFontsLoaded = async page => {
+	// Their stylesheet first, if it loads.
+	await page.waitForFunction(() => document.querySelector('link[rel="stylesheet"][href*="fonts.googleapis.com"]')?.sheet, null, {timeout: 5000}).catch(() => {});
+	await page.evaluate(() => Promise.all([...document.fonts].map(font => font.load().catch(() => {}))).then(() => {}));
+};
+
+// Settled once nothing on screen is still moving.
+export const settled = locator => expect.poll(() => locator.evaluate(el => el.closest('.dt-screen').getAnimations({subtree: true})
+	.filter(a => a.playState !== 'finished' && Number.isFinite(a.effect.getComputedTiming().endTime)).length)).toBe(0);
 
 export const terminalText = page => page.locator('.console .xterm-rows').innerText();
 

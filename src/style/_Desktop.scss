@@ -1340,6 +1340,71 @@ $restyle-transitions: ();
 		}
 	}
 
+	// pageScroll.js puts the page back itself.
+	.dt-window[data-win='site'] .dt-window-content > .editorial,
+	.dt-window[data-win='site'] .ed-main {
+		overflow-anchor: none;
+	}
+
+	// The website's page, in front, scrolls as the document (pageScroll.js), under fixed bars.
+	.is-scrolling-document {
+		.desktop {
+			// Read by pageScroll.js.
+			--dt-document-scrolls: 1;
+
+			overflow: clip visible;
+		}
+
+		.dt-wallpaper,
+		.dt-topbar,
+		.dt-dock,
+		.dt-notification {
+			position: fixed;
+		}
+
+		.desktop .dt-window.is-focused[data-win='site'] {
+			bottom: auto;
+			clip-path: none;
+
+			.dt-headerbar {
+				position: sticky;
+				margin-bottom: -$headerbar-height;
+			}
+
+			.dt-window-content > .editorial {
+				height: auto !important;
+				min-height: 100vh !important;
+				overflow: visible !important;
+
+				main {
+					overflow: visible !important;
+				}
+
+				// Two columns: the sidebar stays as the page scrolls past.
+				@container window (width > 900px) {
+					.ed-sidebar {
+						position: sticky !important;
+						height: 100vh !important;
+					}
+				}
+			}
+		}
+
+		@media (orientation: landscape) {
+			.dt-dock {
+				top: calc(50% + var(--dt-topbar) / 2);
+			}
+		}
+
+		// Over the page where the window was cut off; 102% and 1.04 undo its scaling.
+		@media (orientation: portrait) {
+			.dt-wallpaper {
+				z-index: 15;
+				clip-path: inset(calc((102% - var(--dt-dock-bottom) + var(--dt-under-dock, 0px)) / 1.04) 0 0 0);
+			}
+		}
+	}
+
 	// Phones.
 	@media (width < 600px), (height < 600px) and (width < 1000px) {
 		.desktop {

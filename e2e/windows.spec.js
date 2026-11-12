@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import {visit, box, windowOf, focusedWindow, dockItem, isSmall} from './helpers';
+import {visit, box, windowOf, focusedWindow, dockItem, isSmall, allFontsLoaded} from './helpers';
 
 const TOP_BAR = 32;
 const OVERHANG = 20;
@@ -142,6 +142,7 @@ test.describe('on a small screen', () => {
 
 	test('neither moves nor resizes windows', async ({page}) => {
 		await visit(page, '/cv');
+		await allFontsLoaded(page);
 		const site = windowOf(page, 'Website');
 		const before = await box(site);
 
