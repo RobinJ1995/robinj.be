@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import {visit, box, openTerminal, run, windowOf, focusedWindow, dockItem, isSmall, settled, worksAsUsual} from './helpers';
+import {visit, box, openTerminal, run, windowOf, focusedWindow, dockItem, isSmall, settled, worksAsUsual, allFontsLoaded} from './helpers';
 
 // Lets the page's clock run in steps until `check` passes, as the mode waits a
 // random while between whims.
@@ -29,6 +29,7 @@ test('drives the desktop by itself until the adhd module is unloaded, ending up 
 	await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({contentType: 'text/html', body: '<p>A video</p>'}));
 	await page.clock.install();
 	await visit(page, '/cv');
+	await allFontsLoaded(page);
 	const website = await box(windowOf(page, 'Website'));
 	const editor = isSmall(viewport) ? null : await box(windowOf(page, 'Editor'));
 	await openTerminal(page);

@@ -30,7 +30,8 @@ for (const route of ROUTES) {
 }
 
 test('keeps the top bar, the dock and the window in front on screen', async ({page, viewport}) => {
-	await visit(page, '/cv');
+	// The editor: on a phone the website's page is longer than the screen.
+	await visit(page, '/cv/source');
 
 	for (const locator of [page.locator('.dt-topbar'), page.locator('.dt-dock'), focusedWindow(page)]) {
 		const rect = await box(locator);

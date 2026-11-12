@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import {visit, windowOf, focusedWindow, openTerminal, terminalText, run} from './helpers';
+import {visit, windowOf, focusedWindow, openTerminal, terminalText, run, settled} from './helpers';
 
 const screen = page => page.locator('.console .xterm-rows');
 
@@ -123,6 +123,8 @@ test('fades in with its background blur growing, never switched off', async ({pa
 test('fits its screen to the window', async ({page}) => {
 	await visit(page, '/cv');
 	await openTerminal(page);
+	// Mid-way, rounding can put it a hair over.
+	await settled(windowOf(page, 'Terminal'));
 
 	const fits = await page.evaluate(() => {
 		const outer = document.querySelector('.console-screen').getBoundingClientRect();
