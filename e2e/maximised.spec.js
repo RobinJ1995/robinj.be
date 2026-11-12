@@ -214,6 +214,23 @@ test('brings the browser bar back in Activities, keeping it until the page scrol
 	await expect(bar).toHaveClass(/is-hidden/);
 });
 
+test('brings the bars back on another page picked in the editor while scrolled down', async ({page}) => {
+	await visit(page, '/cv');
+	const bar = browserBar(page);
+	const content = await box(page.locator('.dt-window-content'));
+	await page.mouse.move(content.x + content.width / 2, content.y + content.height / 2);
+	await page.mouse.wheel(0, 800);
+	await expect(bar).toHaveClass(/is-hidden/);
+
+	await dockItem(page, 'source').click();
+	await windowOf(page, 'Editor').getByRole('link', {name: 'contact.yml'}).first().click();
+	await windowOf(page, 'Editor').getByRole('link', {name: 'Run'}).click();
+
+	await expect(page).toHaveURL('/contact');
+	await expect(bar).not.toHaveClass(/is-hidden/);
+	await expect.poll(() => page.locator('.dt-topbar').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
+});
+
 test('starts the page below the browser bar, which lies over it', async ({page}) => {
 	await visit(page, '/cv');
 	const bar = await box(browserBar(page));

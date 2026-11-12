@@ -415,19 +415,22 @@ const useScrollAway = (ref, enabled) => {
 			const top = Math.min(Math.max(target.scrollTop, 0), target.scrollHeight - target.clientHeight);
 			const before = positions.get(target) ?? {top: 0, height: target.scrollHeight};
 			positions.set(target, {top, height: target.scrollHeight});
+
+			// At the top it shows, however it got there: to another page, say.
+			if (top < ref.current.offsetHeight) {
+				travel = 0;
+				setHidden(false);
 			// When the page changes height (as fonts load, say), the browser moves it to
 			// keep what's in view in place. That isn't the reader scrolling.
-			if (target.scrollHeight !== before.height) {
-				return;
-			}
+			} else if (target.scrollHeight === before.height) {
+				const delta = top - before.top;
+				travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
 
-			const delta = top - before.top;
-			travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
-
-			if (top < ref.current.offsetHeight || travel < -SCROLL_AWAY_PX) {
-				setHidden(false);
-			} else if (travel > SCROLL_AWAY_PX) {
-				setHidden(true);
+				if (travel < -SCROLL_AWAY_PX) {
+					setHidden(false);
+				} else if (travel > SCROLL_AWAY_PX) {
+					setHidden(true);
+				}
 			}
 		};
 		frame.addEventListener('scroll', onScroll, {capture: true, passive: true});
