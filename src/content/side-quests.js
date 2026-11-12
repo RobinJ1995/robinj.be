@@ -8,10 +8,10 @@ export default [
 		description: `The crowd scans a QR code, searches the DJ's music library and sends in a
 			request, which pops up on the DJ's screen in real time.
 
-			This started out as a quick little application: a React frontend managing some JSON files
-			in an S3 bucket, and a command line script to scan the DJ's music library. It then turned
-			into a full-fledged microservice architecture, with desktop clients that integrate with
-			common DJ software.
+			Started out as a quick React frontend managing some JSON files in an S3 bucket and a
+			command line script to scan the DJ's music library. Over the years it turned into a
+			full-fledged microservice architecture with desktop clients that integrate with common
+			DJ software.
 
 			The fun parts are mostly under the hood. Search fires on every keystroke and streams its
 			results back as NDJSON, aborting the previous request as soon as the query changes, with
