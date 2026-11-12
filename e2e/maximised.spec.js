@@ -305,7 +305,7 @@ test('slides the browser bar away as the page scrolls down, and back as it scrol
 		const rect = await box(bar);
 		return rect.y + rect.height;
 	}).toBeLessThanOrEqual(1);
-	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el, '::before').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
 	await expect(page.locator('.dt-clock')).toHaveCSS('opacity', '0');
 
 	// A few steps, as a finger would: a scroll that lands as the page reflows counts for nothing.
@@ -314,7 +314,7 @@ test('slides the browser bar away as the page scrolls down, and back as it scrol
 	}
 	await expect(bar).not.toHaveClass(/is-hidden/);
 	await expect.poll(async () => (await box(bar)).y).toBeCloseTo(below, 0);
-	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
+	await expect.poll(() => topBar.evaluate(el => getComputedStyle(el, '::before').backgroundColor)).toBe('rgb(0, 0, 0)');
 	await expect(page.locator('.dt-clock')).toHaveCSS('opacity', '1');
 });
 
@@ -351,7 +351,7 @@ test('brings the bars back on another page picked in the editor while scrolled d
 
 	await expect(page).toHaveURL('/contact');
 	await expect(bar).not.toHaveClass(/is-hidden/);
-	await expect.poll(() => page.locator('.dt-topbar').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
+	await expect.poll(() => page.locator('.dt-topbar').evaluate(el => getComputedStyle(el, '::before').backgroundColor)).toBe('rgb(0, 0, 0)');
 });
 
 test('starts the page below the browser bar, which lies over it', async ({page}) => {
