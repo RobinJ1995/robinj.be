@@ -28,7 +28,7 @@ export default [
 			- .NET + Avalonia desktop client
 			- Astro marketing site
 			- behave + Playwright end-to-end tests that bring up the whole stack`,
-		tech: ['React', 'TypeScript', 'Node.js', 'Bun', 'MariaDB', 'Redis', '.NET', 'Avalonia', 'Astro', 'Docker', 'Kubernetes'],
+		tech: ['React', 'TypeScript', 'Node.js', 'Bun', 'MariaDB', 'Redis', 'C#', '.NET', 'Avalonia', 'Astro', 'Docker', 'Kubernetes'],
 		integrations: ['VirtualDJ', 'Mixxx', 'Spotify'],
 	},
 	{
