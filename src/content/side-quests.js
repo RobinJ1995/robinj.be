@@ -1,26 +1,28 @@
 // Descriptions are Markdown (see src/markdown.js).
 export default [
 	{
-		name: 'Verzoekjes',
-		tagline: 'Song requests for DJs, straight from the crowd\'s phones.',
+		name: 'Verzoekjes.online',
+		tagline: 'Song request app for DJs.',
 		url: 'verzoekjes.online',
 		logo: '/img/project/verzoekjes.webp',
-		description: `Guests scan a QR code, search the DJ's music library and send in a request,
-			which shows up on the DJ's screen in real time. No app to install, no account to
-			make, and nobody leaning over the booth anymore.
+		description: `The crowd scans a QR code, searches the DJ's music library and sends in a
+			request, which pops up on the DJ's screen in real time.
 
-			The DJ's library comes in from a scan of their music folder, and a small desktop
-			client in the system tray keeps it in step with what VirtualDJ or Mixxx plays and
-			the lists it keeps, so the crowd only ever gets to request what the DJ actually has.
+			The fun parts are mostly under the hood. Search fires on every keystroke and streams its
+			results back as NDJSON, aborting the previous request as soon as the query changes, with
+			Redis-backed caching tuned for exactly that type-ahead pattern. Songs are keyed by the
+			SHA-256 of the file's contents, so a DJ can rescan their library without losing anything.
+			And a little .NET tray app reads VirtualDJ's and Mixxx's play history to sync what's
+			actually been played.
 
-			The project consists of:
+			The project currently consists of:
 
 			- React + TypeScript frontend
 			- Node.js API server, on MariaDB
-			- WebSocket server, running on Bun and fed through Redis Pub/Sub
+			- WebSocket server running on Bun, fed through Redis Pub/Sub
 			- .NET + Avalonia desktop client
 			- Astro marketing site
-			- Acceptance and end-to-end tests over the whole stack, with behave and Playwright`,
+			- behave + Playwright end-to-end tests that bring up the whole stack`,
 		tech: ['React', 'TypeScript', 'Node.js', 'Bun', 'MariaDB', 'Redis', '.NET', 'Avalonia', 'Astro', 'Docker', 'Kubernetes'],
 		integrations: ['VirtualDJ', 'Mixxx', 'Spotify'],
 	},
