@@ -14,11 +14,10 @@ export default [
 
 			- React + TypeScript frontend
 			- Node.js API server, on MariaDB
-			- WebSocket server running on Bun, fed through Redis Pub/Sub
-			- .NET + Avalonia desktop client
-			- Astro marketing site
+			- WebSocket server, fed through Redis Pub/Sub
+			- C# desktop client, on .NET + Avalonia
 			- behave + Playwright end-to-end tests that bring up the whole stack`,
-		tech: ['React', 'TypeScript', 'Node.js', 'Bun', 'MariaDB', 'Redis', 'C#', '.NET', 'Avalonia', 'Docker', 'Kubernetes'],
+		tech: ['React', 'TypeScript', 'Node.js', 'MariaDB', 'Redis', 'C#', '.NET', 'Avalonia', 'Docker', 'Kubernetes'],
 		integrations: ['VirtualDJ', 'Mixxx', 'Spotify'],
 	},
 	{
