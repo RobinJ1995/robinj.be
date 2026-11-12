@@ -1,6 +1,30 @@
 // Descriptions are Markdown (see src/markdown.js).
 export default [
 	{
+		name: 'Verzoekjes',
+		tagline: 'Song requests for DJs, straight from the crowd\'s phones.',
+		url: 'verzoekjes.online',
+		logo: '/img/project/verzoekjes.webp',
+		description: `Guests scan a QR code, search the DJ's music library and send in a request,
+			which shows up on the DJ's screen in real time. No app to install, no account to
+			make, and nobody leaning over the booth anymore.
+
+			The DJ's library comes in from a scan of their music folder, and a small desktop
+			client in the system tray keeps it in step with what VirtualDJ or Mixxx plays and
+			the lists it keeps, so the crowd only ever gets to request what the DJ actually has.
+
+			The project consists of:
+
+			- React + TypeScript frontend
+			- Node.js API server, on MariaDB
+			- WebSocket server, running on Bun and fed through Redis Pub/Sub
+			- .NET + Avalonia desktop client
+			- Astro marketing site
+			- Acceptance and end-to-end tests over the whole stack, with behave and Playwright`,
+		tech: ['React', 'TypeScript', 'Node.js', 'Bun', 'MariaDB', 'Redis', '.NET', 'Avalonia', 'Astro', 'Docker', 'Kubernetes'],
+		integrations: ['VirtualDJ', 'Mixxx', 'Spotify'],
+	},
+	{
 		name: 'Sprint Retrospective',
 		tagline: 'Real-time sprint retrospective tool.',
 		url: 'sprintretro.app',
