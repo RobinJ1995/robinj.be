@@ -126,6 +126,11 @@ $restyle-transitions: ();
 	height: 100%;
 }
 
+// All that shows, as the phone browser's own bars come and go.
+.desktop {
+	height: 100dvh;
+}
+
 // The website and editor lay out by their window's width: see the @container rules
 // in _Editorial.scss and _Editor.scss.
 .dt-window-frame {
@@ -1399,6 +1404,9 @@ $restyle-transitions: ();
 		// Over the page where the window was cut off; 102% and 1.04 undo its scaling.
 		@media (orientation: portrait) {
 			.dt-wallpaper {
+				// Held at the bottom, as the dock is, while the phone browser's bars move.
+				top: auto;
+				height: 100%;
 				z-index: 15;
 				clip-path: inset(calc((102% - var(--dt-dock-bottom) + var(--dt-under-dock, 0px)) / 1.04) 0 0 0);
 			}
